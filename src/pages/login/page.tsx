@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +22,7 @@ export default function LoginPage() {
     setIsLoading(false);
     
     if (result.success) {
-      navigate('/');
+      navigate(from || '/', { replace: true });
     } else {
       setError(result.message);
     }
@@ -82,6 +84,15 @@ export default function LoginPage() {
             >
               {isLoading ? '로그인 중...' : '로그인'}
             </button>
+
+            <div className="pt-2">
+              <Link
+                to="/signup"
+                className="block w-full py-3 border border-teal-500 text-teal-600 font-semibold rounded-xl hover:bg-teal-50 cursor-pointer transition-colors text-center"
+              >
+                회원가입
+              </Link>
+            </div>
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
@@ -96,8 +107,11 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-4">
-            <p className="text-xs text-gray-400 text-center">
-              테스트 계정: test@test.com / 1234
+            <p className="text-sm text-gray-600 text-center">
+              계정이 없으신가요?{' '}
+              <Link to="/signup" className="text-teal-600 font-semibold hover:text-teal-700 cursor-pointer">
+                회원가입
+              </Link>
             </p>
           </div>
         </div>

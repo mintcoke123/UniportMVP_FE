@@ -8,8 +8,7 @@ export default function SignupPage() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
-    nickname: ''
+    confirmPassword: ''
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,31 +20,33 @@ export default function SignupPage() {
     });
   };
 
+  /** 이메일에서 닉네임 자동 생성 (AuthContext는 nickname 필수) */
+  const nicknameFromEmail = (email: string) => {
+    const part = email.split('@')[0];
+    return part && part.length >= 2 ? part : `user_${Date.now()}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다');
+      setError('비밀번호가 일치하지 않습니다.');
       return;
     }
 
     if (formData.password.length < 4) {
-      setError('비밀번호는 최소 4자 이상이어야 합니다');
-      return;
-    }
-
-    if (formData.nickname.length < 2) {
-      setError('닉네임은 최소 2자 이상이어야 합니다');
+      setError('비밀번호는 최소 4자 이상이어야 합니다.');
       return;
     }
 
     setIsLoading(true);
 
-    const result = await signup(formData.email, formData.password, formData.nickname);
-    
+    const nickname = nicknameFromEmail(formData.email);
+    const result = await signup(formData.email, formData.password, nickname);
+
     setIsLoading(false);
-    
+
     if (result.success) {
       navigate('/');
     } else {
@@ -66,7 +67,7 @@ export default function SignupPage() {
             <span className="text-3xl font-bold text-gray-900">Uniport</span>
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-6">회원가입</h1>
-          <p className="text-sm text-gray-500 mt-2">새로운 계정을 만들어 투자를 시작하세요</p>
+          <p className="text-sm text-gray-500 mt-2">이메일과 비밀번호만 입력하면 됩니다</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
@@ -79,19 +80,6 @@ export default function SignupPage() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="이메일을 입력하세요"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
-              <input
-                type="text"
-                name="nickname"
-                value={formData.nickname}
-                onChange={handleChange}
-                placeholder="닉네임을 입력하세요"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 required
               />

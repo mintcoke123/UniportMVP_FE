@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getStockDetail } from '../../mocks/stockDetailData';
+import { getStockDetail } from '../../services';
 import StockChart from './components/StockChart';
 import MyHolding from './components/MyHolding';
+import type { StockDetailResponse } from '../../types';
 
 type OrderType = 'buy' | 'sell' | null;
 
@@ -17,7 +18,11 @@ const StockDetailPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const stockId = parseInt(searchParams.get('id') || '1');
-  const stock = getStockDetail(stockId);
+  const [stock, setStock] = useState<StockDetailResponse | null>(null);
+
+  useEffect(() => {
+    getStockDetail(stockId).then(setStock);
+  }, [stockId]);
 
   const [orderType, setOrderType] = useState<OrderType>(null);
   const [quantity, setQuantity] = useState(1);

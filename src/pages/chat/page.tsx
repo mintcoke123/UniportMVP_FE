@@ -1,37 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/feature/Header';
-import { chatMessages } from '../../mocks/chatData';
-import { groupPortfolioData } from '../../mocks/groupPortfolioData';
-import { voteData, VoteItem } from '../../mocks/voteData';
-
-interface ChatMessage {
-  id: number;
-  type: 'user' | 'trade';
-  userId?: number;
-  userNickname?: string;
-  userProfileImage?: string;
-  message?: string;
-  timestamp: string;
-  tradeData?: {
-    action: '매수' | '매도';
-    stockName: string;
-    quantity: number;
-    pricePerShare: number;
-    totalAmount: number;
-    reason: string;
-    tags: string[];
-  };
-}
+import { getChatMessages, getVotes, getGroupPortfolio } from '../../services';
+import type { ChatMessageItem, VoteItem, GroupPortfolioResponse } from '../../types';
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<ChatMessage[]>(chatMessages);
+  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'portfolio' | 'vote'>('chat');
-  const [votes, setVotes] = useState<VoteItem[]>(voteData);
+  const [votes, setVotes] = useState<VoteItem[]>([]);
+  const [groupPortfolioData, setGroupPortfolioData] = useState<GroupPortfolioResponse | null>(null);
+
+  useEffect(() => {
+    getChatMessages().then(setMessages);
+    getVotes().then(setVotes);
+    getGroupPortfolio().then(setGroupPortfolioData);
+  }, []);
   const [showVoteSuccessModal, setShowVoteSuccessModal] = useState(false);
   const [passedVote, setPassedVote] = useState<VoteItem | null>(null);
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
@@ -56,7 +43,7 @@ export default function ChatPage() {
   const handleSendMessage = () => {
     if (newMessage.trim() === '') return;
 
-    const newMsg: ChatMessage = {
+    const newMsg: ChatMessageItem = {
       id: messages.length + 1,
       type: 'user',
       userId: 1,
@@ -148,19 +135,21 @@ export default function ChatPage() {
     return `${sign}${value.toFixed(2)}%`;
   };
 
-  const isProfit = groupPortfolioData.profitLoss >= 0;
+  const isProfit = (groupPortfolioData?.profitLoss ?? 0) >= 0;
 
-  const handleTradeCardClick = (tradeData: any, userNickname: string, userProfileImage: string) => {
+  const handleTradeCardClick = (tradeData: { action: '매수' | '매도'; stockName: string; quantity: number; pricePerShare: number; reason: string }, userNickname: string, userProfileImage: string) => {
     // 해당 거래 계획에 대한 투표 생성
     const newVote: VoteItem = {
       id: votes.length + 1,
       type: tradeData.action,
       stockName: tradeData.stockName,
+      proposerId: 0,
+      proposerName: userNickname || '알 수 없음',
+      proposerImage: userProfileImage || '',
       quantity: tradeData.quantity,
       proposedPrice: tradeData.pricePerShare,
       reason: tradeData.reason,
-      proposerName: userNickname || '알 수 없음',
-      proposerImage: userProfileImage || '',
+      createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
       expiresAt: '24시간 후 만료',
       votes: [],
       totalMembers: 5,
@@ -337,20 +326,20 @@ export default function ChatPage() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-teal-100">투자 원금</span>
-                  <span className="text-2xl font-bold">{formatCurrency(groupPortfolioData.investmentAmount)}</span>
+                  <span className="text-2xl font-bold">{formatCurrency(groupPortfolioData?.investmentAmount ?? 0)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-teal-100">현재 평가액</span>
-                  <span className="text-2xl font-bold">{formatCurrency(groupPortfolioData.totalValue)}</span>
+                  <span className="text-2xl font-bold">{formatCurrency(groupPortfolioData?.totalValue ?? 0)}</span>
                 </div>
                 <div className="border-t border-teal-400 pt-3 flex justify-between items-center">
                   <span className="text-sm text-teal-100">총 손익</span>
                   <div className="text-right">
                     <span className={`text-2xl font-bold ${isProfit ? 'text-yellow-300' : 'text-red-200'}`}>
-                      {isProfit ? '+' : ''}{formatCurrency(groupPortfolioData.profitLoss)}
+                      {isProfit ? '+' : ''}{formatCurrency(groupPortfolioData?.profitLoss ?? 0)}
                     </span>
                     <span className={`text-sm ml-2 ${isProfit ? 'text-yellow-300' : 'text-red-200'}`}>
-                      {formatPercentage(groupPortfolioData.profitLossPercentage)}
+                      {formatPercentage(groupPortfolioData?.profitLossPercentage ?? 0)}
                     </span>
                   </div>
                 </div>
@@ -362,11 +351,12 @@ export default function ChatPage() {
               <h3 className="text-base font-bold text-gray-900 mb-4">포트폴리오 구성</h3>
               <div className="flex items-center justify-center mb-6">
                 <svg viewBox="0 0 200 200" className="w-48 h-48">
-                  {groupPortfolioData.holdings.map((holding, index) => {
-                    const total = groupPortfolioData.holdings.reduce((sum, h) => sum + h.currentValue, 0);
+                  {(groupPortfolioData?.holdings ?? []).map((holding, index) => {
+                    const holdings = groupPortfolioData?.holdings ?? [];
+                    const total = holdings.reduce((sum, h) => sum + h.currentValue, 0);
                     let startAngle = 0;
                     for (let i = 0; i < index; i++) {
-                      startAngle += (groupPortfolioData.holdings[i].currentValue / total) * 360;
+                      startAngle += (holdings[i].currentValue / total) * 360;
                     }
                     const angle = (holding.currentValue / total) * 360;
                     const endAngle = startAngle + angle;
@@ -396,9 +386,9 @@ export default function ChatPage() {
                 </svg>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {groupPortfolioData.holdings.map((holding, index) => {
+                {(groupPortfolioData?.holdings ?? []).map((holding, index) => {
                   const colors = ['bg-teal-500', 'bg-cyan-500', 'bg-purple-500', 'bg-pink-500', 'bg-amber-500', 'bg-green-500'];
-                  const total = groupPortfolioData.holdings.reduce((sum, h) => sum + h.currentValue, 0);
+                  const total = (groupPortfolioData?.holdings ?? []).reduce((sum, h) => sum + h.currentValue, 0);
                   const percentage = ((holding.currentValue / total) * 100).toFixed(1);
                   
                   return (
@@ -417,7 +407,7 @@ export default function ChatPage() {
             {/* 보유 종목 리스트 */}
             <div className="space-y-3">
               <h3 className="text-base font-bold text-gray-900">보유 종목</h3>
-              {groupPortfolioData.holdings.map((holding) => {
+              {(groupPortfolioData?.holdings ?? []).map((holding) => {
                 const profitLoss = holding.currentValue - (holding.averagePrice * holding.quantity);
                 const profitLossPercentage = ((profitLoss / (holding.averagePrice * holding.quantity)) * 100);
                 const isProfit = profitLoss >= 0;
@@ -788,10 +778,10 @@ export default function ChatPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200">
-                  <img src={groupPortfolioData.profileImage} alt={groupPortfolioData.groupName} className="w-full h-full object-cover" />
+                  <img src={groupPortfolioData?.profileImage ?? ''} alt={groupPortfolioData?.groupName ?? ''} className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-gray-900">{groupPortfolioData.groupName}</h4>
+                  <h4 className="text-base font-bold text-gray-900">{groupPortfolioData?.groupName ?? '-'}</h4>
                   <span className="text-sm text-gray-500">멤버 5명</span>
                 </div>
               </div>
@@ -806,22 +796,22 @@ export default function ChatPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">팀 투자금(실시간)</span>
-                    <span className="text-base font-bold text-gray-900">{formatCurrency(groupPortfolioData.investmentAmount)}</span>
+                    <span className="text-base font-bold text-gray-900">{formatCurrency(groupPortfolioData?.investmentAmount ?? 0)}</span>
                   </div>
 
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">전체 자산</span>
-                    <span className="text-base font-bold text-gray-900">{formatCurrency(groupPortfolioData.totalValue)}</span>
+                    <span className="text-base font-bold text-gray-900">{formatCurrency(groupPortfolioData?.totalValue ?? 0)}</span>
                   </div>
 
                   <div className="flex justify-between items-center pt-2 border-t border-teal-200">
                     <span className="text-sm text-gray-600">투자 손익</span>
                     <div className="text-right">
                       <span className={`text-base font-bold ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-                        {isProfit ? '+' : ''}{formatCurrency(groupPortfolioData.profitLoss)}
+                        {isProfit ? '+' : ''}{formatCurrency(groupPortfolioData?.profitLoss ?? 0)}
                       </span>
                       <span className={`text-xs ml-2 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatPercentage(groupPortfolioData.profitLossPercentage)}
+                        {formatPercentage(groupPortfolioData?.profitLossPercentage ?? 0)}
                       </span>
                     </div>
                   </div>

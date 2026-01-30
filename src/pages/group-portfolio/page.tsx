@@ -1,10 +1,22 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { groupPortfolioData, groupStockHoldings, groupMembers } from '../../mocks/groupPortfolioData';
+import { getGroupPortfolio, getGroupStockHoldings, getGroupMembers } from '../../services';
+import type { GroupPortfolioResponse, GroupStockHoldingsSummaryItem, GroupMemberItem } from '../../types';
 
 export default function GroupPortfolioPage() {
   const navigate = useNavigate();
-  const { groupName, profileImage, totalValue, investmentAmount, profitLoss, profitLossPercentage } = groupPortfolioData;
-  const isProfit = profitLoss >= 0;
+  const [groupPortfolioData, setGroupPortfolioData] = useState<GroupPortfolioResponse | null>(null);
+  const [groupStockHoldings, setGroupStockHoldings] = useState<GroupStockHoldingsSummaryItem[]>([]);
+  const [groupMembers, setGroupMembers] = useState<GroupMemberItem[]>([]);
+
+  useEffect(() => {
+    getGroupPortfolio().then(setGroupPortfolioData);
+    getGroupStockHoldings().then(setGroupStockHoldings);
+    getGroupMembers().then(setGroupMembers);
+  }, []);
+
+  const { groupName, profileImage, totalValue, investmentAmount, profitLoss, profitLossPercentage } = groupPortfolioData ?? {} as GroupPortfolioResponse;
+  const isProfit = (profitLoss ?? 0) >= 0;
 
   const handleStockClick = (stockId: number) => {
     navigate(`/stock-detail?id=${stockId}`);
@@ -18,6 +30,14 @@ export default function GroupPortfolioPage() {
     const sign = value >= 0 ? '+' : '';
     return `${sign}${value.toFixed(2)}%`;
   };
+
+  if (!groupPortfolioData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">

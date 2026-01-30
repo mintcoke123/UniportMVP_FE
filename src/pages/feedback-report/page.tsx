@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { groupPortfolioData } from '../../mocks/groupPortfolioData';
+import { getGroupPortfolio } from '../../services';
 
 interface TradeRecord {
   id: number;
@@ -15,12 +16,17 @@ interface TradeRecord {
 
 export default function FeedbackReportPage() {
   const navigate = useNavigate();
+  const [groupPortfolioData, setGroupPortfolioData] = useState<Awaited<ReturnType<typeof getGroupPortfolio>> | null>(null);
+
+  useEffect(() => {
+    getGroupPortfolio().then(setGroupPortfolioData);
+  }, []);
 
   // 최종 투자 결과
-  const finalInvestment = groupPortfolioData.investmentAmount;
-  const finalValue = groupPortfolioData.totalValue;
-  const finalProfitLoss = groupPortfolioData.profitLoss;
-  const finalProfitLossPercentage = groupPortfolioData.profitLossPercentage;
+  const finalInvestment = groupPortfolioData?.investmentAmount ?? 0;
+  const finalValue = groupPortfolioData?.totalValue ?? 0;
+  const finalProfitLoss = groupPortfolioData?.profitLoss ?? 0;
+  const finalProfitLossPercentage = groupPortfolioData?.profitLossPercentage ?? 0;
   const isProfit = finalProfitLoss >= 0;
 
   // 베스트 거래 (가장 많이 벌었던 거래)

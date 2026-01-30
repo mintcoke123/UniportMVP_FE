@@ -1,8 +1,17 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { allGroupsRanking, myGroupRanking } from '../../mocks/rankingData';
+import { getAllGroupsRanking, getMyGroupRanking } from '../../services';
+import type { GroupRankingItem, MyGroupRankingResponse } from '../../types';
 
 export default function Ranking() {
   const navigate = useNavigate();
+  const [allGroupsRanking, setAllGroupsRanking] = useState<GroupRankingItem[]>([]);
+  const [myGroupRanking, setMyGroupRanking] = useState<MyGroupRankingResponse | null>(null);
+
+  useEffect(() => {
+    getAllGroupsRanking().then(setAllGroupsRanking);
+    getMyGroupRanking().then(setMyGroupRanking);
+  }, []);
 
   const formatNumber = (num: number) => {
     return Math.floor(num).toLocaleString('ko-KR');
@@ -67,44 +76,46 @@ export default function Ranking() {
         </div>
 
         {/* 내 그룹 순위 */}
-        <section className="mb-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">실시간 순위</h2>
-          <div 
-            onClick={() => handleGroupClick(myGroupRanking.id)}
-            className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-2xl p-5 border-2 border-yellow-300 cursor-pointer hover:shadow-lg transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex-shrink-0 text-center">
-                <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center mb-2">
-                  <span className="text-lg font-bold text-yellow-900">{myGroupRanking.rank}</span>
+        {myGroupRanking && (
+          <section className="mb-8">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">실시간 순위</h2>
+            <div 
+              onClick={() => handleGroupClick(myGroupRanking.id)}
+              className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-2xl p-5 border-2 border-yellow-300 cursor-pointer hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 text-center">
+                  <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center mb-2">
+                    <span className="text-lg font-bold text-yellow-900">{myGroupRanking.rank}</span>
+                  </div>
+                </div>
+                <div className="w-14 h-14 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+                  <img 
+                    src={myGroupRanking.profileImage} 
+                    alt={myGroupRanking.groupName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 mb-1">{myGroupRanking.groupName}</h3>
+                  <p className="text-xl font-bold text-gray-900">{formatNumber(myGroupRanking.currentAssets)}원</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className={`text-lg font-bold ${myGroupRanking.profitRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatPercentage(myGroupRanking.profitRate)}%
+                  </p>
                 </div>
               </div>
-              <div className="w-14 h-14 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-                <img 
-                  src={myGroupRanking.profileImage} 
-                  alt={myGroupRanking.groupName}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-gray-900 mb-1">{myGroupRanking.groupName}</h3>
-                <p className="text-xl font-bold text-gray-900">{formatNumber(myGroupRanking.currentAssets)}원</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className={`text-lg font-bold ${myGroupRanking.profitRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatPercentage(myGroupRanking.profitRate)}%
-                </p>
-              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 그룹별 랭킹보드 */}
         <section>
           <div className="space-y-3">
             {allGroupsRanking.map((group, index) => {
               const rank = index + 1;
-              const isMyGroup = group.id === myGroupRanking.id;
+              const isMyGroup = group.id === myGroupRanking?.id;
               
               return (
                 <div 

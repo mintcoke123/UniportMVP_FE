@@ -1,9 +1,18 @@
+import { useState, useEffect } from 'react';
 import Header from '../../components/feature/Header';
 import OngoingTournamentCard from './components/OngoingTournamentCard';
 import UpcomingTournamentCard from './components/UpcomingTournamentCard';
-import { ongoingTournaments, upcomingTournaments } from '../../mocks/tournamentData';
+import { getOngoingTournaments, getUpcomingTournaments } from '../../services';
 
 const TournamentPage = () => {
+  const [ongoingTournaments, setOngoingTournaments] = useState<Awaited<ReturnType<typeof getOngoingTournaments>>>([]);
+  const [upcomingTournaments, setUpcomingTournaments] = useState<Awaited<ReturnType<typeof getUpcomingTournaments>>>([]);
+
+  useEffect(() => {
+    getOngoingTournaments().then(setOngoingTournaments);
+    getUpcomingTournaments().then(setUpcomingTournaments);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -24,7 +33,7 @@ const TournamentPage = () => {
           {ongoingTournaments.length > 0 && (
             <OngoingTournamentCard
               id={ongoingTournaments[0].id}
-              name="토너먼트 이름"
+              name={ongoingTournaments[0].name}
               endDate={ongoingTournaments[0].endDate}
             />
           )}
@@ -41,7 +50,7 @@ const TournamentPage = () => {
               <UpcomingTournamentCard
                 key={tournament.id}
                 id={tournament.id}
-                name="토너먼트 이름"
+                name={tournament.name}
                 startDate={tournament.startDate}
               />
             ))}

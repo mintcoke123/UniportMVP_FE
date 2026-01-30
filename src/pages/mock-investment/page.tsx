@@ -1,15 +1,39 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { marketIndices, stocksByVolume, stocksByRising, stocksByFalling } from '../../mocks/stockMarketData';
+import {
+  getMarketIndices,
+  getStocksByVolume,
+  getStocksByRising,
+  getStocksByFalling,
+} from '../../services';
+import type { MarketIndex, StockListItem } from '../../types';
 
 type TabType = 'volume' | 'rising' | 'falling';
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
+  const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
+  const [stocksByVolume, setStocksByVolume] = useState<StockListItem[]>([]);
+  const [stocksByRising, setStocksByRising] = useState<StockListItem[]>([]);
+  const [stocksByFalling, setStocksByFalling] = useState<StockListItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('volume');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    Promise.all([
+      getMarketIndices(),
+      getStocksByVolume(),
+      getStocksByRising(),
+      getStocksByFalling(),
+    ]).then(([indices, vol, rising, falling]) => {
+      setMarketIndices(indices);
+      setStocksByVolume(vol);
+      setStocksByRising(rising);
+      setStocksByFalling(falling);
+    });
+  }, []);
 
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -17,8 +41,8 @@ export default function MockInvestmentPage() {
     }
   }, [isSearchOpen]);
 
-  const getStockList = () => {
-    let stocks;
+  const getStockList = (): StockListItem[] => {
+    let stocks: StockListItem[];
     switch (activeTab) {
       case 'volume':
         stocks = stocksByVolume;
@@ -34,7 +58,7 @@ export default function MockInvestmentPage() {
     }
 
     if (searchQuery.trim()) {
-      return stocks.filter(stock => 
+      return stocks.filter(stock =>
         stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         stock.code.includes(searchQuery)
       );
