@@ -32,11 +32,22 @@ const StockDetailPage = () => {
   const [searchParams] = useSearchParams();
   const stockId = parseInt(searchParams.get("id") || "1");
   const [stock, setStock] = useState<StockDetailResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const nameFromList = (location.state as { nameFromList?: string } | null)?.nameFromList;
   const [shareError, setShareError] = useState<string | null>(null);
 
   useEffect(() => {
-    getStockDetail(stockId).then(setStock);
+    setLoading(true);
+    getStockDetail(stockId)
+      .then((data) => {
+        setStock(data);
+      })
+      .catch(() => {
+        setStock(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [stockId]);
 
   /** API가 '종목_코드'만 주거나 상품유형(ETF/ELW/ETN)만 줄 때는 리스트에서 넘긴 종목명 사용 */
@@ -58,6 +69,23 @@ const StockDetailPage = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div
+              className="inline-block w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"
+              aria-hidden
+            />
+            <p className="text-gray-600">종목 정보를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!stock) {
     return (
