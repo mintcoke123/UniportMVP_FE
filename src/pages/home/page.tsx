@@ -24,15 +24,30 @@ function teamIdToGroupId(teamId: string | null | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** 백엔드에서 데이터를 못 받아도 레이아웃이 깨지지 않도록 임시 데이터 */
+const FALLBACK_DATA: InvestmentData = {
+  totalAssets: 0,
+  profitLoss: 0,
+  profitLossPercentage: 0,
+  investmentPrincipal: 0,
+  cashBalance: 0,
+};
+
+const FALLBACK_COMPETITION: CompetitionSummary = {
+  name: "대회",
+  endDate: "",
+  daysRemaining: 0,
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { user, updateUserAssets } = useAuth();
   const groupId = teamIdToGroupId(user?.teamId ?? null);
 
-  const [data, setData] = useState<InvestmentData | null>(null);
+  const [data, setData] = useState<InvestmentData>(FALLBACK_DATA);
   const [stocks, setStocks] = useState<StockHolding[]>([]);
   const [competitionData, setCompetitionData] =
-    useState<CompetitionSummary | null>(null);
+    useState<CompetitionSummary | null>(FALLBACK_COMPETITION);
   const [allGroupsRanking, setAllGroupsRanking] = useState<
     GroupRankingItem[]
   >([]);
@@ -46,50 +61,64 @@ export default function Home() {
   });
 
   useEffect(() => {
-    getMyInvestment().then((res) => {
-      setCompetitionData(res.competitionData);
-      if (groupId == null) {
-        setData(res.investmentData);
-        setStocks(res.stockHoldings);
-        updateUserAssets({
-          totalAssets: res.investmentData?.totalAssets ?? 0,
-        });
-      }
-    });
-    if (groupId != null) {
-      getGroupPortfolio(groupId).then((portfolio) => {
-        if (portfolio) {
-          const holdingsValue = portfolio.holdings.reduce(
-            (s, h) => s + h.currentValue,
-            0
-          );
-          const cashBalance = portfolio.totalValue - holdingsValue;
-          setData({
-            totalAssets: portfolio.totalValue,
-            profitLoss: portfolio.profitLoss,
-            profitLossPercentage: portfolio.profitLossPercentage,
-            investmentPrincipal: portfolio.investmentAmount,
-            cashBalance,
+    getMyInvestment()
+      .then((res) => {
+        setCompetitionData(res.competitionData ?? FALLBACK_COMPETITION);
+        if (groupId == null) {
+          setData(res.investmentData ?? FALLBACK_DATA);
+          setStocks(res.stockHoldings ?? []);
+          updateUserAssets({
+            totalAssets: res.investmentData?.totalAssets ?? 0,
           });
-          setStocks(
-            portfolio.holdings.map((h, i) => {
-              const cost = h.averagePrice * h.quantity;
-              const pl = h.currentValue - cost;
-              const plPct = cost !== 0 ? (pl / cost) * 100 : 0;
-              return {
-                id: h.id,
-                name: h.stockName,
-                quantity: h.quantity,
-                currentValue: h.currentValue,
-                profitLoss: pl,
-                profitLossPercentage: plPct,
-                logoColor: ["#14B8A6", "#06B6D4", "#8B5CF6", "#EC4899"][i % 4],
-              };
-            })
-          );
-          updateUserAssets({ totalAssets: portfolio.totalValue });
         }
+      })
+      .catch(() => {
+        setData(FALLBACK_DATA);
+        setStocks([]);
+        setCompetitionData(FALLBACK_COMPETITION);
       });
+    if (groupId != null) {
+      getGroupPortfolio(groupId)
+        .then((portfolio) => {
+          if (portfolio) {
+            const holdingsValue = portfolio.holdings.reduce(
+              (s, h) => s + h.currentValue,
+              0
+            );
+            const cashBalance = portfolio.totalValue - holdingsValue;
+            setData({
+              totalAssets: portfolio.totalValue,
+              profitLoss: portfolio.profitLoss,
+              profitLossPercentage: portfolio.profitLossPercentage,
+              investmentPrincipal: portfolio.investmentAmount,
+              cashBalance,
+            });
+            setStocks(
+              portfolio.holdings.map((h, i) => {
+                const cost = h.averagePrice * h.quantity;
+                const pl = h.currentValue - cost;
+                const plPct = cost !== 0 ? (pl / cost) * 100 : 0;
+                return {
+                  id: h.id,
+                  name: h.stockName,
+                  quantity: h.quantity,
+                  currentValue: h.currentValue,
+                  profitLoss: pl,
+                  profitLossPercentage: plPct,
+                  logoColor: ["#14B8A6", "#06B6D4", "#8B5CF6", "#EC4899"][i % 4],
+                };
+              })
+            );
+            updateUserAssets({ totalAssets: portfolio.totalValue });
+          } else {
+            setData(FALLBACK_DATA);
+            setStocks([]);
+          }
+        })
+        .catch(() => {
+          setData(FALLBACK_DATA);
+          setStocks([]);
+        });
     }
     getAllGroupsRanking().then(setAllGroupsRanking).catch(() => {});
     getMyGroupRanking()
@@ -164,15 +193,6 @@ export default function Home() {
       return datePart;
     }
   };
-
-  if (!data) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Header />
-        <p className="text-gray-500">로딩 중...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
