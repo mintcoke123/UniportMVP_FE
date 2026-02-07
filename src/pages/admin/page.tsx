@@ -18,6 +18,7 @@ import type { MatchingRoom } from "../../types";
 
 type AdminTab = "competition" | "teams" | "users";
 
+/** 배포용주석**/
 const STATUS_LABEL: Record<AdminCompetition["status"], string> = {
   upcoming: "예정",
   ongoing: "진행 중",
@@ -89,7 +90,7 @@ export default function AdminPage() {
   const handleDeleteRoom = async (roomId: string) => {
     if (
       !window.confirm(
-        "이 매칭방을 삭제하면 모든 멤버가 제거됩니다. 계속할까요?"
+        "이 매칭방을 삭제하면 모든 멤버가 제거됩니다. 계속할까요?",
       )
     )
       return;
@@ -160,7 +161,10 @@ export default function AdminPage() {
         setUserActionError(res.message ?? "삭제에 실패했습니다.");
       }
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      const err = e as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
       const msg =
         err?.response?.data?.message ?? err?.message ?? "삭제에 실패했습니다.";
       setUserActionError(msg);
@@ -365,8 +369,8 @@ export default function AdminPage() {
                                 c.status === "ongoing"
                                   ? "bg-teal-100 text-teal-700"
                                   : c.status === "upcoming"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-gray-100 text-gray-600"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-gray-100 text-gray-600"
                               }`}
                             >
                               {STATUS_LABEL[c.status]}
@@ -506,15 +510,15 @@ export default function AdminPage() {
                                   r.status === "full"
                                     ? "bg-teal-100 text-teal-700"
                                     : r.status === "started"
-                                    ? "bg-gray-100 text-gray-600"
-                                    : "bg-amber-100 text-amber-700"
+                                      ? "bg-gray-100 text-gray-600"
+                                      : "bg-amber-100 text-amber-700"
                                 }`}
                               >
                                 {r.status === "waiting"
                                   ? "대기 중"
                                   : r.status === "full"
-                                  ? "정원 참"
-                                  : "시작됨"}
+                                    ? "정원 참"
+                                    : "시작됨"}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -543,7 +547,9 @@ export default function AdminPage() {
                 <div className="px-6 py-4 border-b border-gray-100">
                   <h2 className="text-lg font-bold text-gray-900">유저 목록</h2>
                   {userActionError && (
-                    <p className="mt-2 text-sm text-red-600">{userActionError}</p>
+                    <p className="mt-2 text-sm text-red-600">
+                      {userActionError}
+                    </p>
                   )}
                 </div>
                 <div className="overflow-x-auto">
@@ -561,8 +567,7 @@ export default function AdminPage() {
                       {users.map((u) => {
                         const isSelf =
                           user?.id != null && String(user.id) === u.id;
-                        const cannotDelete =
-                          u.role === "admin" || isSelf;
+                        const cannotDelete = u.role === "admin" || isSelf;
                         return (
                           <tr key={u.id} className="hover:bg-gray-50/50">
                             <td className="px-6 py-4 text-gray-900">
@@ -587,9 +592,7 @@ export default function AdminPage() {
                             </td>
                             <td className="px-6 py-4">
                               {cannotDelete ? (
-                                <span className="text-gray-400 text-sm">
-                                  —
-                                </span>
+                                <span className="text-gray-400 text-sm">—</span>
                               ) : (
                                 <button
                                   type="button"
@@ -597,7 +600,9 @@ export default function AdminPage() {
                                   onClick={() => handleDeleteUser(u)}
                                   className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
                                 >
-                                  {deletingUserId === u.id ? "삭제 중..." : "삭제"}
+                                  {deletingUserId === u.id
+                                    ? "삭제 중..."
+                                    : "삭제"}
                                 </button>
                               )}
                             </td>
