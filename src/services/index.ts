@@ -1,41 +1,79 @@
 /**
- * API 데이터 서비스 (현재 mock 반환, 백엔드 연동 시 각 모듈 내부만 교체)
+ * API 데이터 서비스. 백엔드 연동: apiClient + 각 서비스
  * @see docs/API_SPEC.md
  */
 
 export {
-  getMyInvestment,
-} from './investmentService';
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  getAuthToken,
+  setAuthToken,
+  clearAuthToken,
+} from "./apiClient";
+export type { ApiError, RequestConfig } from "./apiClient";
+
+export { getMyInvestment } from "./investmentService";
 
 export {
   getMarketIndices,
   getStocksByVolume,
   getStocksByRising,
   getStocksByFalling,
-} from './marketService';
+} from "./marketService";
 
-export { getStockDetail } from './stockService';
+export { getStockDetail } from "./stockService";
 
 export {
-  getOngoingTournaments,
-  getUpcomingTournaments,
-} from './tournamentService';
+  getOngoingCompetitions,
+  getUpcomingCompetitions,
+} from "./competitionService";
 export type {
-  TournamentOngoingItem,
-  TournamentUpcomingItem,
-} from './tournamentService';
+  CompetitionOngoingItem,
+  CompetitionUpcomingItem,
+} from "./competitionService";
 
-export {
-  getAllGroupsRanking,
-  getMyGroupRanking,
-} from './rankingService';
+export { getAllGroupsRanking, getMyGroupRanking } from "./rankingService";
 
 export {
   getGroupPortfolio,
+  getMyGroupPortfolio,
   getGroupStockHoldings,
   getGroupMembers,
-} from './groupService';
+  getCompetingTeams,
+} from "./groupService";
 
-export { getChatMessages } from './chatService';
+export {
+  getChatMessages,
+  sendChatMessage,
+  sendTradeMessage,
+  getChatWebSocketUrl,
+} from "./chatService";
 
-export { getVotes } from './voteService';
+export { getVotes, createVote, submitVote } from "./voteService";
+export type { CreateVotePayload } from "./voteService";
+
+export {
+  getMatchingRooms,
+  getMyMatchingRooms,
+  createMatchingRoom,
+  joinMatchingRoom,
+  leaveMatchingRoom,
+  startMatchingRoom,
+} from "./matchingRoomService";
+
+export { getMe } from "./meService";
+export type { MeResponse } from "./meService";
+
+export {
+  getAdminCompetitions,
+  createAdminCompetition,
+  updateAdminCompetition,
+  getAdminTeamsByCompetition,
+  getAdminMatchingRooms,
+  deleteAdminMatchingRoom,
+  deleteAdminMatchingRoomMember,
+  getAdminUsers,
+  deleteAdminUser,
+} from "./adminService";

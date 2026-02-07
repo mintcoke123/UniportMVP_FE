@@ -1,16 +1,14 @@
 /**
- * 랭킹 (API 연동 시 이 파일만 교체)
+ * 랭킹. GET /api/ranking/groups, /api/ranking/my-group
  * @see docs/API_SPEC.md §5
  */
-import type { GroupRankingItem, MyGroupRankingResponse } from '../types';
-import { allGroupsRanking, myGroupRanking } from '../mocks/rankingData';
+import type { GroupRankingItem, MyGroupRankingResponse } from "../types";
+import { apiGet } from "./apiClient";
 
 export async function getAllGroupsRanking(): Promise<GroupRankingItem[]> {
-  // TODO: GET /api/ranking/groups
-  return Promise.resolve(allGroupsRanking);
+  return await apiGet<GroupRankingItem[]>("/api/ranking/groups");
 }
 
 export async function getMyGroupRanking(): Promise<MyGroupRankingResponse> {
-  // TODO: GET /api/ranking/my-group
-  return Promise.resolve(myGroupRanking);
+  return await apiGet<MyGroupRankingResponse>("/api/ranking/my-group");
 }

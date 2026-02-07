@@ -96,12 +96,6 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             {isLoading ? '로그인 중...' : '로그인'}
           </button>
         </form>
-
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-sm text-gray-500 text-center">
-            테스트 계정: test@test.com / 1234
-          </p>
-        </div>
       </div>
     </div>
   );

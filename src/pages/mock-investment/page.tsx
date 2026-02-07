@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Header from "../../components/feature/Header";
 import {
   getMarketIndices,
   getStocksByVolume,
   getStocksByRising,
   getStocksByFalling,
-} from '../../services';
-import type { MarketIndex, StockListItem } from '../../types';
+} from "../../services";
+import type { MarketIndex, StockListItem } from "../../types";
 
-type TabType = 'volume' | 'rising' | 'falling';
+type TabType = "volume" | "rising" | "falling";
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
@@ -16,41 +17,59 @@ export default function MockInvestmentPage() {
   const [stocksByVolume, setStocksByVolume] = useState<StockListItem[]>([]);
   const [stocksByRising, setStocksByRising] = useState<StockListItem[]>([]);
   const [stocksByFalling, setStocksByFalling] = useState<StockListItem[]>([]);
-  const [activeTab, setActiveTab] = useState<TabType>('volume');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>("volume");
+  const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [marketError, setMarketError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
+    setMarketError(null);
+    const requests = [
       getMarketIndices(),
       getStocksByVolume(),
       getStocksByRising(),
       getStocksByFalling(),
-    ]).then(([indices, vol, rising, falling]) => {
+    ] as const;
+    Promise.allSettled(requests).then(([r0, r1, r2, r3]) => {
+      const indices = r0.status === "fulfilled" ? r0.value : [];
+      const vol = r1.status === "fulfilled" ? r1.value : [];
+      const rising = r2.status === "fulfilled" ? r2.value : [];
+      const falling = r3.status === "fulfilled" ? r3.value : [];
       setMarketIndices(indices);
       setStocksByVolume(vol);
       setStocksByRising(rising);
       setStocksByFalling(falling);
+      const errors: string[] = [];
+      if (r0.status === "rejected") errors.push("시장 지수");
+      if (r1.status === "rejected") errors.push("거래량 순위");
+      if (r2.status === "rejected") errors.push("상승률 순위");
+      if (r3.status === "rejected") errors.push("하락률 순위");
+      if (errors.length > 0) {
+        const base = `${errors.join(", ")}를 불러오지 못했습니다.`;
+        const kisHint =
+          [r2, r3].some(
+            (r) =>
+              r.status === "rejected" &&
+              (r.reason?.message?.includes("KIS") ||
+                r.reason?.status === 503)
+          )
+            ? " (한국투자증권 KIS API 미설정 시 상승/하락 순위는 불가. 백엔드에 KIS_API_APPKEY, KIS_API_APPSECRET 설정 필요)"
+            : "";
+        setMarketError(base + kisHint);
+      }
     });
   }, []);
-
-  useEffect(() => {
-    if (isSearchOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isSearchOpen]);
 
   const getStockList = (): StockListItem[] => {
     let stocks: StockListItem[];
     switch (activeTab) {
-      case 'volume':
+      case "volume":
         stocks = stocksByVolume;
         break;
-      case 'rising':
+      case "rising":
         stocks = stocksByRising;
         break;
-      case 'falling':
+      case "falling":
         stocks = stocksByFalling;
         break;
       default:
@@ -58,234 +77,225 @@ export default function MockInvestmentPage() {
     }
 
     if (searchQuery.trim()) {
-      return stocks.filter(stock =>
-        stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.code.includes(searchQuery)
+      return stocks.filter(
+        (stock) =>
+          stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          stock.code.includes(searchQuery)
       );
     }
     return stocks;
   };
 
   const formatNumber = (num: number) => {
-    return num.toLocaleString('ko-KR');
+    return num.toLocaleString("ko-KR");
   };
 
   const formatChange = (change: number, rate: number) => {
-    const sign = change >= 0 ? '+' : '';
+    const sign = change >= 0 ? "+" : "";
     return `${sign}${formatNumber(change)} (${sign}${rate.toFixed(2)}%)`;
   };
 
-  const handleSearchClick = () => {
-    setIsSearchOpen(true);
-  };
-
-  const handleCloseSearch = () => {
-    setIsSearchOpen(false);
-    setSearchQuery('');
-  };
-
-  const handleStockClick = (stockId: number) => {
-    navigate(`/stock-detail?id=${stockId}`);
+  const handleStockClick = (stock: StockListItem) => {
+    navigate(`/stock-detail?id=${stock.id}`, { state: { nameFromList: stock.name } });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* 헤더 */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
-          <button 
-            onClick={() => navigate(-1)}
-            className="w-10 h-10 flex items-center justify-center cursor-pointer"
-          >
-            <i className="ri-arrow-left-line text-2xl text-gray-900"></i>
-          </button>
-          <h1 className="text-lg font-bold text-gray-900">모의투자</h1>
-          <div className="w-10"></div>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+
+      <main className="pt-8 pb-12 px-8 max-w-7xl mx-auto">
+        {/* 페이지 타이틀 */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">모의투자</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            종목을 선택해 매수·매도 체험을 해보세요
+          </p>
         </div>
-      </header>
 
-      {/* 검색 오버레이 */}
-      {isSearchOpen && (
-        <div className="fixed inset-0 bg-white z-50">
-          <div className="max-w-md mx-auto">
-            <div className="px-5 py-4 flex items-center gap-3 border-b border-gray-200">
-              <button 
-                onClick={handleCloseSearch}
-                className="w-10 h-10 flex items-center justify-center cursor-pointer"
-              >
-                <i className="ri-arrow-left-line text-2xl text-gray-900"></i>
-              </button>
-              <div className="flex-1 relative">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="종목명 또는 종목코드 검색"
-                  className="w-full py-2.5 px-4 pr-10 bg-gray-100 rounded-lg text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center cursor-pointer"
-                  >
-                    <i className="ri-close-circle-fill text-gray-400"></i>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 검색 결과 */}
-            <div className="px-5 py-3">
-              <p className="text-xs text-gray-500 mb-3">
-                {searchQuery ? `"${searchQuery}" 검색 결과` : '전체 종목'}
-              </p>
-              <div className="divide-y divide-gray-100">
-                {getStockList().length > 0 ? (
-                  getStockList().map((stock) => (
-                    <div 
-                      key={stock.id} 
-                      onClick={() => handleStockClick(stock.id)}
-                      className="py-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                          style={{ backgroundColor: stock.logoColor }}
-                        >
-                          {stock.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 mb-1">{stock.name}</p>
-                          <p className="text-xs text-gray-500">{stock.code}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-base font-bold text-gray-900 mb-1">
-                            {formatNumber(stock.currentPrice)}원
-                          </p>
-                          <p className={`text-xs font-semibold ${stock.change >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                            {formatChange(stock.change, stock.changeRate)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-12 text-center">
-                    <i className="ri-search-line text-4xl text-gray-300 mb-3"></i>
-                    <p className="text-sm text-gray-500">검색 결과가 없습니다</p>
-                  </div>
-                )}
-              </div>
-            </div>
+        {marketError && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+            <i className="ri-error-warning-line"></i>
+            {marketError}
           </div>
-        </div>
-      )}
+        )}
 
-      <main className="max-w-md mx-auto">
-        {/* 시장 지수 */}
-        <div className="bg-white px-5 py-4 mb-2">
-          <div className="grid grid-cols-3 gap-4">
-            {marketIndices.map((index) => (
-              <div key={index.id} className="text-center">
-                <p className="text-xs text-gray-600 mb-1">{index.name}</p>
-                <p className="text-base font-bold text-gray-900 mb-1">
-                  {formatNumber(index.value)}
-                </p>
-                <p className={`text-xs font-semibold ${index.change >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                  {index.change >= 0 ? '+' : ''}{formatNumber(index.change)} ({index.change >= 0 ? '+' : ''}{index.changeRate}%)
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 탭 메뉴 */}
-        <div className="bg-white px-5 py-3 mb-2">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('volume')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'volume'
-                  ? 'bg-teal-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              거래량
-            </button>
-            <button
-              onClick={() => setActiveTab('rising')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'rising'
-                  ? 'bg-teal-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              급상승
-            </button>
-            <button
-              onClick={() => setActiveTab('falling')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'falling'
-                  ? 'bg-teal-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              급하락
-            </button>
-          </div>
-        </div>
-
-        {/* 특징 종목 리스트 */}
-        <div className="bg-white">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-900">
-              {activeTab === 'volume' && '거래량 상위'}
-              {activeTab === 'rising' && '급상승 종목'}
-              {activeTab === 'falling' && '급하락 종목'}
+        {/* 시장 지수 카드 */}
+        <section className="mb-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">
+              시장 지수
             </h2>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {getStockList().map((stock, index) => (
-              <div 
-                key={stock.id} 
-                onClick={() => handleStockClick(stock.id)}
-                className="px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-500 w-5">{index + 1}</span>
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                    style={{ backgroundColor: stock.logoColor }}
+            <div className="grid grid-cols-3 gap-6">
+              {marketIndices.map((index) => (
+                <div
+                  key={index.id}
+                  className="text-center py-3 px-4 rounded-xl bg-gray-50"
+                >
+                  <p className="text-sm text-gray-600 mb-1">{index.name}</p>
+                  <p className="text-xl font-bold text-gray-900 mb-1">
+                    {formatNumber(index.value)}
+                  </p>
+                  <p
+                    className={`text-sm font-semibold ${
+                      index.change >= 0 ? "text-red-600" : "text-blue-600"
+                    }`}
                   >
-                    {stock.name.charAt(0)}
+                    {index.change >= 0 ? "+" : ""}
+                    {formatNumber(index.change)} ({index.change >= 0 ? "+" : ""}
+                    {index.changeRate}%)
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 탭 + 검색 + 종목 리스트 */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* 탭 & 검색 한 줄 */}
+          <div className="flex flex-wrap items-center gap-4 p-5 border-b border-gray-100">
+            <div className="flex rounded-xl bg-gray-100 p-1">
+              <button
+                onClick={() => setActiveTab("volume")}
+                className={`py-2 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "volume"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                거래량
+              </button>
+              <button
+                onClick={() => setActiveTab("rising")}
+                className={`py-2 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "rising"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                급상승
+              </button>
+              <button
+                onClick={() => setActiveTab("falling")}
+                className={`py-2 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "falling"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                급하락
+              </button>
+            </div>
+            <div className="flex-1 min-w-[200px] max-w-md relative">
+              <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none"></i>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="종목명 또는 종목코드 검색"
+                className="w-full py-2.5 pl-10 pr-4 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white border border-transparent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center cursor-pointer text-gray-400 hover:text-gray-600"
+                >
+                  <i className="ri-close-circle-fill"></i>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 리스트 헤더 (웹용 테이블 스타일) */}
+          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <div className="col-span-1">순위</div>
+            <div className="col-span-4">종목</div>
+            <div className="col-span-2 text-right">현재가</div>
+            <div className="col-span-2 text-right">등락</div>
+            <div className="col-span-3 text-right">등락률</div>
+          </div>
+
+          {/* 종목 리스트 */}
+          <div className="divide-y divide-gray-100">
+            {getStockList().length > 0 ? (
+              getStockList().map((stock, index) => (
+                <div
+                  key={`${activeTab}-${stock.code}-${index}`}
+                  onClick={() => handleStockClick(stock)}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center"
+                >
+                  <span className="hidden md:block text-sm font-medium text-gray-500 col-span-1">
+                    {index + 1}
+                  </span>
+                  <div className="flex items-center gap-3 md:col-span-4 col-span-1">
+                    <span className="md:hidden text-sm font-medium text-gray-500 w-6">
+                      {index + 1}
+                    </span>
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                      style={{ backgroundColor: stock.logoColor }}
+                    >
+                      {stock.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900">
+                        {stock.name}
+                      </p>
+                      <p className="text-xs text-gray-500">{stock.code}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 mb-1">{stock.name}</p>
-                    <p className="text-xs text-gray-500">{stock.code}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-base font-bold text-gray-900 mb-1">
+                  <div className="md:text-right md:col-span-2">
+                    <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                      현재가
+                    </p>
+                    <p className="font-bold text-gray-900">
                       {formatNumber(stock.currentPrice)}원
                     </p>
-                    <p className={`text-xs font-semibold ${stock.change >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                      {formatChange(stock.change, stock.changeRate)}
+                  </div>
+                  <div className="md:text-right md:col-span-2">
+                    <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                      등락
+                    </p>
+                    <p
+                      className={`font-semibold ${
+                        stock.change >= 0 ? "text-red-600" : "text-blue-600"
+                      }`}
+                    >
+                      {stock.change >= 0 ? "+" : ""}
+                      {formatNumber(stock.change)}
+                    </p>
+                  </div>
+                  <div className="md:text-right md:col-span-3">
+                    <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                      등락률
+                    </p>
+                    <p
+                      className={`font-semibold ${
+                        stock.change >= 0 ? "text-red-600" : "text-blue-600"
+                      }`}
+                    >
+                      {stock.change >= 0 ? "+" : ""}
+                      {stock.changeRate.toFixed(2)}%
                     </p>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="py-16 text-center">
+                <i className="ri-search-line text-5xl text-gray-300 mb-4"></i>
+                <p className="text-gray-500">검색 결과가 없습니다</p>
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-3 text-sm text-teal-600 font-medium hover:text-teal-700 cursor-pointer"
+                >
+                  검색어 지우기
+                </button>
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        </section>
       </main>
-
-      {/* 플로팅 검색 버튼 */}
-      <button
-        onClick={handleSearchClick}
-        className="fixed bottom-24 right-5 w-14 h-14 bg-teal-500 rounded-full shadow-lg flex items-center justify-center cursor-pointer hover:bg-teal-600 transition-all z-20"
-      >
-        <i className="ri-search-line text-2xl text-white"></i>
-      </button>
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import type { RouteObject } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import NotFound from "../pages/NotFound";
-import Home from "../pages/home/page";
-import Tournament from "../pages/tournament/page";
+import HomeOrWelcome from "./HomeOrWelcome";
+import Competition from "../pages/competition/page";
 import Ranking from "../pages/ranking/page";
 import ProtectedRoute from "./ProtectedRoute";
+import AdminProtectedRoute from "./AdminProtectedRoute";
 
 const GroupPortfolioPage = lazy(() => import("../pages/group-portfolio/page"));
 const MockInvestmentPage = lazy(() => import("../pages/mock-investment/page"));
@@ -13,17 +14,17 @@ const ChatPage = lazy(() => import("../pages/chat/page"));
 const LoginPage = lazy(() => import("../pages/login/page"));
 const SignupPage = lazy(() => import("../pages/signup/page"));
 const FeedbackReportPage = lazy(() => import("../pages/feedback-report/page"));
-
-const PageFallback = () => <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">로딩 중...</p></div>;
+const MatchingRoomsPage = lazy(() => import("../pages/matching-rooms/page"));
+const AdminPage = lazy(() => import("../pages/admin/page"));
 
 const routes: RouteObject[] = [
   {
     path: "/",
-    element: <Home />,
+    element: <HomeOrWelcome />,
   },
   {
-    path: "/tournament",
-    element: <ProtectedRoute><Tournament /></ProtectedRoute>,
+    path: "/competition",
+    element: <Competition />,
   },
   {
     path: "/ranking",
@@ -35,7 +36,11 @@ const routes: RouteObject[] = [
   },
   {
     path: "/mock-investment",
-    element: <ProtectedRoute><Suspense fallback={<PageFallback />}><MockInvestmentPage /></Suspense></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <MockInvestmentPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/stock-detail",
@@ -43,7 +48,11 @@ const routes: RouteObject[] = [
   },
   {
     path: "/chat",
-    element: <ProtectedRoute><Suspense fallback={<PageFallback />}><ChatPage /></Suspense></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <ChatPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/login",
@@ -56,6 +65,22 @@ const routes: RouteObject[] = [
   {
     path: "/feedback-report",
     element: <FeedbackReportPage />,
+  },
+  {
+    path: "/matching-rooms",
+    element: (
+      <ProtectedRoute>
+        <MatchingRoomsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin",
+    element: (
+      <AdminProtectedRoute>
+        <AdminPage />
+      </AdminProtectedRoute>
+    ),
   },
   {
     path: "*",

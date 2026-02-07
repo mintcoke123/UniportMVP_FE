@@ -1,16 +1,19 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-interface OngoingTournamentCardProps {
+interface OngoingCompetitionCardProps {
   id: number;
   name: string;
   endDate: Date;
 }
 
-const OngoingTournamentCard = ({ id, name, endDate }: OngoingTournamentCardProps) => {
+const OngoingCompetitionCard = ({
+  id,
+  name,
+  endDate,
+}: OngoingCompetitionCardProps) => {
   const navigate = useNavigate();
-  const [timeRemaining, setTimeRemaining] = useState('00:00:00:00');
+  const [timeRemaining, setTimeRemaining] = useState("00:00:00:00");
 
   useEffect(() => {
     const calculateTimeRemaining = () => {
@@ -18,17 +21,23 @@ const OngoingTournamentCard = ({ id, name, endDate }: OngoingTournamentCardProps
       const diff = endDate.getTime() - now.getTime();
 
       if (diff <= 0) {
-        setTimeRemaining('00:00:00:00');
+        setTimeRemaining("00:00:00:00");
         return;
       }
 
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const hours = Math.floor(
+        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      );
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      const formatTime = (num: number) => num.toString().padStart(2, '0');
-      setTimeRemaining(`${formatTime(days)}:${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}`);
+      const formatTime = (num: number) => num.toString().padStart(2, "0");
+      setTimeRemaining(
+        `${formatTime(days)}:${formatTime(hours)}:${formatTime(
+          minutes
+        )}:${formatTime(seconds)}`
+      );
     };
 
     calculateTimeRemaining();
@@ -38,11 +47,11 @@ const OngoingTournamentCard = ({ id, name, endDate }: OngoingTournamentCardProps
   }, [endDate]);
 
   const handleWatch = () => {
-    navigate('/ranking');
+    navigate("/ranking");
   };
 
   return (
-    <div 
+    <div
       className="bg-gradient-to-br from-[#0088FF] to-[#6155F5] rounded-2xl p-8 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
       onClick={handleWatch}
     >
@@ -62,4 +71,4 @@ const OngoingTournamentCard = ({ id, name, endDate }: OngoingTournamentCardProps
   );
 };
 
-export default OngoingTournamentCard;
+export default OngoingCompetitionCard;

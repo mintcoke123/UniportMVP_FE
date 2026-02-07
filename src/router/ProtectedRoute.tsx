@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -6,16 +7,15 @@ interface ProtectedRouteProps {
 }
 
 /**
- * 로그인이 필요한 페이지에서 비로그인 시 /login 으로 리다이렉트.
- * 로그인 후 원래 가려던 경로(from)로 돌아갈 수 있도록 state 전달.
+ * 비로그인 시 /login 으로 리다이렉트. 로그인 후 원래 가려던 경로로 돌아갈 수 있도록 state.from 전달.
  */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isLoggedIn } = useAuth();
   const location = useLocation();
 
   if (!isLoggedIn) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  return <>{children}</>;
+  return <Suspense fallback={<div className="flex justify-center items-center min-h-[40vh] text-gray-500">로딩 중...</div>}>{children}</Suspense>;
 }

@@ -8,11 +8,14 @@ export interface User {
   id: string;
   email: string;
   nickname: string;
-  profileImage: string;
   totalAssets: number;
   investmentAmount: number;
   profitLoss: number;
   profitLossRate: number;
+  /** 팀 소속 여부. null이면 팀 미소속(백엔드에서 제공) */
+  teamId?: string | null;
+  /** 역할. 'admin'이면 어드민 페이지 접근 가능(백엔드에서 제공) */
+  role?: "user" | "admin";
 }
 
 export interface LoginResponse {
@@ -46,7 +49,7 @@ export interface StockHolding {
   logoColor: string;
 }
 
-export interface TournamentSummary {
+export interface CompetitionSummary {
   name: string;
   endDate: string;
   daysRemaining: number;
@@ -55,7 +58,7 @@ export interface TournamentSummary {
 export interface MyInvestmentResponse {
   investmentData: InvestmentData;
   stockHoldings: StockHolding[];
-  tournamentData: TournamentSummary;
+  competitionData: CompetitionSummary;
 }
 
 // ---- Market / Stock ----
@@ -123,19 +126,27 @@ export interface StockDetailResponse {
   news: StockNewsItem[];
 }
 
-// ---- Tournament ----
-export interface TournamentItem {
+// ---- Competition (대회 — 랭킹 방식) ----
+export interface CompetitionItem {
   id: number;
   name: string;
   endDate?: string;
   startDate?: string;
 }
 
+/** 관리자용 대회 (시작일·종료일 관리) */
+export interface AdminCompetition {
+  id: number;
+  name: string;
+  startDate: string; // ISO
+  endDate: string; // ISO
+  status: "upcoming" | "ongoing" | "ended";
+}
+
 // ---- Ranking ----
 export interface GroupRankingItem {
   id: number;
   groupName: string;
-  profileImage: string;
   currentAssets: number;
   profitRate: number;
 }
@@ -144,7 +155,6 @@ export interface MyGroupRankingResponse {
   id: number;
   rank: number;
   groupName: string;
-  profileImage: string;
   currentAssets: number;
   profitRate: number;
 }
@@ -163,7 +173,6 @@ export interface GroupHoldingItem {
 export interface GroupPortfolioResponse {
   groupId: number;
   groupName: string;
-  profileImage: string;
   totalValue: number;
   investmentAmount: number;
   profitLoss: number;
@@ -183,12 +192,23 @@ export interface GroupStockHoldingsSummaryItem {
 export interface GroupMemberItem {
   id: number;
   nickname: string;
-  profileImage: string;
+}
+
+/** 대회에서 경쟁 중인 팀 한 건 (실시간 투자금·수익률·순위 표시용) */
+export interface CompetingTeamItem {
+  teamId: string;
+  groupName: string;
+  totalValue: number;
+  investmentAmount: number;
+  profitLoss: number;
+  profitLossPercentage: number;
+  rank: number;
+  isMyTeam?: boolean;
 }
 
 // ---- Chat ----
 export interface ChatTradeData {
-  action: '매수' | '매도';
+  action: "매수" | "매도";
   stockName: string;
   quantity: number;
   pricePerShare: number;
@@ -199,10 +219,9 @@ export interface ChatTradeData {
 
 export interface ChatMessageItem {
   id: number;
-  type: 'user' | 'trade';
+  type: "user" | "trade";
   userId: number;
   userNickname: string;
-  userProfileImage: string;
   message?: string | null;
   timestamp: string;
   tradeData?: ChatTradeData | null;
@@ -210,26 +229,45 @@ export interface ChatMessageItem {
 
 // ---- Vote ----
 export interface VoteParticipant {
-  oderId: number; // API 명세에서는 orderId 권장
+  orderId: number;
   userId: number;
   userName: string;
-  userImage: string;
-  vote: '찬성' | '반대';
+  vote: "찬성" | "반대" | "보류";
 }
 
 export interface VoteItem {
   id: number;
-  type: '매수' | '매도';
+  type: "매수" | "매도";
   stockName: string;
   proposerId: number;
   proposerName: string;
-  proposerImage: string;
   quantity: number;
   proposedPrice: number;
+  /** 체결 시 실제 체결가 (체결된 경우에만 있음) */
+  executionPrice?: number | null;
   reason: string;
   createdAt: string;
   expiresAt: string;
   votes: VoteParticipant[];
   totalMembers: number;
-  status: 'ongoing' | 'passed' | 'rejected' | 'expired';
+  status: "ongoing" | "passed" | "rejected" | "expired";
+}
+
+// ---- Matching Room (매칭방) ----
+export interface MatchingRoomMember {
+  userId: string;
+  nickname: string;
+  joinedAt: string;
+}
+
+export interface MatchingRoom {
+  id: string;
+  name: string;
+  capacity: number;
+  memberCount: number;
+  members: MatchingRoomMember[];
+  status: "waiting" | "full" | "started";
+  createdAt: string;
+  /** 로그인 후 GET /api/matching-rooms 응답에 포함. 현재 사용자가 해당 방에 참가 중이면 true */
+  isJoined?: boolean;
 }
