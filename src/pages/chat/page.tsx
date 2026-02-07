@@ -7,6 +7,7 @@ import {
   sendChatMessage,
   getChatWebSocketUrl,
   getVotes,
+  submitVote as submitVoteApi,
   getGroupPortfolio,
   getMyMatchingRooms,
   getMatchingRooms,
@@ -300,56 +301,29 @@ export default function ChatPage() {
   };
 
   const handleVote = (voteId: number, voteType: "찬성" | "반대" | "보류") => {
-    setVotes((prevVotes) => {
-      return prevVotes.map((vote) => {
-        if (vote.id !== voteId) return vote;
+    if (groupId == null) return;
+    const vote = votes.find((v) => v.id === voteId);
+    if (vote && getUserVote(vote) === voteType) return;
 
-        const existingVoteIndex = vote.votes.findIndex(
-          (v) => v.userId === currentUserId,
-        );
-        const newVotes = [...vote.votes];
-
-        if (existingVoteIndex >= 0) {
-          newVotes[existingVoteIndex] = {
-            orderId: existingVoteIndex + 1,
-            userId: currentUserId,
-            userName: currentUserName,
-            vote: voteType,
-          };
-        } else {
-          newVotes.push({
-            orderId: newVotes.length + 1,
-            userId: currentUserId,
-            userName: currentUserName,
-            vote: voteType,
-          });
+    submitVoteApi(groupId, voteId, voteType)
+      .then((res) => {
+        if (!res.success) {
+          alert(res.message ?? "투표 반영에 실패했습니다.");
+          return;
         }
-
-        // 찬성/반대만 과반수·동률 판단 (보류는 제외)
-        const agreeCount = newVotes.filter((v) => v.vote === "찬성").length;
-        const disagreeCount = newVotes.filter((v) => v.vote === "반대").length;
-        const majority = Math.ceil(vote.totalMembers / 2);
-        const allVoted = newVotes.length >= vote.totalMembers;
-
-        let newStatus = vote.status;
-        if (agreeCount >= majority) {
-          newStatus = "passed";
-          setPassedVote({ ...vote, votes: newVotes, status: "passed" });
-          setShowVoteSuccessModal(true);
-        } else if (disagreeCount >= majority) {
-          newStatus = "rejected";
-        } else if (allVoted && agreeCount === disagreeCount) {
-          // 모두 투표했을 때 동률이면 무효(반대)
-          newStatus = "rejected";
-        }
-
-        return {
-          ...vote,
-          votes: newVotes,
-          status: newStatus,
-        };
-      });
-    });
+        return getVotes(groupId!).then((updated) => {
+          setVotes(updated);
+          const passed = updated.find(
+            (v) => v.id === voteId && v.status === "passed",
+          );
+          if (passed) {
+            setPassedVote(passed);
+            setShowVoteSuccessModal(true);
+            getGroupPortfolio(groupId!).then(setGroupPortfolioData).catch(() => {});
+          }
+        });
+      })
+      .catch(() => alert("투표 반영에 실패했습니다."));
   };
 
   const getVoteCount = (vote: VoteItem, type: "찬성" | "반대" | "보류") => {
@@ -373,33 +347,16 @@ export default function ChatPage() {
   const isProfit = (groupPortfolioData?.profitLoss ?? 0) >= 0;
 
   const handleTradeCardClick = (
-    tradeData: {
+    _tradeData: {
       action: "매수" | "매도";
       stockName: string;
       quantity: number;
       pricePerShare: number;
       reason: string;
     },
-    userNickname: string,
+    _userNickname: string,
   ) => {
-    // 해당 거래 계획에 대한 투표 생성
-    const newVote: VoteItem = {
-      id: votes.length + 1,
-      type: tradeData.action,
-      stockName: tradeData.stockName,
-      proposerId: 0,
-      proposerName: userNickname || "알 수 없음",
-      quantity: tradeData.quantity,
-      proposedPrice: tradeData.pricePerShare,
-      reason: tradeData.reason,
-      createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
-      expiresAt: "24시간 후 만료",
-      votes: [],
-      totalMembers: 5,
-      status: "ongoing",
-    };
-
-    setVotes([newVote, ...votes]);
+    // 거래 계획 카드 클릭 시 투표 탭으로 이동 (투표는 공유 시 백엔드에서 이미 생성됨)
     setRightPanelTab("vote");
   };
 
