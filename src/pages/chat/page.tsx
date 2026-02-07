@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   getChatMessages,
   sendChatMessage,
+  getChatWebSocketUrl,
   getVotes,
   getGroupPortfolio,
   getMyMatchingRooms,
@@ -41,6 +42,9 @@ export default function ChatPage() {
   const [actionRoomId, setActionRoomId] = useState<string | null>(null);
   /** GET 채팅 목록 403 시 표시 (해당 그룹 멤버 아님) */
   const [chatError, setChatError] = useState<string | null>(null);
+  /** WebSocket 연결 여부. false면 메시지 전송 시 REST로 fallback */
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const isInRoom = (room: MatchingRoom) =>
     room.isJoined === true ||
@@ -137,31 +141,98 @@ export default function ChatPage() {
     });
   }, []);
 
+  // WebSocket 채팅: groupId 변경 시 연결/해제, 수신 메시지 실시간 반영
   useEffect(() => {
     if (myWaitingRoom) return;
-    if (groupId == null) {
+    if (groupId == null || !user) {
       setMessages([]);
       setVotes([]);
       setGroupPortfolioData(null);
       setChatError(null);
+      setWsConnected(false);
+      const ws = wsRef.current;
+      if (ws) {
+        ws.close();
+        wsRef.current = null;
+      }
       return;
     }
+
+    const url = getChatWebSocketUrl(groupId);
+    if (!url) {
+      setChatError(null);
+      getChatMessages(groupId)
+        .then((msgs) => setMessages(msgs))
+        .catch((e) => {
+          setMessages([]);
+          setChatError(e?.message ?? "채팅을 불러올 수 없습니다.");
+        });
+      getVotes(groupId).then(setVotes);
+      getGroupPortfolio(groupId).then(setGroupPortfolioData).catch(() => setGroupPortfolioData(null));
+      return;
+    }
+
     setChatError(null);
-    getChatMessages(groupId)
-      .then((msgs) => {
-        setMessages(msgs);
-        setChatError(null);
-      })
-      .catch((e) => {
-        setMessages([]);
-        setChatError(
-          e?.message ??
-            "이 그룹의 멤버가 아닙니다. 해당 채팅방에 참가한 멤버만 읽고 쓸 수 있습니다.",
-        );
-      });
-    getVotes(groupId).then(setVotes);
-    getGroupPortfolio(groupId).then(setGroupPortfolioData);
-  }, [myWaitingRoom, groupId]);
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setWsConnected(true);
+      getChatMessages(groupId)
+        .then((msgs) => setMessages(msgs))
+        .catch((e) => {
+          setMessages([]);
+          setChatError(e?.message ?? "이 그룹의 멤버가 아닙니다.");
+        });
+      getVotes(groupId).then(setVotes);
+      getGroupPortfolio(groupId)
+        .then(setGroupPortfolioData)
+        .catch(() => setGroupPortfolioData(null));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data as string) as Record<string, unknown>;
+        const id = typeof data.id === "number" ? data.id : null;
+        if (id == null) return;
+        const type = (data.type as string) || "user";
+        const userId = typeof data.userId === "number" ? data.userId : 0;
+        const userNickname = typeof data.userNickname === "string" ? data.userNickname : "";
+        const message = typeof data.message === "string" ? data.message : undefined;
+        const timestamp = typeof data.timestamp === "string" ? data.timestamp : "";
+        const tradeData = data.tradeData ?? null;
+        const item: ChatMessageItem = {
+          id,
+          type: type === "trade" ? "trade" : "user",
+          userId,
+          userNickname,
+          message: message ?? null,
+          timestamp,
+          tradeData: tradeData as ChatMessageItem["tradeData"],
+        };
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === item.id)) return prev;
+          return [...prev, item];
+        });
+      } catch {
+        // ignore non-JSON or invalid payloads
+      }
+    };
+
+    ws.onclose = () => {
+      setWsConnected(false);
+      wsRef.current = null;
+    };
+    ws.onerror = () => {
+      setWsConnected(false);
+    };
+
+    return () => {
+      ws.close();
+      wsRef.current = null;
+      setWsConnected(false);
+    };
+  }, [myWaitingRoom, groupId, user?.id]);
 
   const handleLeaveFromChat = async (roomId: string) => {
     setActionRoomId(roomId);
@@ -197,6 +268,19 @@ export default function ChatPage() {
   const handleSendMessage = async () => {
     const text = newMessage.trim();
     if (text === "" || groupId == null || sending) return;
+
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          userId: currentUserId,
+          nickname: currentUserName,
+          message: text,
+        }),
+      );
+      setNewMessage("");
+      return;
+    }
 
     setSending(true);
     const result = await sendChatMessage(groupId, text);
@@ -714,6 +798,17 @@ export default function ChatPage() {
                       {chatError && (
                         <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
                           <p className="text-sm text-amber-800">{chatError}</p>
+                        </div>
+                      )}
+                      {groupId != null && !chatError && (
+                        <div className="flex-shrink-0 px-4 py-1.5 border-b border-gray-100 flex items-center gap-2">
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${wsConnected ? "bg-green-500" : "bg-gray-300"}`}
+                            aria-hidden
+                          />
+                          <span className="text-xs text-gray-500">
+                            {wsConnected ? "실시간 연결됨" : "연결 중… (메시지는 저장됩니다)"}
+                          </span>
                         </div>
                       )}
                       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 space-y-4">
