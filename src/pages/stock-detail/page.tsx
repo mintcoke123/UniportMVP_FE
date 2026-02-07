@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { getStockDetail, sendTradeMessage, createVote, getMyMatchingRooms } from "../../services";
+import {
+  getStockDetail,
+  sendTradeMessage,
+  createVote,
+  getMyMatchingRooms,
+} from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import Header from "../../components/feature/Header";
 import StockChart from "./components/StockChart";
@@ -32,22 +37,12 @@ const StockDetailPage = () => {
   const [searchParams] = useSearchParams();
   const stockId = parseInt(searchParams.get("id") || "1");
   const [stock, setStock] = useState<StockDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const nameFromList = (location.state as { nameFromList?: string } | null)?.nameFromList;
+  const nameFromList = (location.state as { nameFromList?: string } | null)
+    ?.nameFromList;
   const [shareError, setShareError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    getStockDetail(stockId)
-      .then((data) => {
-        setStock(data);
-      })
-      .catch(() => {
-        setStock(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    getStockDetail(stockId).then(setStock);
   }, [stockId]);
 
   /** API가 '종목_코드'만 주거나 상품유형(ETF/ELW/ETN)만 줄 때는 리스트에서 넘긴 종목명 사용 */
@@ -60,7 +55,7 @@ const StockDetailPage = () => {
   const displayName =
     stock && nameFromList && (isFallbackName || isGenericProductType)
       ? nameFromList
-      : stock?.name ?? "";
+      : (stock?.name ?? "");
 
   const [orderType, setOrderType] = useState<OrderType>(null);
   const [quantity, setQuantity] = useState(1);
@@ -69,23 +64,6 @@ const StockDetailPage = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div
-              className="inline-block w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"
-              aria-hidden
-            />
-            <p className="text-gray-600">종목 정보를 불러오는 중...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!stock) {
     return (
@@ -128,7 +106,7 @@ const StockDetailPage = () => {
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
@@ -145,8 +123,11 @@ const StockDetailPage = () => {
     }
     if (groupId == null) {
       const rooms = await getMyMatchingRooms().catch(() => []);
-      const room = rooms.find((r) => r.status === "started") ?? rooms.find((r) => r.status === "full") ?? rooms[0];
-      groupId = room ? roomIdToGroupId(room.id) ?? null : null;
+      const room =
+        rooms.find((r) => r.status === "started") ??
+        rooms.find((r) => r.status === "full") ??
+        rooms[0];
+      groupId = room ? (roomIdToGroupId(room.id) ?? null) : null;
     }
 
     if (groupId != null) {
@@ -309,8 +290,8 @@ const StockDetailPage = () => {
                         orderType === "sell"
                           ? maxQuantityByHolding
                           : maxQuantityByHolding > 0
-                          ? maxQuantityByHolding
-                          : undefined
+                            ? maxQuantityByHolding
+                            : undefined
                       }
                       value={quantity}
                       onChange={(e) => {
@@ -319,7 +300,7 @@ const StockDetailPage = () => {
                           setQuantity(
                             orderType === "sell" && maxQuantityByHolding === 0
                               ? 0
-                              : 1
+                              : 1,
                           );
                           return;
                         }
@@ -332,8 +313,8 @@ const StockDetailPage = () => {
                           orderType === "sell"
                             ? maxQuantityByHolding
                             : maxQuantityByHolding > 0
-                            ? maxQuantityByHolding
-                            : undefined;
+                              ? maxQuantityByHolding
+                              : undefined;
                         const clamped =
                           maxQ != null
                             ? Math.min(Math.max(val, minQ), maxQ)
@@ -349,8 +330,8 @@ const StockDetailPage = () => {
                           orderType === "sell"
                             ? maxQuantityByHolding
                             : maxQuantityByHolding > 0
-                            ? maxQuantityByHolding
-                            : undefined;
+                              ? maxQuantityByHolding
+                              : undefined;
                         if (quantity < minQ) setQuantity(minQ);
                         else if (maxQ != null && quantity > maxQ)
                           setQuantity(maxQ);

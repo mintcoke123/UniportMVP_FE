@@ -5,10 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   getChatMessages,
   sendChatMessage,
-  getChatWebSocketUrl,
   getVotes,
-  createVote,
-  submitVote as submitVoteApi,
   getGroupPortfolio,
   getMyMatchingRooms,
   getMatchingRooms,
@@ -18,16 +15,14 @@ import type {
   ChatMessageItem,
   VoteItem,
   GroupPortfolioResponse,
-  GroupHoldingItem,
   MatchingRoom,
 } from "../../types";
 
 const CAPACITY = 3;
-const STORAGE_KEY_SELECTED_ROOM = "uniport_selected_room_id";
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const { user, updateUserTeam } = useAuth();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -46,9 +41,6 @@ export default function ChatPage() {
   const [actionRoomId, setActionRoomId] = useState<string | null>(null);
   /** GET 채팅 목록 403 시 표시 (해당 그룹 멤버 아님) */
   const [chatError, setChatError] = useState<string | null>(null);
-  /** WebSocket 연결 여부. false면 메시지 전송 시 REST로 fallback */
-  const [wsConnected, setWsConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
 
   const isInRoom = (room: MatchingRoom) =>
     room.isJoined === true ||
@@ -89,37 +81,12 @@ export default function ChatPage() {
       .then((list) => {
         if (list.length > 0) {
           setMyRooms(list);
-          const startedRoom = list.find((r) => r.status === "started");
-          if (startedRoom && (!user?.teamId || !String(user.teamId).startsWith("team-"))) {
-            const teamId = "team-" + startedRoom.id.replace(/^room-/, "");
-            updateUserTeam(teamId);
-          }
           setSelectedRoomId((prev) => {
-            const teamRoomId =
-              user?.teamId && String(user.teamId).startsWith("team-")
-                ? "room-" + String(user.teamId).slice(5)
-                : null;
-            const inListTeam =
-              teamRoomId && list.some((r) => r.id === teamRoomId);
-            const saved =
-              typeof localStorage !== "undefined"
-                ? localStorage.getItem(STORAGE_KEY_SELECTED_ROOM)
-                : null;
-            const inList = saved && list.some((r) => r.id === saved);
             const first =
               list.find((r) => r.status === "started") ??
               list.find((r) => r.status === "full") ??
               list[0];
-            const next = inListTeam
-              ? teamRoomId
-              : inList
-                ? saved
-                : prev && list.some((r) => r.id === prev)
-                  ? prev
-                  : (first?.id ?? null);
-            if (next && typeof localStorage !== "undefined")
-              localStorage.setItem(STORAGE_KEY_SELECTED_ROOM, next);
-            return next;
+            return prev && list.some((r) => r.id === prev) ? prev : first.id;
           });
           return;
         }
@@ -133,31 +100,11 @@ export default function ChatPage() {
           setMyRooms(joined);
           setSelectedRoomId((prev) => {
             if (joined.length === 0) return null;
-            const teamRoomId =
-              user?.teamId && String(user.teamId).startsWith("team-")
-                ? "room-" + String(user.teamId).slice(5)
-                : null;
-            const inListTeam =
-              teamRoomId && joined.some((r) => r.id === teamRoomId);
-            const saved =
-              typeof localStorage !== "undefined"
-                ? localStorage.getItem(STORAGE_KEY_SELECTED_ROOM)
-                : null;
-            const inList = saved && joined.some((r) => r.id === saved);
             const first =
               joined.find((r) => r.status === "started") ??
               joined.find((r) => r.status === "full") ??
               joined[0];
-            const next = inListTeam
-              ? teamRoomId
-              : inList
-                ? saved
-                : prev && joined.some((r) => r.id === prev)
-                  ? prev
-                  : (first?.id ?? null);
-            if (next && typeof localStorage !== "undefined")
-              localStorage.setItem(STORAGE_KEY_SELECTED_ROOM, next);
-            return next;
+            return prev && joined.some((r) => r.id === prev) ? prev : first.id;
           });
         });
       })
@@ -172,31 +119,11 @@ export default function ChatPage() {
           setMyRooms(joined);
           setSelectedRoomId((prev) => {
             if (joined.length === 0) return null;
-            const teamRoomId =
-              user?.teamId && String(user.teamId).startsWith("team-")
-                ? "room-" + String(user.teamId).slice(5)
-                : null;
-            const inListTeam =
-              teamRoomId && joined.some((r) => r.id === teamRoomId);
-            const saved =
-              typeof localStorage !== "undefined"
-                ? localStorage.getItem(STORAGE_KEY_SELECTED_ROOM)
-                : null;
-            const inList = saved && joined.some((r) => r.id === saved);
             const first =
               joined.find((r) => r.status === "started") ??
               joined.find((r) => r.status === "full") ??
               joined[0];
-            const next = inListTeam
-              ? teamRoomId
-              : inList
-                ? saved
-                : prev && joined.some((r) => r.id === prev)
-                  ? prev
-                  : (first?.id ?? null);
-            if (next && typeof localStorage !== "undefined")
-              localStorage.setItem(STORAGE_KEY_SELECTED_ROOM, next);
-            return next;
+            return prev && joined.some((r) => r.id === prev) ? prev : first.id;
           });
         });
       })
@@ -210,115 +137,31 @@ export default function ChatPage() {
     });
   }, []);
 
-  // WebSocket 채팅: groupId 변경 시 연결/해제, 수신 메시지 실시간 반영
   useEffect(() => {
     if (myWaitingRoom) return;
-    if (groupId == null || !user) {
+    if (groupId == null) {
       setMessages([]);
       setVotes([]);
       setGroupPortfolioData(null);
       setChatError(null);
-      setWsConnected(false);
-      const ws = wsRef.current;
-      if (ws) {
-        ws.close();
-        wsRef.current = null;
-      }
       return;
     }
-
-    const url = getChatWebSocketUrl(groupId);
-    if (!url) {
-      setChatError(null);
-      getChatMessages(groupId)
-        .then((msgs) => setMessages(msgs))
-        .catch((e) => {
-          setMessages([]);
-          setChatError(e?.message ?? "채팅을 불러올 수 없습니다.");
-        });
-      getVotes(groupId).then(setVotes);
-      getGroupPortfolio(groupId).then(setGroupPortfolioData).catch(() => setGroupPortfolioData(null));
-      return;
-    }
-
     setChatError(null);
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setWsConnected(true);
-      getChatMessages(groupId)
-        .then((msgs) => setMessages(msgs))
-        .catch((e) => {
-          setMessages([]);
-          setChatError(e?.message ?? "이 그룹의 멤버가 아닙니다.");
-        });
-      getVotes(groupId).then(setVotes);
-      getGroupPortfolio(groupId)
-        .then(setGroupPortfolioData)
-        .catch((e) => {
-          setGroupPortfolioData(null);
-          fetch(
-            "http://127.0.0.1:7242/ingest/a6a64c35-8528-46cf-81e3-5dc882525cc5",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                location: "chat:getGroupPortfolio:error",
-                message: "portfolio failed",
-                data: { groupId, err: String(e?.message ?? e) },
-                timestamp: Date.now(),
-                sessionId: "debug-session",
-                hypothesisId: "H1,H5",
-              }),
-            },
-          ).catch(() => {});
-        });
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string) as Record<string, unknown>;
-        const id = typeof data.id === "number" ? data.id : null;
-        if (id == null) return;
-        const type = (data.type as string) || "user";
-        const userId = typeof data.userId === "number" ? data.userId : 0;
-        const userNickname = typeof data.userNickname === "string" ? data.userNickname : "";
-        const message = typeof data.message === "string" ? data.message : undefined;
-        const timestamp = typeof data.timestamp === "string" ? data.timestamp : "";
-        const tradeData = data.tradeData ?? null;
-        const item: ChatMessageItem = {
-          id,
-          type: type === "trade" ? "trade" : "user",
-          userId,
-          userNickname,
-          message: message ?? null,
-          timestamp,
-          tradeData: tradeData as ChatMessageItem["tradeData"],
-        };
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === item.id)) return prev;
-          return [...prev, item];
-        });
-      } catch {
-        // ignore non-JSON or invalid payloads
-      }
-    };
-
-    ws.onclose = () => {
-      setWsConnected(false);
-      wsRef.current = null;
-    };
-    ws.onerror = () => {
-      setWsConnected(false);
-    };
-
-    return () => {
-      ws.close();
-      wsRef.current = null;
-      setWsConnected(false);
-    };
-  }, [myWaitingRoom, groupId, user?.id]);
+    getChatMessages(groupId)
+      .then((msgs) => {
+        setMessages(msgs);
+        setChatError(null);
+      })
+      .catch((e) => {
+        setMessages([]);
+        setChatError(
+          e?.message ??
+            "이 그룹의 멤버가 아닙니다. 해당 채팅방에 참가한 멤버만 읽고 쓸 수 있습니다.",
+        );
+      });
+    getVotes(groupId).then(setVotes);
+    getGroupPortfolio(groupId).then(setGroupPortfolioData);
+  }, [myWaitingRoom, groupId]);
 
   const handleLeaveFromChat = async (roomId: string) => {
     setActionRoomId(roomId);
@@ -333,12 +176,6 @@ export default function ChatPage() {
   const [showVoteSuccessModal, setShowVoteSuccessModal] = useState(false);
   const [passedVote, setPassedVote] = useState<VoteItem | null>(null);
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
-  /** 매도 투표 생성 모달: 열린 보유 종목. null이면 모달 비표시 */
-  const [sellVoteModalHolding, setSellVoteModalHolding] =
-    useState<GroupHoldingItem | null>(null);
-  const [sellVoteQuantity, setSellVoteQuantity] = useState<number>(0);
-  const [sellVoteReason, setSellVoteReason] = useState<string>("");
-  const [sellVoteSubmitting, setSellVoteSubmitting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 대회 종료 여부 (실제로는 API에서 가져와야 함)
@@ -361,19 +198,6 @@ export default function ChatPage() {
     const text = newMessage.trim();
     if (text === "" || groupId == null || sending) return;
 
-    const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
-          userId: currentUserId,
-          nickname: currentUserName,
-          message: text,
-        }),
-      );
-      setNewMessage("");
-      return;
-    }
-
     setSending(true);
     const result = await sendChatMessage(groupId, text);
     setSending(false);
@@ -392,26 +216,56 @@ export default function ChatPage() {
   };
 
   const handleVote = (voteId: number, voteType: "찬성" | "반대" | "보류") => {
-    if (groupId == null) return;
-    const vote = votes.find((v) => v.id === voteId);
-    if (vote && getUserVote(vote) === voteType) return;
-    submitVoteApi(groupId, voteId, voteType)
-      .then((res) => {
-        if (!res.success) {
-          alert(res.message ?? "투표 반영에 실패했습니다.");
-          return;
+    setVotes((prevVotes) => {
+      return prevVotes.map((vote) => {
+        if (vote.id !== voteId) return vote;
+
+        const existingVoteIndex = vote.votes.findIndex(
+          (v) => v.userId === currentUserId,
+        );
+        const newVotes = [...vote.votes];
+
+        if (existingVoteIndex >= 0) {
+          newVotes[existingVoteIndex] = {
+            orderId: existingVoteIndex + 1,
+            userId: currentUserId,
+            userName: currentUserName,
+            vote: voteType,
+          };
+        } else {
+          newVotes.push({
+            orderId: newVotes.length + 1,
+            userId: currentUserId,
+            userName: currentUserName,
+            vote: voteType,
+          });
         }
-        return getVotes(groupId!).then((updated) => {
-          setVotes(updated);
-          const v = updated.find((x) => x.id === voteId);
-          if (v?.status === "passed") {
-            setPassedVote(v);
-            setShowVoteSuccessModal(true);
-            getGroupPortfolio(groupId!).then(setGroupPortfolioData).catch(() => {});
-          }
-        });
-      })
-      .catch(() => alert("투표 반영에 실패했습니다."));
+
+        // 찬성/반대만 과반수·동률 판단 (보류는 제외)
+        const agreeCount = newVotes.filter((v) => v.vote === "찬성").length;
+        const disagreeCount = newVotes.filter((v) => v.vote === "반대").length;
+        const majority = Math.ceil(vote.totalMembers / 2);
+        const allVoted = newVotes.length >= vote.totalMembers;
+
+        let newStatus = vote.status;
+        if (agreeCount >= majority) {
+          newStatus = "passed";
+          setPassedVote({ ...vote, votes: newVotes, status: "passed" });
+          setShowVoteSuccessModal(true);
+        } else if (disagreeCount >= majority) {
+          newStatus = "rejected";
+        } else if (allVoted && agreeCount === disagreeCount) {
+          // 모두 투표했을 때 동률이면 무효(반대)
+          newStatus = "rejected";
+        }
+
+        return {
+          ...vote,
+          votes: newVotes,
+          status: newStatus,
+        };
+      });
+    });
   };
 
   const getVoteCount = (vote: VoteItem, type: "찬성" | "반대" | "보류") => {
@@ -444,7 +298,7 @@ export default function ChatPage() {
     },
     userNickname: string,
   ) => {
-    // 해당 거래 계획에 대한 투표 생성 (채팅방 정원 3명 기준)
+    // 해당 거래 계획에 대한 투표 생성
     const newVote: VoteItem = {
       id: votes.length + 1,
       type: tradeData.action,
@@ -457,7 +311,7 @@ export default function ChatPage() {
       createdAt: new Date().toISOString().slice(0, 16).replace("T", " "),
       expiresAt: "24시간 후 만료",
       votes: [],
-      totalMembers: CAPACITY,
+      totalMembers: 5,
       status: "ongoing",
     };
 
@@ -746,14 +600,32 @@ export default function ChatPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSellVoteModalHolding(holding);
-                                setSellVoteQuantity(holding.quantity);
-                                setSellVoteReason("");
+                                const newVote: VoteItem = {
+                                  id: votes.length + 1,
+                                  type: "매도",
+                                  stockName: holding.stockName,
+                                  proposerId: currentUserId,
+                                  proposerName: currentUserName,
+                                  quantity: holding.quantity,
+                                  proposedPrice: holding.currentPrice,
+                                  reason: `${holding.stockName} 전량 시장가 매도 제안입니다. 현재 보유 수량 ${holding.quantity}주를 모두 처분하고자 합니다.`,
+                                  createdAt: new Date()
+                                    .toISOString()
+                                    .slice(0, 16)
+                                    .replace("T", " "),
+                                  expiresAt: "24시간 후 만료",
+                                  votes: [],
+                                  totalMembers: 5,
+                                  status: "ongoing",
+                                };
+                                setVotes([newVote, ...votes]);
+                                setSelectedStock(null);
+                                setRightPanelTab("vote");
                               }}
                               className="w-full py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 cursor-pointer"
                             >
                               <i className="ri-arrow-down-line mr-1"></i>
-                              매도 투표 생성
+                              처분 투표 생성
                             </button>
                           )}
                         </div>
@@ -774,21 +646,9 @@ export default function ChatPage() {
                     {myRooms.length > 1 && (
                       <select
                         value={selectedRoomId ?? ""}
-                        onChange={(e) => {
-                          const next = e.target.value || null;
-                          setSelectedRoomId(next);
-                          if (typeof localStorage !== "undefined") {
-                            if (next)
-                              localStorage.setItem(
-                                STORAGE_KEY_SELECTED_ROOM,
-                                next,
-                              );
-                            else
-                              localStorage.removeItem(
-                                STORAGE_KEY_SELECTED_ROOM,
-                              );
-                          }
-                        }}
+                        onChange={(e) =>
+                          setSelectedRoomId(e.target.value || null)
+                        }
                         className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 min-w-0 max-w-[12rem]"
                         aria-label="채팅방 선택"
                       >
@@ -856,36 +716,19 @@ export default function ChatPage() {
                           <p className="text-sm text-amber-800">{chatError}</p>
                         </div>
                       )}
-                      {groupId != null && !chatError && (
-                        <div className="flex-shrink-0 px-4 py-1.5 border-b border-gray-100 flex items-center gap-2">
-                          <span
-                            className={`inline-block w-2 h-2 rounded-full ${wsConnected ? "bg-green-500" : "bg-gray-300"}`}
-                            aria-hidden
-                          />
-                          <span className="text-xs text-gray-500">
-                            {wsConnected ? "실시간 연결됨" : "연결 중… (메시지는 저장됩니다)"}
-                          </span>
-                        </div>
-                      )}
                       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 space-y-4">
-                        {messages.map((msg) => {
-                          const isMine = msg.userId === currentUserId;
-                          return (
+                        {messages.map((msg) => (
                           <div key={msg.id}>
                             {msg.type === "user" && (
-                              <div
-                                className={`flex gap-3 ${
-                                  isMine ? "flex-row-reverse justify-end" : ""
-                                }`}
-                              >
+                              <div className="flex gap-3">
                                 <span
                                   className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
                                   aria-hidden
                                 >
                                   {msg.userNickname.charAt(0)}
                                 </span>
-                                <div className={`flex-1 min-w-0 ${isMine ? "flex flex-col items-end" : ""}`}>
-                                  <div className={`flex items-center gap-2 mb-1 ${isMine ? "flex-row-reverse" : ""}`}>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-semibold text-gray-900">
                                       {msg.userNickname}
                                     </span>
@@ -893,14 +736,8 @@ export default function ChatPage() {
                                       {msg.timestamp}
                                     </span>
                                   </div>
-                                  <div
-                                    className={`rounded-2xl px-4 py-3 shadow-sm border w-[320px] min-w-[320px] box-border ${
-                                      isMine
-                                        ? "bg-teal-500 text-white border-teal-500 rounded-tr-sm"
-                                        : "bg-white border-gray-100 rounded-tl-sm"
-                                    }`}
-                                  >
-                                    <p className={`text-sm whitespace-pre-wrap ${isMine ? "text-white" : "text-gray-800"}`}>
+                                  <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 inline-block max-w-xl">
+                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
                                       {msg.message}
                                     </p>
                                   </div>
@@ -909,19 +746,15 @@ export default function ChatPage() {
                             )}
 
                             {msg.type === "trade" && msg.tradeData && (
-                              <div
-                                className={`flex gap-3 ${
-                                  isMine ? "flex-row-reverse justify-end" : ""
-                                }`}
-                              >
+                              <div className="flex gap-3">
                                 <span
                                   className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
                                   aria-hidden
                                 >
                                   {msg.userNickname.charAt(0)}
                                 </span>
-                                <div className={`flex-1 min-w-0 ${isMine ? "flex flex-col items-end" : ""}`}>
-                                  <div className={`flex items-center gap-2 mb-1 ${isMine ? "flex-row-reverse" : ""}`}>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-semibold text-gray-900">
                                       {msg.userNickname}
                                     </span>
@@ -936,11 +769,7 @@ export default function ChatPage() {
                                         msg.userNickname || "",
                                       )
                                     }
-                                    className={`rounded-2xl p-4 shadow-sm border w-[320px] min-w-[320px] box-border cursor-pointer hover:shadow-md transition-shadow ${
-                                      isMine
-                                        ? "bg-teal-500 border-teal-500 rounded-tr-sm"
-                                        : "bg-gradient-to-br from-teal-50 to-teal-100 rounded-tl-sm border-teal-200"
-                                    }`}
+                                    className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-teal-200 max-w-xl cursor-pointer hover:shadow-md transition-shadow"
                                   >
                                     <div className="flex items-center gap-2 mb-3">
                                       <div
@@ -955,52 +784,52 @@ export default function ChatPage() {
                                     </div>
                                     <div className="space-y-2 mb-3">
                                       <div className="flex justify-between">
-                                        <span className={`text-sm ${isMine ? "text-teal-100" : "text-gray-600"}`}>
+                                        <span className="text-sm text-gray-600">
                                           종목
                                         </span>
-                                        <span className={`text-sm font-semibold ${isMine ? "text-white" : "text-gray-900"}`}>
+                                        <span className="text-sm font-semibold text-gray-900">
                                           {msg.tradeData.stockName}
                                         </span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className={`text-sm ${isMine ? "text-teal-100" : "text-gray-600"}`}>
+                                        <span className="text-sm text-gray-600">
                                           수량
                                         </span>
-                                        <span className={`text-sm font-semibold ${isMine ? "text-white" : "text-gray-900"}`}>
+                                        <span className="text-sm font-semibold text-gray-900">
                                           {msg.tradeData.quantity}주
                                         </span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className={`text-sm ${isMine ? "text-teal-100" : "text-gray-600"}`}>
+                                        <span className="text-sm text-gray-600">
                                           희망 가격
                                         </span>
-                                        <span className={`text-sm font-semibold ${isMine ? "text-white" : "text-gray-900"}`}>
+                                        <span className="text-sm font-semibold text-gray-900">
                                           {formatCurrency(
                                             msg.tradeData.pricePerShare,
                                           )}
                                         </span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className={`text-sm ${isMine ? "text-teal-100" : "text-gray-600"}`}>
+                                        <span className="text-sm text-gray-600">
                                           주문 금액
                                         </span>
-                                        <span className={`text-sm font-bold ${isMine ? "text-teal-100" : "text-teal-600"}`}>
+                                        <span className="text-sm font-bold text-teal-600">
                                           {formatCurrency(
                                             msg.tradeData.totalAmount,
                                           )}
                                         </span>
                                       </div>
                                     </div>
-                                    <div className={`border-t pt-3 mb-3 ${isMine ? "border-teal-400" : "border-teal-200"}`}>
-                                      <p className={`text-sm ${isMine ? "text-white" : "text-gray-700"}`}>
+                                    <div className="border-t border-teal-200 pt-3 mb-3">
+                                      <p className="text-sm text-gray-700">
                                         {msg.tradeData.reason}
                                       </p>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                      {msg.tradeData.tags?.map((tag, idx) => (
+                                      {msg.tradeData.tags.map((tag, idx) => (
                                         <span
                                           key={idx}
-                                          className={`px-2 py-1 text-xs font-medium rounded-full ${isMine ? "bg-white/20 text-white" : "bg-white text-teal-600"}`}
+                                          className="px-2 py-1 bg-white text-teal-600 text-xs font-medium rounded-full"
                                         >
                                           {tag}
                                         </span>
@@ -1011,8 +840,7 @@ export default function ChatPage() {
                               </div>
                             )}
                           </div>
-                          );
-                        })}
+                        ))}
                         <div ref={messagesEndRef} />
                       </div>
                       {/* 채팅 입력 */}
@@ -1127,14 +955,9 @@ export default function ChatPage() {
                                 <div className="flex justify-between text-xs text-gray-600 mt-1">
                                   <span>{vote.quantity}주</span>
                                   <span>
-                                    제안가 {formatCurrency(vote.proposedPrice)}
+                                    {formatCurrency(vote.proposedPrice)}
                                   </span>
                                 </div>
-                                {vote.executionPrice != null && (
-                                  <div className="text-xs text-teal-600 font-semibold mt-0.5">
-                                    체결가 {formatCurrency(vote.executionPrice)}
-                                  </div>
-                                )}
                                 <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                                   {vote.reason}
                                 </p>
@@ -1150,7 +973,7 @@ export default function ChatPage() {
                                   보류 {getVoteCount(vote, "보류")}
                                 </span>
                                 <span className="text-gray-400">
-                                  {vote.votes.length}/{CAPACITY}
+                                  {vote.votes.length}/{vote.totalMembers}
                                 </span>
                               </div>
                               {vote.status === "ongoing" ? (
@@ -1253,110 +1076,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* 매도 투표 생성 모달 */}
-      {sellVoteModalHolding && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              매도 투표 생성
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  종목
-                </label>
-                <p className="text-sm text-gray-900 font-semibold">
-                  {sellVoteModalHolding.stockName}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  매도 수량 (최대 {sellVoteModalHolding.quantity}주)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={sellVoteModalHolding.quantity}
-                  value={sellVoteQuantity}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!Number.isNaN(v))
-                      setSellVoteQuantity(
-                        Math.min(
-                          sellVoteModalHolding.quantity,
-                          Math.max(1, v),
-                        ),
-                      );
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  매도 이유
-                </label>
-                <textarea
-                  value={sellVoteReason}
-                  onChange={(e) => setSellVoteReason(e.target.value)}
-                  placeholder="매도 사유를 입력하세요"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => {
-                  setSellVoteModalHolding(null);
-                  setSelectedStock(null);
-                }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                disabled={groupId == null || sellVoteSubmitting}
-                onClick={async () => {
-                  if (groupId == null || sellVoteSubmitting) return;
-                  setSellVoteSubmitting(true);
-                  const reason =
-                    sellVoteReason.trim() ||
-                    `${sellVoteModalHolding.stockName} 매도 제안입니다.`;
-                  try {
-                    const res = await createVote(groupId, {
-                      type: "매도",
-                      stockName: sellVoteModalHolding.stockName,
-                      stockCode: sellVoteModalHolding.stockCode,
-                      quantity: sellVoteQuantity,
-                      proposedPrice: sellVoteModalHolding.currentPrice,
-                      reason,
-                    });
-                    if (!res.success) {
-                      alert(res.message ?? "투표 생성에 실패했습니다.");
-                      return;
-                    }
-                    const updated = await getVotes(groupId);
-                    setVotes(updated);
-                    setSellVoteModalHolding(null);
-                    setSelectedStock(null);
-                    setRightPanelTab("vote");
-                  } catch (e) {
-                    alert("투표 생성에 실패했습니다.");
-                  } finally {
-                    setSellVoteSubmitting(false);
-                  }
-                }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sellVoteSubmitting ? "생성 중..." : "투표 생성"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 매수/매도 계획 공유 모달 */}
       {showTradeModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-5">
@@ -1429,9 +1148,7 @@ export default function ChatPage() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">체결가</span>
                 <span className="text-sm font-semibold">
-                  {formatCurrency(
-                    passedVote.executionPrice ?? passedVote.proposedPrice,
-                  )}
+                  {formatCurrency(passedVote.proposedPrice)}
                 </span>
               </div>
             </div>
