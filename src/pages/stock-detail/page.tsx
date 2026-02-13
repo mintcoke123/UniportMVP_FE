@@ -5,6 +5,8 @@ import {
   sendTradeMessage,
   createVote,
   getMyMatchingRooms,
+  getGroupPortfolio,
+  getMyGroupPortfolio,
 } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import Header from "../../components/feature/Header";
@@ -70,6 +72,31 @@ const StockDetailPage = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  /** 팀 보유 수량 (종목 상세 API에 없을 때 그룹 포트폴리오로 보충) */
+  const [teamHoldQuantityFallback, setTeamHoldQuantityFallback] = useState<
+    number | null
+  >(null);
+
+  useEffect(() => {
+    if (!stock || stock.myHolding != null) {
+      setTeamHoldQuantityFallback(null);
+      return;
+    }
+    const gid = teamIdToGroupId(user?.teamId ?? null);
+    if (gid == null) return;
+    const fetchPortfolio = gid > 0 ? () => getGroupPortfolio(gid) : getMyGroupPortfolio;
+    fetchPortfolio()
+      .then((res) => {
+        if (!res?.holdings?.length) return;
+        const code = (stock.code || "").trim();
+        const match = res.holdings.find(
+          (h) => (h.stockCode || "").trim() === code
+        );
+        if (match) setTeamHoldQuantityFallback(match.quantity ?? 0);
+        else setTeamHoldQuantityFallback(null);
+      })
+      .catch(() => setTeamHoldQuantityFallback(null));
+  }, [stock?.id, stock?.code, stock?.myHolding, user?.teamId]);
 
   if (loading) {
     return (
@@ -103,15 +130,16 @@ const StockDetailPage = () => {
   const isPositive = stock.change >= 0;
   const totalOrderAmount = quantity * pricePerShare;
 
-  /** 현재 내 그룹의 해당 주식 보유량 (매도 시 거래 수량 최대값) */
-  const maxQuantityByHolding = stock.myHolding?.quantity ?? 0;
+  /** 현재 팀의 해당 주식 보유 수량 (매도 시 최대값). API myHolding 우선, 없으면 그룹 포트폴리오 보충 */
+  const maxQuantityByHolding =
+    stock.myHolding?.quantity ?? teamHoldQuantityFallback ?? 0;
 
   const handleOpenModal = (type: OrderType) => {
     setOrderType(type);
     setPricePerShare(stock.currentPrice);
     const maxQty = maxQuantityByHolding;
     if (type === "sell") {
-      setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 0);
+      setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 1);
     } else {
       setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 1);
     }
@@ -136,6 +164,22 @@ const StockDetailPage = () => {
   const handleConfirm = async () => {
     if (isConfirming) return;
     setShareError(null);
+    if (quantity <= 0) {
+      setShareError("1주 이상만 매수/매도할 수 있습니다.");
+      return;
+    }
+    if (orderType === "sell") {
+      if (maxQuantityByHolding <= 0) {
+        setShareError("팀 보유 수량이 없어 매도할 수 없습니다.");
+        return;
+      }
+      if (quantity > maxQuantityByHolding) {
+        setShareError(
+          `보유 수량(${maxQuantityByHolding.toLocaleString()}주)을 초과해 매도할 수 없습니다.`
+        );
+        return;
+      }
+    }
     setIsConfirming(true);
 
     try {
@@ -251,19 +295,45 @@ const StockDetailPage = () => {
       {/* Chart */}
       <StockChart stockName={displayName} stockCode={stock.code} />
 
-      {/* My Holding */}
+      {/* 팀 보유 수량 표기 */}
+      <div className="bg-white mt-2 px-5 py-4 border-b border-gray-100">
+        <p className="text-sm text-gray-500 mb-1">팀 보유 수량</p>
+        <p className="text-lg font-bold text-gray-900">
+          {maxQuantityByHolding.toLocaleString()}주
+        </p>
+      </div>
+
+      {/* My Holding (상세: 평단가·평가금액 등) */}
       {stock.myHolding && <MyHolding holding={stock.myHolding} />}
+
+      {/* 팀 보유만 있고 상세 없을 때 */}
+      {!stock.myHolding && maxQuantityByHolding > 0 && (
+        <div className="bg-white mt-2 px-5 py-4">
+          <p className="text-sm text-gray-500">팀 보유내역</p>
+          <p className="text-base font-semibold mt-1">
+            {maxQuantityByHolding.toLocaleString()}주 보유
+          </p>
+        </div>
+      )}
 
       {/* Buy/Sell Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-4 z-50">
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => handleOpenModal("sell")}
-            className="flex-1 py-3.5 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors cursor-pointer whitespace-nowrap"
+            disabled={maxQuantityByHolding <= 0}
+            className="flex-1 py-3.5 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              maxQuantityByHolding <= 0
+                ? "팀 보유 수량이 없어 매도할 수 없습니다."
+                : undefined
+            }
           >
             매도
           </button>
           <button
+            type="button"
             onClick={() => handleOpenModal("buy")}
             className="flex-1 py-3.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap"
           >
@@ -306,11 +376,7 @@ const StockDetailPage = () => {
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
-                      min={
-                        orderType === "sell" && maxQuantityByHolding === 0
-                          ? 0
-                          : 1
-                      }
+                      min={1}
                       max={
                         orderType === "sell"
                           ? maxQuantityByHolding
@@ -322,18 +388,11 @@ const StockDetailPage = () => {
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
                         if (e.target.value === "") {
-                          setQuantity(
-                            orderType === "sell" && maxQuantityByHolding === 0
-                              ? 0
-                              : 1,
-                          );
+                          setQuantity(1);
                           return;
                         }
                         if (Number.isNaN(val)) return;
-                        const minQ =
-                          orderType === "sell" && maxQuantityByHolding === 0
-                            ? 0
-                            : 1;
+                        const minQ = 1;
                         const maxQ =
                           orderType === "sell"
                             ? maxQuantityByHolding
@@ -347,10 +406,7 @@ const StockDetailPage = () => {
                         setQuantity(clamped);
                       }}
                       onBlur={() => {
-                        const minQ =
-                          orderType === "sell" && maxQuantityByHolding === 0
-                            ? 0
-                            : 1;
+                        const minQ = 1;
                         const maxQ =
                           orderType === "sell"
                             ? maxQuantityByHolding
@@ -515,7 +571,7 @@ const StockDetailPage = () => {
               <button
                 type="button"
                 onClick={handleConfirm}
-                disabled={isConfirming}
+                disabled={isConfirming || quantity <= 0}
                 className={`flex-1 py-4 font-semibold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                   orderType === "buy"
                     ? "text-red-500 hover:bg-red-50"
