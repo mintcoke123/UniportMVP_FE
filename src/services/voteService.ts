@@ -3,12 +3,47 @@
  * 투표 생성. POST /api/groups/:groupId/votes
  * @see docs/API_SPEC.md §8
  */
-import type { VoteItem } from "../types";
+import type { VoteItem, VoteParticipant } from "../types";
 import { apiGet, apiPost } from "./apiClient";
+
+/** 백엔드가 snake_case로 오면 camelCase로 맞춤 (total_members → totalMembers 등) */
+function normalizeVoteItem(raw: Record<string, unknown>): VoteItem {
+  const votes = (raw.votes as Record<string, unknown>[] | undefined) ?? [];
+  return {
+    id: Number(raw.id ?? raw.voteId ?? 0),
+    type: (raw.type as VoteItem["type"]) ?? "매도",
+    stockName: String(raw.stockName ?? raw.stock_name ?? ""),
+    proposerId: Number(raw.proposerId ?? raw.proposer_id ?? 0),
+    proposerName: String(raw.proposerName ?? raw.proposer_name ?? ""),
+    quantity: Number(raw.quantity ?? 0),
+    proposedPrice: Number(raw.proposedPrice ?? raw.proposed_price ?? 0),
+    executionPrice:
+      raw.executionPrice != null
+        ? Number(raw.executionPrice)
+        : raw.execution_price != null
+          ? Number(raw.execution_price)
+          : null,
+    reason: String(raw.reason ?? ""),
+    createdAt: String(raw.createdAt ?? raw.created_at ?? ""),
+    expiresAt: String(raw.expiresAt ?? raw.expires_at ?? ""),
+    votes: votes.map((p) => ({
+      orderId: Number(p.orderId ?? p.order_id ?? 0),
+      userId: Number(p.userId ?? p.user_id ?? 0),
+      userName: String(p.userName ?? p.user_name ?? ""),
+      vote: (p.vote as VoteParticipant["vote"]) ?? "보류",
+    })),
+    totalMembers: Number(raw.totalMembers ?? raw.total_members ?? 0),
+    status: (raw.status as VoteItem["status"]) ?? "ongoing",
+  };
+}
 
 export async function getVotes(groupId?: number): Promise<VoteItem[]> {
   if (groupId == null) return [];
-  return await apiGet<VoteItem[]>(`/api/groups/${groupId}/votes`);
+  const rawList = await apiGet<unknown>(`/api/groups/${groupId}/votes`);
+  if (!Array.isArray(rawList)) return [];
+  return rawList.map((raw) =>
+    normalizeVoteItem(raw as Record<string, unknown>)
+  );
 }
 
 export interface CreateVotePayload {

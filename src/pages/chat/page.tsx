@@ -8,6 +8,7 @@ import {
   getChatWebSocketUrl,
   getVotes,
   submitVote as submitVoteApi,
+  createVote,
   getGroupPortfolio,
   getMyMatchingRooms,
   getMatchingRooms,
@@ -249,6 +250,10 @@ export default function ChatPage() {
   const [passedVote, setPassedVote] = useState<VoteItem | null>(null);
   /** 투표 제출 중인 항목 ID — 중복 클릭 방지 */
   const [votingVoteId, setVotingVoteId] = useState<number | null>(null);
+  /** 처분 투표 생성 중인 보유 종목 ID — 중복 생성 방지 */
+  const [creatingVoteStockId, setCreatingVoteStockId] = useState<number | null>(
+    null,
+  );
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -644,34 +649,53 @@ export default function ChatPage() {
                           </div>
                           {isSelected && (
                             <button
-                              onClick={(e) => {
+                              type="button"
+                              disabled={
+                                groupId == null ||
+                                creatingVoteStockId === holding.id
+                              }
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                const newVote: VoteItem = {
-                                  id: votes.length + 1,
-                                  type: "매도",
-                                  stockName: holding.stockName,
-                                  proposerId: currentUserId,
-                                  proposerName: currentUserName,
-                                  quantity: holding.quantity,
-                                  proposedPrice: holding.currentPrice,
-                                  reason: `${holding.stockName} 전량 시장가 매도 제안입니다. 현재 보유 수량 ${holding.quantity}주를 모두 처분하고자 합니다.`,
-                                  createdAt: new Date()
-                                    .toISOString()
-                                    .slice(0, 16)
-                                    .replace("T", " "),
-                                  expiresAt: "24시간 후 만료",
-                                  votes: [],
-                                  totalMembers: 5,
-                                  status: "ongoing",
-                                };
-                                setVotes([newVote, ...votes]);
-                                setSelectedStock(null);
-                                setRightPanelTab("vote");
+                                if (groupId == null || creatingVoteStockId != null)
+                                  return;
+                                setCreatingVoteStockId(holding.id);
+                                const reason = `${holding.stockName} 전량 시장가 매도 제안입니다. 현재 보유 수량 ${holding.quantity}주를 모두 처분하고자 합니다.`;
+                                try {
+                                  const res = await createVote(groupId, {
+                                    type: "매도",
+                                    stockName: holding.stockName,
+                                    stockCode: holding.stockCode,
+                                    quantity: holding.quantity,
+                                    proposedPrice: holding.currentPrice,
+                                    reason,
+                                  });
+                                  if (res.success) {
+                                    const updated = await getVotes(groupId);
+                                    setVotes(updated);
+                                    setSelectedStock(null);
+                                    setRightPanelTab("vote");
+                                  } else {
+                                    alert(res.message ?? "처분 투표 생성에 실패했습니다.");
+                                  }
+                                } catch {
+                                  alert("처분 투표 생성에 실패했습니다.");
+                                } finally {
+                                  setCreatingVoteStockId(null);
+                                }
                               }}
-                              className="w-full py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 cursor-pointer"
+                              className="w-full py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <i className="ri-arrow-down-line mr-1"></i>
-                              처분 투표 생성
+                              {creatingVoteStockId === holding.id ? (
+                                <>
+                                  <i className="ri-loader-4-line mr-1 animate-spin" aria-hidden />
+                                  생성 중...
+                                </>
+                              ) : (
+                                <>
+                                  <i className="ri-arrow-down-line mr-1"></i>
+                                  처분 투표 생성
+                                </>
+                              )}
                             </button>
                           )}
                         </div>
@@ -1030,7 +1054,10 @@ export default function ChatPage() {
                                   보류 {getVoteCount(vote, "보류")}
                                 </span>
                                 <span className="text-gray-400">
-                                  {vote.votes.length}/{vote.totalMembers}
+                                  {vote.votes.length}/
+                                  {selectedRoom?.memberCount ??
+                                    selectedRoom?.capacity ??
+                                    vote.totalMembers}
                                 </span>
                               </div>
                               {vote.status === "ongoing" ? (
