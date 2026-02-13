@@ -13,6 +13,7 @@ function normalizeVoteItem(raw: Record<string, unknown>): VoteItem {
     id: Number(raw.id ?? raw.voteId ?? 0),
     type: (raw.type as VoteItem["type"]) ?? "매도",
     stockName: String(raw.stockName ?? raw.stock_name ?? ""),
+    stockCode: raw.stockCode != null ? String(raw.stockCode) : raw.stock_code != null ? String(raw.stock_code) : undefined,
     proposerId: Number(raw.proposerId ?? raw.proposer_id ?? 0),
     proposerName: String(raw.proposerName ?? raw.proposer_name ?? ""),
     quantity: Number(raw.quantity ?? 0),

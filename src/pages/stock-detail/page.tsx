@@ -4,6 +4,7 @@ import {
   getStockDetail,
   sendTradeMessage,
   createVote,
+  getVotes,
   getMyMatchingRooms,
   getGroupPortfolio,
   getMyGroupPortfolio,
@@ -12,7 +13,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import Header from "../../components/feature/Header";
 import StockChart from "./components/StockChart";
 import MyHolding from "./components/MyHolding";
-import type { StockDetailResponse } from "../../types";
+import type { StockDetailResponse, VoteItem } from "../../types";
 
 type OrderType = "buy" | "sell" | null;
 
@@ -76,6 +77,8 @@ const StockDetailPage = () => {
   const [teamHoldQuantityFallback, setTeamHoldQuantityFallback] = useState<
     number | null
   >(null);
+  /** 그룹 투표 목록 (같은 종목 중복 매수/매도 투표 방지용) */
+  const [groupVotes, setGroupVotes] = useState<VoteItem[]>([]);
 
   useEffect(() => {
     if (!stock || stock.myHolding != null) {
@@ -97,6 +100,29 @@ const StockDetailPage = () => {
       })
       .catch(() => setTeamHoldQuantityFallback(null));
   }, [stock?.id, stock?.code, stock?.myHolding, user?.teamId]);
+
+  /** 그룹 투표 목록 로드 (매수/매도 버튼 비활성 판단용) */
+  useEffect(() => {
+    if (!stock) return;
+    let gid = teamIdToGroupId(user?.teamId ?? null);
+    if (gid == null && typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY_SELECTED_ROOM);
+      if (saved) gid = roomIdToGroupId(saved);
+    }
+    if (gid == null) return;
+    getVotes(gid).then(setGroupVotes).catch(() => setGroupVotes([]));
+  }, [stock?.id, user?.teamId]);
+
+  /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true */
+  const hasOngoingVoteForStock = (type: "매수" | "매도") => {
+    const norm = (s: string | undefined) => String(s ?? "").trim();
+    return groupVotes.some(
+      (v) =>
+        v.status === "ongoing" &&
+        norm(v.stockCode) === norm(stock.code) &&
+        v.type === type
+    );
+  };
 
   if (loading) {
     return (
@@ -180,23 +206,42 @@ const StockDetailPage = () => {
         return;
       }
     }
+
+    let groupId = teamIdToGroupId(user?.teamId ?? null);
+    if (groupId == null && typeof localStorage !== "undefined") {
+      const savedRoomId = localStorage.getItem(STORAGE_KEY_SELECTED_ROOM);
+      if (savedRoomId) groupId = roomIdToGroupId(savedRoomId);
+    }
+    if (groupId == null) {
+      const rooms = await getMyMatchingRooms().catch(() => []);
+      const room =
+        rooms.find((r) => r.status === "started") ??
+        rooms.find((r) => r.status === "full") ??
+        rooms[0];
+      groupId = room ? (roomIdToGroupId(room.id) ?? null) : null;
+    }
+
+    if (groupId != null) {
+      const voteType = orderType === "buy" ? "매수" : "매도";
+      const norm = (s: string | undefined) => String(s ?? "").trim();
+      const existingVotes = await getVotes(groupId);
+      const hasOngoing = existingVotes.some(
+        (v) =>
+          v.status === "ongoing" &&
+          norm(v.stockCode) === norm(stock.code) &&
+          v.type === voteType
+      );
+      if (hasOngoing) {
+        setShareError(
+          `이미 해당 종목에 대한 ${voteType} 투표가 진행 중입니다.`
+        );
+        return;
+      }
+    }
+
     setIsConfirming(true);
 
     try {
-      let groupId = teamIdToGroupId(user?.teamId ?? null);
-      if (groupId == null && typeof localStorage !== "undefined") {
-        const savedRoomId = localStorage.getItem(STORAGE_KEY_SELECTED_ROOM);
-        if (savedRoomId) groupId = roomIdToGroupId(savedRoomId);
-      }
-      if (groupId == null) {
-        const rooms = await getMyMatchingRooms().catch(() => []);
-        const room =
-          rooms.find((r) => r.status === "started") ??
-          rooms.find((r) => r.status === "full") ??
-          rooms[0];
-        groupId = room ? (roomIdToGroupId(room.id) ?? null) : null;
-      }
-
       if (groupId != null) {
         const action = orderType === "buy" ? "매수" : "매도";
         const tradeData = {
@@ -322,12 +367,16 @@ const StockDetailPage = () => {
           <button
             type="button"
             onClick={() => handleOpenModal("sell")}
-            disabled={maxQuantityByHolding <= 0}
+            disabled={
+              maxQuantityByHolding <= 0 || hasOngoingVoteForStock("매도")
+            }
             className="flex-1 py-3.5 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             title={
               maxQuantityByHolding <= 0
                 ? "팀 보유 수량이 없어 매도할 수 없습니다."
-                : undefined
+                : hasOngoingVoteForStock("매도")
+                  ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
+                  : undefined
             }
           >
             매도
@@ -335,7 +384,13 @@ const StockDetailPage = () => {
           <button
             type="button"
             onClick={() => handleOpenModal("buy")}
-            className="flex-1 py-3.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap"
+            disabled={hasOngoingVoteForStock("매수")}
+            className="flex-1 py-3.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              hasOngoingVoteForStock("매수")
+                ? "이미 해당 종목에 대한 매수 투표가 진행 중입니다."
+                : undefined
+            }
           >
             매수
           </button>

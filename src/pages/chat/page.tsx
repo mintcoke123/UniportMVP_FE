@@ -76,6 +76,20 @@ export default function ChatPage() {
         myRooms[0]);
   const groupId = selectedRoom ? roomIdToGroupId(selectedRoom.id) : undefined;
 
+  /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true */
+  const hasOngoingVoteForStock = (
+    stockCode: string | undefined,
+    type: "매수" | "매도"
+  ) => {
+    const norm = (s: string | undefined) => String(s ?? "").trim();
+    return votes.some(
+      (v) =>
+        v.status === "ongoing" &&
+        norm(v.stockCode) === norm(stockCode) &&
+        v.type === type
+    );
+  };
+
   useEffect(() => {
     if (!user || myWaitingRoom) {
       setMyRooms([]);
@@ -653,12 +667,19 @@ export default function ChatPage() {
                               type="button"
                               disabled={
                                 groupId == null ||
-                                creatingVoteStockId === holding.id
+                                creatingVoteStockId === holding.id ||
+                                hasOngoingVoteForStock(holding.stockCode, "매도")
+                              }
+                              title={
+                                hasOngoingVoteForStock(holding.stockCode, "매도")
+                                  ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
+                                  : undefined
                               }
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 if (groupId == null || creatingVoteStockId != null)
                                   return;
+                                if (hasOngoingVoteForStock(holding.stockCode, "매도")) return;
                                 setCreatingVoteStockId(holding.id);
                                 const reason = `${holding.stockName} 전량 시장가 매도 제안입니다. 현재 보유 수량 ${holding.quantity}주를 모두 처분하고자 합니다.`;
                                 try {
@@ -693,6 +714,11 @@ export default function ChatPage() {
                                 <>
                                   <i className="ri-loader-4-line mr-1 animate-spin" aria-hidden />
                                   생성 중...
+                                </>
+                              ) : hasOngoingVoteForStock(holding.stockCode, "매도") ? (
+                                <>
+                                  <i className="ri-time-line mr-1" aria-hidden />
+                                  매도 투표 진행 중
                                 </>
                               ) : (
                                 <>

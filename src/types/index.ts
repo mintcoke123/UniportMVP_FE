@@ -239,6 +239,8 @@ export interface VoteItem {
   id: number;
   type: "매수" | "매도";
   stockName: string;
+  /** 종목 코드 (같은 종목 중복 투표 방지용) */
+  stockCode?: string;
   proposerId: number;
   proposerName: string;
   quantity: number;
