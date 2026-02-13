@@ -20,6 +20,7 @@ import type {
   GroupPortfolioResponse,
   MatchingRoom,
 } from "../../types";
+import type { ApiError } from "../../services/apiClient";
 
 const CAPACITY = 3;
 
@@ -677,8 +678,11 @@ export default function ChatPage() {
                                   } else {
                                     alert(res.message ?? "처분 투표 생성에 실패했습니다.");
                                   }
-                                } catch {
-                                  alert("처분 투표 생성에 실패했습니다.");
+                                } catch (e) {
+                                  const msg =
+                                    (e as ApiError)?.message ??
+                                    "처분 투표 생성에 실패했습니다.";
+                                  alert(msg);
                                 } finally {
                                   setCreatingVoteStockId(null);
                                 }
