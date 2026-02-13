@@ -69,6 +69,7 @@ const StockDetailPage = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   if (loading) {
     return (
@@ -133,33 +134,36 @@ const StockDetailPage = () => {
   };
 
   const handleConfirm = async () => {
+    if (isConfirming) return;
     setShareError(null);
-    let groupId = teamIdToGroupId(user?.teamId ?? null);
-    if (groupId == null && typeof localStorage !== "undefined") {
-      const savedRoomId = localStorage.getItem(STORAGE_KEY_SELECTED_ROOM);
-      if (savedRoomId) groupId = roomIdToGroupId(savedRoomId);
-    }
-    if (groupId == null) {
-      const rooms = await getMyMatchingRooms().catch(() => []);
-      const room =
-        rooms.find((r) => r.status === "started") ??
-        rooms.find((r) => r.status === "full") ??
-        rooms[0];
-      groupId = room ? (roomIdToGroupId(room.id) ?? null) : null;
-    }
+    setIsConfirming(true);
 
-    if (groupId != null) {
-      const action = orderType === "buy" ? "매수" : "매도";
-      const tradeData = {
-        action: action as "매수" | "매도",
-        stockName: displayName,
-        quantity,
-        pricePerShare,
-        totalAmount: totalOrderAmount,
-        reason: investmentLogic.trim() || `${displayName} ${action} 계획`,
-        tags: selectedTags,
-      };
-      try {
+    try {
+      let groupId = teamIdToGroupId(user?.teamId ?? null);
+      if (groupId == null && typeof localStorage !== "undefined") {
+        const savedRoomId = localStorage.getItem(STORAGE_KEY_SELECTED_ROOM);
+        if (savedRoomId) groupId = roomIdToGroupId(savedRoomId);
+      }
+      if (groupId == null) {
+        const rooms = await getMyMatchingRooms().catch(() => []);
+        const room =
+          rooms.find((r) => r.status === "started") ??
+          rooms.find((r) => r.status === "full") ??
+          rooms[0];
+        groupId = room ? (roomIdToGroupId(room.id) ?? null) : null;
+      }
+
+      if (groupId != null) {
+        const action = orderType === "buy" ? "매수" : "매도";
+        const tradeData = {
+          action: action as "매수" | "매도",
+          stockName: displayName,
+          quantity,
+          pricePerShare,
+          totalAmount: totalOrderAmount,
+          reason: investmentLogic.trim() || `${displayName} ${action} 계획`,
+          tags: selectedTags,
+        };
         await sendTradeMessage(groupId, tradeData);
         await createVote(groupId, {
           type: action as "매수" | "매도",
@@ -169,20 +173,23 @@ const StockDetailPage = () => {
           proposedPrice: pricePerShare,
           reason: tradeData.reason,
         });
-      } catch (e) {
-        setShareError(e instanceof Error ? e.message : "공유에 실패했습니다.");
-        return;
       }
-    }
 
-    setShowConfirmDialog(false);
-    setOrderType(null);
-    setShowSuccessMessage(true);
-    setTimeout(() => navigate("/chat"), 1000);
+      setShowConfirmDialog(false);
+      setOrderType(null);
+      setShowSuccessMessage(true);
+      setTimeout(() => navigate("/chat"), 1000);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : "공유에 실패했습니다.");
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const handleCancelConfirm = () => {
+    if (isConfirming) return;
     setShowConfirmDialog(false);
+    setShareError(null);
   };
 
   return (
@@ -497,21 +504,25 @@ const StockDetailPage = () => {
             {/* Dialog Buttons */}
             <div className="flex border-t border-gray-100">
               <button
+                type="button"
                 onClick={handleCancelConfirm}
-                className="flex-1 py-4 text-gray-600 font-semibold hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
+                disabled={isConfirming}
+                className="flex-1 py-4 text-gray-600 font-semibold hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 취소
               </button>
               <div className="w-px bg-gray-100"></div>
               <button
+                type="button"
                 onClick={handleConfirm}
-                className={`flex-1 py-4 font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                disabled={isConfirming}
+                className={`flex-1 py-4 font-semibold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                   orderType === "buy"
                     ? "text-red-500 hover:bg-red-50"
                     : "text-blue-500 hover:bg-blue-50"
                 }`}
               >
-                확인
+                {isConfirming ? "처리 중..." : "확인"}
               </button>
             </div>
           </div>

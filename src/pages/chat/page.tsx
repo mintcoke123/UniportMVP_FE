@@ -247,6 +247,8 @@ export default function ChatPage() {
   };
   const [showVoteSuccessModal, setShowVoteSuccessModal] = useState(false);
   const [passedVote, setPassedVote] = useState<VoteItem | null>(null);
+  /** 투표 제출 중인 항목 ID — 중복 클릭 방지 */
+  const [votingVoteId, setVotingVoteId] = useState<number | null>(null);
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -302,9 +304,11 @@ export default function ChatPage() {
 
   const handleVote = (voteId: number, voteType: "찬성" | "반대" | "보류") => {
     if (groupId == null) return;
+    if (votingVoteId === voteId) return;
     const vote = votes.find((v) => v.id === voteId);
     if (vote && getUserVote(vote) === voteType) return;
 
+    setVotingVoteId(voteId);
     submitVoteApi(groupId, voteId, voteType)
       .then((res) => {
         if (!res.success) {
@@ -323,7 +327,8 @@ export default function ChatPage() {
           }
         });
       })
-      .catch(() => alert("투표 반영에 실패했습니다."));
+      .catch(() => alert("투표 반영에 실패했습니다."))
+      .finally(() => setVotingVoteId(null));
   };
 
   const getVoteCount = (vote: VoteItem, type: "찬성" | "반대" | "보류") => {
@@ -1031,8 +1036,10 @@ export default function ChatPage() {
                               {vote.status === "ongoing" ? (
                                 <div className="flex gap-2">
                                   <button
+                                    type="button"
+                                    disabled={votingVoteId === vote.id}
                                     onClick={() => handleVote(vote.id, "찬성")}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer ${
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                                       getUserVote(vote) === "찬성"
                                         ? "bg-green-500 text-white"
                                         : "bg-green-100 text-green-600 hover:bg-green-200"
@@ -1041,8 +1048,10 @@ export default function ChatPage() {
                                     찬성
                                   </button>
                                   <button
+                                    type="button"
+                                    disabled={votingVoteId === vote.id}
                                     onClick={() => handleVote(vote.id, "보류")}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer ${
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                                       getUserVote(vote) === "보류"
                                         ? "bg-gray-500 text-white"
                                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1051,8 +1060,10 @@ export default function ChatPage() {
                                     보류
                                   </button>
                                   <button
+                                    type="button"
+                                    disabled={votingVoteId === vote.id}
                                     onClick={() => handleVote(vote.id, "반대")}
-                                    className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer ${
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                                       getUserVote(vote) === "반대"
                                         ? "bg-red-500 text-white"
                                         : "bg-red-100 text-red-600 hover:bg-red-200"
