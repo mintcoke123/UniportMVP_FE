@@ -9,6 +9,7 @@ import {
   getVotes,
   submitVote as submitVoteApi,
   createVote,
+  cancelPendingVote,
   getGroupPortfolio,
   getMyMatchingRooms,
   getMatchingRooms,
@@ -331,6 +332,8 @@ export default function ChatPage() {
   const [passedVote, setPassedVote] = useState<VoteItem | null>(null);
   /** 투표 제출 중인 항목 ID — 중복 클릭 방지 */
   const [votingVoteId, setVotingVoteId] = useState<number | null>(null);
+  /** 대기 취소 요청 중인 투표 ID */
+  const [cancellingVoteId, setCancellingVoteId] = useState<number | null>(null);
   /** 처분 투표 생성 중인 보유 종목 ID — 중복 생성 방지 */
   const [creatingVoteStockId, setCreatingVoteStockId] = useState<number | null>(
     null,
@@ -400,6 +403,14 @@ export default function ChatPage() {
         if (!res.success) {
           alert(res.message ?? "투표 반영에 실패했습니다.");
           return;
+        }
+        const responseStatus = res.vote?.status;
+        if (responseStatus) {
+          setVotes((prev) =>
+            prev.map((v) =>
+              v.id === voteId ? { ...v, status: responseStatus as VoteItem["status"] } : v
+            )
+          );
         }
         return getVotes(groupId!).then((updated) => {
           setVotes(updated);
@@ -1238,24 +1249,58 @@ export default function ChatPage() {
                                   </button>
                                 </div>
                               ) : (
-                                <div
-                                  className={`py-2 rounded-lg text-xs font-bold text-center ${
-                                    vote.status === "executed"
-                                      ? "bg-green-500 text-white"
-                                      : vote.status === "rejected"
-                                        ? "bg-red-500 text-white"
-                                        : "bg-gray-300 text-gray-600"
-                                  }`}
-                                >
-                                  {vote.status === "pending"
-                                    ? "대기"
-                                    : vote.status === "executing" || vote.status === "passed"
-                                      ? "주문 처리중"
-                                      : vote.status === "executed"
-                                        ? "✓ 체결"
+                                <div className="space-y-2">
+                                  <div
+                                    className={`py-2 rounded-lg text-xs font-bold text-center ${
+                                      vote.status === "executed"
+                                        ? "bg-green-500 text-white"
                                         : vote.status === "rejected"
-                                          ? "✗ 부결"
-                                          : "만료"}
+                                          ? "bg-red-500 text-white"
+                                          : vote.status === "cancelled"
+                                            ? "bg-gray-400 text-white"
+                                            : "bg-gray-300 text-gray-600"
+                                    }`}
+                                  >
+                                    {vote.status === "pending"
+                                      ? "대기"
+                                      : vote.status === "executing" || vote.status === "passed"
+                                        ? "주문 처리중"
+                                        : vote.status === "executed"
+                                          ? "✓ 체결"
+                                          : vote.status === "rejected"
+                                            ? "✗ 부결"
+                                            : vote.status === "cancelled"
+                                              ? "취소됨"
+                                              : "만료"}
+                                  </div>
+                                  {vote.status === "pending" &&
+                                    vote.proposerId === currentUserId &&
+                                    groupId != null && (
+                                      <button
+                                        type="button"
+                                        disabled={cancellingVoteId === vote.id}
+                                        onClick={async () => {
+                                          if (groupId == null || cancellingVoteId === vote.id) return;
+                                          setCancellingVoteId(vote.id);
+                                          try {
+                                            const res = await cancelPendingVote(groupId, vote.id);
+                                            if (res.success) {
+                                              const updated = await getVotes(groupId);
+                                              setVotes(updated);
+                                            } else {
+                                              alert(res.message ?? "대기 취소에 실패했습니다.");
+                                            }
+                                          } catch {
+                                            alert("대기 취소에 실패했습니다.");
+                                          } finally {
+                                            setCancellingVoteId(null);
+                                          }
+                                        }}
+                                        className="w-full py-1.5 rounded-lg text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 cursor-pointer disabled:opacity-50"
+                                      >
+                                        {cancellingVoteId === vote.id ? "처리 중..." : "대기 취소"}
+                                      </button>
+                                    )}
                                 </div>
                               )}
                             </div>

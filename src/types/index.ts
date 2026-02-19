@@ -262,7 +262,7 @@ export interface VoteItem {
   expiresAt: string;
   votes: VoteParticipant[];
   totalMembers: number;
-  status: "ongoing" | "passed" | "rejected" | "expired" | "pending" | "executing" | "executed";
+  status: "ongoing" | "passed" | "rejected" | "expired" | "pending" | "executing" | "executed" | "cancelled";
   orderStrategy?: "MARKET" | "LIMIT" | "CONDITIONAL";
   limitPrice?: number;
   triggerPrice?: number;

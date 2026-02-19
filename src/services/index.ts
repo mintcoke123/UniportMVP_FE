@@ -57,7 +57,7 @@ export {
   getChatWebSocketUrl,
 } from "./chatService";
 
-export { getVotes, createVote, submitVote } from "./voteService";
+export { getVotes, createVote, submitVote, cancelPendingVote } from "./voteService";
 export type { CreateVotePayload } from "./voteService";
 
 export {

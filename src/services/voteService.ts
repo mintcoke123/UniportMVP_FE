@@ -77,15 +77,31 @@ export async function createVote(
   return res;
 }
 
-/** 투표 제출 (찬성/반대/보류). POST /api/groups/:groupId/votes/:voteId */
+/** 투표 제출 (찬성/반대/보류). POST /api/groups/:groupId/votes/:voteId. 응답에 vote.status 포함 시 즉시 UI 전환용 */
 export async function submitVote(
   groupId: number,
   voteId: number,
   vote: "찬성" | "반대" | "보류"
-): Promise<{ success: boolean; message?: string }> {
-  const res = await apiPost<{ success: boolean; message?: string }>(
-    `/api/groups/${groupId}/votes/${voteId}`,
-    { vote }
-  );
+): Promise<{
+  success: boolean;
+  message?: string;
+  vote?: { id: number; vote: string; status?: string };
+}> {
+  const res = await apiPost<{
+    success: boolean;
+    message?: string;
+    vote?: { id: number; vote: string; status?: string };
+  }>(`/api/groups/${groupId}/votes/${voteId}`, { vote });
   return res;
+}
+
+/** 대기 중인 조건주문 취소. POST /api/groups/:groupId/votes/:voteId/cancel (제안자만 가능) */
+export async function cancelPendingVote(
+  groupId: number,
+  voteId: number
+): Promise<{ success: boolean; message?: string; vote?: { id: number; status: string } }> {
+  return await apiPost<{ success: boolean; message?: string; vote?: { id: number; status: string } }>(
+    `/api/groups/${groupId}/votes/${voteId}/cancel`,
+    {}
+  );
 }

@@ -295,23 +295,13 @@ const StockDetailPage = () => {
     try {
       if (groupId != null) {
         const action = orderType === "buy" ? "매수" : "매도";
-        const tradeData = {
-          action: action as "매수" | "매도",
-          stockName: displayName,
-          quantity,
-          pricePerShare: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
-          totalAmount: totalAmount ?? 0,
-          reason: investmentLogic.trim() || `${displayName} ${action} 계획`,
-          tags: selectedTags,
-        };
-        await sendTradeMessage(groupId, tradeData);
         const payload: Parameters<typeof createVote>[1] = {
           type: action as "매수" | "매도",
           stockName: displayName,
           stockCode: stock.code,
           quantity,
           proposedPrice: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
-          reason: tradeData.reason,
+          reason: investmentLogic.trim() || `${displayName} ${action} 계획`,
           orderStrategy,
         };
         if (orderStrategy === "LIMIT" && limitPrice > 0) {
@@ -321,7 +311,19 @@ const StockDetailPage = () => {
           payload.triggerPrice = triggerPrice;
           payload.triggerDirection = triggerDirection;
         }
-        await createVote(groupId, payload);
+        const createRes = await createVote(groupId, payload);
+        const voteId = createRes.voteId;
+        const tradeData = {
+          action: action as "매수" | "매도",
+          stockName: displayName,
+          quantity,
+          pricePerShare: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
+          totalAmount: totalAmount ?? 0,
+          reason: payload.reason,
+          tags: selectedTags,
+          ...(voteId != null && Number.isFinite(voteId) ? { voteId } : {}),
+        };
+        await sendTradeMessage(groupId, tradeData);
       }
 
       setShowConfirmDialog(false);
