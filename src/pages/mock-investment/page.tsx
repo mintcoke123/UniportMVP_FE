@@ -6,6 +6,7 @@ import {
   getStocksByVolume,
   getStocksByRising,
   getStocksByFalling,
+  usePriceWebSocket,
 } from "../../services";
 import type { MarketIndex, StockListItem } from "../../types";
 
@@ -60,6 +61,16 @@ export default function MockInvestmentPage() {
     });
   }, []);
 
+  /** 현재 탭의 상위 30종목 코드로 실시간 시세 구독 */
+  const tabStocks =
+    activeTab === "volume"
+      ? stocksByVolume
+      : activeTab === "rising"
+        ? stocksByRising
+        : stocksByFalling;
+  const subscribeCodes = tabStocks.slice(0, 30).map((s) => s.code);
+  const realtimeUpdates = usePriceWebSocket(subscribeCodes);
+
   const getStockList = (): StockListItem[] => {
     let stocks: StockListItem[];
     switch (activeTab) {
@@ -88,11 +99,6 @@ export default function MockInvestmentPage() {
 
   const formatNumber = (num: number) => {
     return num.toLocaleString("ko-KR");
-  };
-
-  const formatChange = (change: number, rate: number) => {
-    const sign = change >= 0 ? "+" : "";
-    return `${sign}${formatNumber(change)} (${sign}${rate.toFixed(2)}%)`;
   };
 
   const handleStockClick = (stock: StockListItem) => {
@@ -219,68 +225,74 @@ export default function MockInvestmentPage() {
           {/* 종목 리스트 */}
           <div className="divide-y divide-gray-100">
             {getStockList().length > 0 ? (
-              getStockList().map((stock, index) => (
-                <div
-                  key={`${activeTab}-${stock.code}-${index}`}
-                  onClick={() => handleStockClick(stock)}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center"
-                >
-                  <span className="hidden md:block text-sm font-medium text-gray-500 col-span-1">
-                    {index + 1}
-                  </span>
-                  <div className="flex items-center gap-3 md:col-span-4 col-span-1">
-                    <span className="md:hidden text-sm font-medium text-gray-500 w-6">
+              getStockList().map((stock, index) => {
+                const rt = realtimeUpdates[stock.code];
+                const price = rt?.currentPrice ?? stock.currentPrice;
+                const change = rt?.change ?? stock.change;
+                const changeRate = rt?.changeRate ?? stock.changeRate;
+                return (
+                  <div
+                    key={`${activeTab}-${stock.code}-${index}`}
+                    onClick={() => handleStockClick(stock)}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center"
+                  >
+                    <span className="hidden md:block text-sm font-medium text-gray-500 col-span-1">
                       {index + 1}
                     </span>
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                      style={{ backgroundColor: stock.logoColor }}
-                    >
-                      {stock.name.charAt(0)}
+                    <div className="flex items-center gap-3 md:col-span-4 col-span-1">
+                      <span className="md:hidden text-sm font-medium text-gray-500 w-6">
+                        {index + 1}
+                      </span>
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        style={{ backgroundColor: stock.logoColor }}
+                      >
+                        {stock.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900">
+                          {stock.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{stock.code}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">
-                        {stock.name}
+                    <div className="md:text-right md:col-span-2">
+                      <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                        현재가
                       </p>
-                      <p className="text-xs text-gray-500">{stock.code}</p>
+                      <p className="font-bold text-gray-900">
+                        {formatNumber(price)}원
+                      </p>
+                    </div>
+                    <div className="md:text-right md:col-span-2">
+                      <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                        등락
+                      </p>
+                      <p
+                        className={`font-semibold ${
+                          change >= 0 ? "text-red-600" : "text-blue-600"
+                        }`}
+                      >
+                        {change >= 0 ? "+" : ""}
+                        {formatNumber(change)}
+                      </p>
+                    </div>
+                    <div className="md:text-right md:col-span-3">
+                      <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                        등락률
+                      </p>
+                      <p
+                        className={`font-semibold ${
+                          changeRate >= 0 ? "text-red-600" : "text-blue-600"
+                        }`}
+                      >
+                        {changeRate >= 0 ? "+" : ""}
+                        {changeRate.toFixed(2)}%
+                      </p>
                     </div>
                   </div>
-                  <div className="md:text-right md:col-span-2">
-                    <p className="md:hidden text-xs text-gray-500 mb-0.5">
-                      현재가
-                    </p>
-                    <p className="font-bold text-gray-900">
-                      {formatNumber(stock.currentPrice)}원
-                    </p>
-                  </div>
-                  <div className="md:text-right md:col-span-2">
-                    <p className="md:hidden text-xs text-gray-500 mb-0.5">
-                      등락
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        stock.change >= 0 ? "text-red-600" : "text-blue-600"
-                      }`}
-                    >
-                      {stock.change >= 0 ? "+" : ""}
-                      {formatNumber(stock.change)}
-                    </p>
-                  </div>
-                  <div className="md:text-right md:col-span-3">
-                    <p className="md:hidden text-xs text-gray-500 mb-0.5">
-                      등락률
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        stock.change >= 0 ? "text-red-600" : "text-blue-600"
-                      }`}
-                    >
-                      {stock.change >= 0 ? "+" : ""}
-                      {stock.changeRate.toFixed(2)}%
-                    </p>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="py-16 text-center">
                 <i className="ri-search-line text-5xl text-gray-300 mb-4"></i>

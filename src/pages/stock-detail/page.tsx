@@ -8,6 +8,7 @@ import {
   getMyMatchingRooms,
   getGroupPortfolio,
   getMyGroupPortfolio,
+  usePriceWebSocket,
 } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import Header from "../../components/feature/Header";
@@ -52,6 +53,13 @@ const StockDetailPage = () => {
       .catch(() => setStock(null))
       .finally(() => setLoading(false));
   }, [stockId]);
+
+  /** 실시간 시세 (백엔드 /prices WebSocket). 있으면 표시값으로 사용 */
+  const realtimeUpdates = usePriceWebSocket(stock ? [stock.code] : []);
+  const rt = stock?.code ? realtimeUpdates[stock.code] : null;
+  const displayCurrentPrice = rt?.currentPrice ?? stock?.currentPrice ?? 0;
+  const displayChange = rt?.change ?? stock?.change ?? 0;
+  const displayChangeRate = rt?.changeRate ?? stock?.changeRate ?? 0;
 
   /** API가 '종목_코드'만 주거나 상품유형(ETF/ELW/ETN)만 줄 때는 리스트에서 넘긴 종목명 사용 */
   const expectedFallback = stock ? `종목_${stock.code}` : "";
@@ -153,7 +161,7 @@ const StockDetailPage = () => {
     );
   }
 
-  const isPositive = stock.change >= 0;
+  const isPositive = displayChange >= 0;
   const totalOrderAmount = quantity * pricePerShare;
 
   /** 현재 팀의 해당 주식 보유 수량 (매도 시 최대값). API myHolding 우선, 없으면 그룹 포트폴리오 보충 */
@@ -162,7 +170,7 @@ const StockDetailPage = () => {
 
   const handleOpenModal = (type: OrderType) => {
     setOrderType(type);
-    setPricePerShare(stock.currentPrice);
+    setPricePerShare(displayCurrentPrice);
     const maxQty = maxQuantityByHolding;
     if (type === "sell") {
       setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 1);
@@ -314,7 +322,7 @@ const StockDetailPage = () => {
 
         <div className="flex items-end gap-3">
           <p className="text-3xl font-bold">
-            {stock.currentPrice.toLocaleString()}원
+            {displayCurrentPrice.toLocaleString()}원
           </p>
           <div className="flex items-center gap-2 mb-1">
             <span
@@ -323,7 +331,7 @@ const StockDetailPage = () => {
               }`}
             >
               {isPositive ? "+" : ""}
-              {stock.change.toLocaleString()}원
+              {displayChange.toLocaleString()}원
             </span>
             <span
               className={`text-lg font-semibold ${
@@ -331,7 +339,7 @@ const StockDetailPage = () => {
               }`}
             >
               {isPositive ? "+" : ""}
-              {stock.changeRate}%
+              {displayChangeRate}%
             </span>
           </div>
         </div>

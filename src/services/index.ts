@@ -26,6 +26,12 @@ export {
 export { getStockDetail } from "./stockService";
 
 export {
+  getPriceWebSocketUrl,
+  connectPriceWebSocket,
+  usePriceWebSocket,
+} from "./priceWebSocketService";
+
+export {
   getOngoingCompetitions,
   getUpcomingCompetitions,
 } from "./competitionService";

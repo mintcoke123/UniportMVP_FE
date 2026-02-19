@@ -111,6 +111,16 @@ export interface StockNewsItem {
   summary: string;
 }
 
+/** 실시간 시세 WebSocket 수신 메시지 (백엔드 /prices 푸시) */
+export interface RealtimePriceUpdate {
+  stockCode: string;
+  currentPrice: number;
+  change: number;
+  changeRate: number;
+  volume: number;
+  updatedAtMillis: number;
+}
+
 export interface StockDetailResponse {
   id: number;
   name: string;
