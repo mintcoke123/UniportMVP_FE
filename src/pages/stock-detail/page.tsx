@@ -182,7 +182,18 @@ const StockDetailPage = () => {
   }
 
   const isPositive = displayChange >= 0;
-  const totalOrderAmount = quantity * pricePerShare;
+  const unitPrice =
+    orderStrategy === "LIMIT"
+      ? limitPrice
+      : orderStrategy === "MARKET"
+        ? displayCurrentPrice
+        : null;
+  const totalAmount =
+    orderStrategy === "LIMIT"
+      ? limitPrice * quantity
+      : orderStrategy === "MARKET"
+        ? displayCurrentPrice * quantity
+        : null;
 
   /** 현재 팀의 해당 주식 보유 수량 (매도 시 최대값). API myHolding 우선, 없으면 그룹 포트폴리오 보충 */
   const maxQuantityByHolding =
@@ -288,8 +299,8 @@ const StockDetailPage = () => {
           action: action as "매수" | "매도",
           stockName: displayName,
           quantity,
-          pricePerShare,
-          totalAmount: totalOrderAmount,
+          pricePerShare: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
+          totalAmount: totalAmount ?? 0,
           reason: investmentLogic.trim() || `${displayName} ${action} 계획`,
           tags: selectedTags,
         };
@@ -299,7 +310,7 @@ const StockDetailPage = () => {
           stockName: displayName,
           stockCode: stock.code,
           quantity,
-          proposedPrice: pricePerShare,
+          proposedPrice: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
           reason: tradeData.reason,
           orderStrategy,
         };
@@ -615,33 +626,48 @@ const StockDetailPage = () => {
                 {orderType === "buy" ? "매수" : "매도"} 계획을 공유합니다
               </p>
 
-              {/* Price & Total */}
+              {/* Price & Total (전략별) */}
               <div className="space-y-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">
-                    1주 {orderType === "buy" ? "매수" : "매도"} 희망 가격
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={pricePerShare.toLocaleString()}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/,/g, "");
-                        if (!isNaN(Number(value))) {
-                          setPricePerShare(Number(value));
-                        }
-                      }}
-                      className="w-32 text-right font-semibold bg-transparent outline-none"
-                    />
-                    <span className="text-gray-600">원</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">전체 주문 금액</span>
-                  <span className="font-semibold">
-                    {totalOrderAmount.toLocaleString()}원
-                  </span>
-                </div>
+                {orderStrategy === "MARKET" && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">1주 가격</span>
+                      <span className="font-semibold">{displayCurrentPrice.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">전체 주문 금액</span>
+                      <span className="font-semibold">{(displayCurrentPrice * quantity).toLocaleString()}원</span>
+                    </div>
+                  </>
+                )}
+                {orderStrategy === "LIMIT" && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">1주 가격</span>
+                      <span className="font-semibold">{limitPrice.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">전체 주문 금액</span>
+                      <span className="font-semibold">{(limitPrice * quantity).toLocaleString()}원</span>
+                    </div>
+                  </>
+                )}
+                {orderStrategy === "CONDITIONAL" && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">감시 가격</span>
+                      <span className="font-semibold">{triggerPrice.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">주문 가격</span>
+                      <span className="font-semibold">시장가(체결 시점)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">예상 금액</span>
+                      <span className="font-semibold">체결 시점에 결정</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Investment Logic */}
@@ -724,18 +750,46 @@ const StockDetailPage = () => {
                   <span className="text-gray-500">수량</span>
                   <span className="font-semibold">{quantity}주</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">1주 희망 가격</span>
-                  <span className="font-semibold">
-                    {pricePerShare.toLocaleString()}원
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">주문 금액</span>
-                  <span className="font-semibold">
-                    {totalOrderAmount.toLocaleString()}원
-                  </span>
-                </div>
+                {orderStrategy === "MARKET" && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">1주 가격</span>
+                      <span className="font-semibold">{displayCurrentPrice.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">주문 금액</span>
+                      <span className="font-semibold">{(displayCurrentPrice * quantity).toLocaleString()}원</span>
+                    </div>
+                  </>
+                )}
+                {orderStrategy === "LIMIT" && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">1주 가격</span>
+                      <span className="font-semibold">{limitPrice.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">주문 금액</span>
+                      <span className="font-semibold">{(limitPrice * quantity).toLocaleString()}원</span>
+                    </div>
+                  </>
+                )}
+                {orderStrategy === "CONDITIONAL" && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">감시 가격</span>
+                      <span className="font-semibold">{triggerPrice.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">주문 가격</span>
+                      <span className="font-semibold">시장가(체결 시점)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">예상 금액</span>
+                      <span className="font-semibold">체결 시점에 결정</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
