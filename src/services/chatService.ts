@@ -73,6 +73,8 @@ export async function sendTradeMessage(
     totalAmount: number;
     reason: string;
     tags: string[];
+    /** FE 중복 렌더 방지용 (DB 스키마 변경 없이 JSON에 포함 가능) */
+    clientMessageId?: string;
   }
 ): Promise<{ success: boolean; messageId?: number; message?: string }> {
   try {

@@ -98,6 +98,20 @@ export default function ChatPage() {
   }, [votes, groupPortfolioData?.holdings]);
   const realtimePrices = usePriceWebSocket(subscribeStockCodes);
 
+  /** trade 메시지 clientMessageId 기준 중복 제거 (동일 제안 2번 저장 시 첫 메시지만 표시) */
+  const dedupedMessages = useMemo(() => {
+    const seen = new Set<string | number>();
+    return messages.filter((m) => {
+      const key =
+        m.type === "trade" && m.tradeData?.clientMessageId
+          ? m.tradeData.clientMessageId
+          : m.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [messages]);
+
   /** 진행 중(투표/대기/주문중) 상태: ongoing, pending, executing, passed */
   const isVoteActive = (s: VoteItem["status"]) =>
     s === "ongoing" || s === "pending" || s === "executing" || s === "passed";
@@ -919,7 +933,7 @@ export default function ChatPage() {
                         </div>
                       )}
                       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 space-y-4">
-                        {messages.map((msg) => (
+                        {dedupedMessages.map((msg) => (
                           <div key={msg.id}>
                             {msg.type === "user" && (
                               <div className="flex gap-3">
@@ -1116,11 +1130,17 @@ export default function ChatPage() {
                             <div
                               key={vote.id}
                               className={`rounded-xl p-4 border ${
-                                vote.status === "passed" || vote.status === "executed"
+                                vote.status === "executed"
                                   ? "border-green-300 bg-green-50"
                                   : vote.status === "rejected"
                                     ? "border-red-300 bg-red-50"
-                                    : "border-gray-200 bg-gray-50"
+                                    : vote.status === "pending"
+                                      ? "border-amber-300 bg-amber-50"
+                                      : vote.status === "executing" || vote.status === "passed"
+                                        ? "border-blue-300 bg-blue-50"
+                                        : vote.status === "expired" || vote.status === "cancelled"
+                                          ? "border-gray-200 bg-gray-100"
+                                          : "border-gray-200 bg-gray-50"
                               }`}
                             >
                               <div className="flex items-start justify-between gap-2 mb-2">
@@ -1159,14 +1179,16 @@ export default function ChatPage() {
                                   <span>
                                     {vote.executionPrice != null
                                       ? `체결가: ${formatCurrency(vote.executionPrice)}`
-                                      : `제안가: ${formatCurrency(vote.proposedPrice)}`}
+                                      : vote.status === "pending" && vote.orderStrategy === "CONDITIONAL"
+                                        ? "시장가(체결 시점)"
+                                        : `제안가: ${formatCurrency(vote.proposedPrice)}`}
                                   </span>
                                 </div>
                                 {(vote.orderStrategy === "LIMIT" && vote.limitPrice != null) || (vote.orderStrategy === "CONDITIONAL" && vote.triggerPrice != null) ? (
                                   <p className="text-xs text-gray-500 mt-0.5">
                                     {vote.orderStrategy === "LIMIT"
                                       ? `희망가: ${formatCurrency(vote.limitPrice!)}`
-                                      : `조건: ${vote.triggerDirection === "ABOVE" ? "이상" : "이하"} ${formatCurrency(vote.triggerPrice!)}`}
+                                      : `조건: ${vote.triggerDirection === "ABOVE" ? "이상" : "이하"} ${formatCurrency(vote.triggerPrice!)}원`}
                                     {vote.executionExpiresAt && ` · 유효기간: ${vote.executionExpiresAt}`}
                                   </p>
                                 ) : vote.executionExpiresAt ? (
@@ -1270,7 +1292,7 @@ export default function ChatPage() {
                                           : vote.status === "rejected"
                                             ? "✗ 부결"
                                             : vote.status === "cancelled"
-                                              ? "취소됨"
+                                              ? "취소"
                                               : "만료"}
                                   </div>
                                   {vote.status === "pending" &&

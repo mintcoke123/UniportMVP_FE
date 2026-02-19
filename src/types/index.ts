@@ -225,6 +225,8 @@ export interface ChatTradeData {
   totalAmount: number;
   reason: string;
   tags: string[];
+  /** FE 중복 렌더 방지용 (동일 제안 2번 저장 시 첫 메시지만 표시) */
+  clientMessageId?: string;
 }
 
 export interface ChatMessageItem {

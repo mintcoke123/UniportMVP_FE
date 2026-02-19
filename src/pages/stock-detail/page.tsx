@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   getStockDetail,
@@ -89,6 +89,8 @@ const StockDetailPage = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  /** 중복 제출 방지: 동기 가드 (setState는 배치되어 두 번째 클릭이 통과할 수 있음) */
+  const submittingRef = useRef(false);
   /** 팀 보유 수량 (종목 상세 API에 없을 때 그룹 포트폴리오로 보충) */
   const [teamHoldQuantityFallback, setTeamHoldQuantityFallback] = useState<
     number | null
@@ -231,29 +233,39 @@ const StockDetailPage = () => {
   };
 
   const handleConfirm = async () => {
-    if (isConfirming) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    if (isConfirming) {
+      submittingRef.current = false;
+      return;
+    }
     setShareError(null);
     if (quantity <= 0) {
       setShareError("1주 이상만 매수/매도할 수 있습니다.");
+      submittingRef.current = false;
       return;
     }
     if (orderStrategy === "LIMIT" && (limitPrice <= 0 || !Number.isFinite(limitPrice))) {
       setShareError("지정가 주문은 희망가를 0보다 크게 입력해주세요.");
+      submittingRef.current = false;
       return;
     }
     if (orderStrategy === "CONDITIONAL" && (triggerPrice <= 0 || !Number.isFinite(triggerPrice))) {
       setShareError("조건부 주문은 조건가를 0보다 크게 입력해주세요.");
+      submittingRef.current = false;
       return;
     }
     if (orderType === "sell") {
       if (maxQuantityByHolding <= 0) {
         setShareError("팀 보유 수량이 없어 매도할 수 없습니다.");
+        submittingRef.current = false;
         return;
       }
       if (quantity > maxQuantityByHolding) {
         setShareError(
           `보유 수량(${maxQuantityByHolding.toLocaleString()}주)을 초과해 매도할 수 없습니다.`
         );
+        submittingRef.current = false;
         return;
       }
     }
@@ -286,6 +298,7 @@ const StockDetailPage = () => {
         setShareError(
           `이미 해당 종목에 대한 ${voteType} 투표가 진행 중입니다.`
         );
+        submittingRef.current = false;
         return;
       }
     }
@@ -313,6 +326,10 @@ const StockDetailPage = () => {
         }
         const createRes = await createVote(groupId, payload);
         const voteId = createRes.voteId;
+        const clientMessageId =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const tradeData = {
           action: action as "매수" | "매도",
           stockName: displayName,
@@ -321,6 +338,7 @@ const StockDetailPage = () => {
           totalAmount: totalAmount ?? 0,
           reason: payload.reason,
           tags: selectedTags,
+          clientMessageId,
           ...(voteId != null && Number.isFinite(voteId) ? { voteId } : {}),
         };
         await sendTradeMessage(groupId, tradeData);
@@ -334,6 +352,7 @@ const StockDetailPage = () => {
       setShareError(e instanceof Error ? e.message : "공유에 실패했습니다.");
     } finally {
       setIsConfirming(false);
+      submittingRef.current = false;
     }
   };
 
