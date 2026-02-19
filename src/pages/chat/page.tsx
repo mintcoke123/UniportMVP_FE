@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/feature/Header";
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,6 +13,7 @@ import {
   getMyMatchingRooms,
   getMatchingRooms,
   leaveMatchingRoom,
+  usePriceWebSocket,
 } from "../../services";
 import type {
   ChatMessageItem,
@@ -75,6 +76,25 @@ export default function ChatPage() {
         myRooms.find((r) => r.status === "full") ??
         myRooms[0]);
   const groupId = selectedRoom ? roomIdToGroupId(selectedRoom.id) : undefined;
+
+  /** 투표에 올라온 종목코드만 6자리로 정규화해 WebSocket 구독용으로 사용 */
+  const normalizeStockCode = (c: string | undefined): string => {
+    if (!c || !String(c).trim()) return "";
+    const t = String(c).trim();
+    return t.length >= 6 ? t : t.padStart(6, "0");
+  };
+  const voteStockCodes = useMemo(
+    () =>
+      [
+        ...new Set(
+          votes
+            .map((v) => normalizeStockCode(v.stockCode))
+            .filter((code) => code.length === 6)
+        ),
+      ],
+    [votes]
+  );
+  const realtimePrices = usePriceWebSocket(voteStockCodes);
 
   /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true */
   const hasOngoingVoteForStock = (
@@ -1066,9 +1086,32 @@ export default function ChatPage() {
                                 <div className="flex justify-between text-xs text-gray-600 mt-1">
                                   <span>{vote.quantity}주</span>
                                   <span>
-                                    {formatCurrency(vote.proposedPrice)}
+                                    {vote.executionPrice != null
+                                      ? formatCurrency(vote.executionPrice)
+                                      : formatCurrency(vote.proposedPrice)}
+                                    {vote.executionPrice != null && (
+                                      <span className="text-gray-400 ml-0.5">
+                                        (체결)
+                                      </span>
+                                    )}
                                   </span>
                                 </div>
+                                {(() => {
+                                  const code = normalizeStockCode(vote.stockCode);
+                                  const rt = code ? realtimePrices[code] : undefined;
+                                  if (!rt) return null;
+                                  const ch = rt.change ?? 0;
+                                  const cr = rt.changeRate ?? 0;
+                                  const isUp = ch >= 0;
+                                  return (
+                                    <p
+                                      className={`text-xs mt-1 font-medium ${isUp ? "text-red-600" : "text-blue-600"}`}
+                                    >
+                                      현재가 {formatCurrency(rt.currentPrice)} ({isUp ? "+" : ""}
+                                      {Number(cr).toFixed(2)}%)
+                                    </p>
+                                  );
+                                })()}
                                 <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                                   {vote.reason}
                                 </p>
@@ -1268,7 +1311,10 @@ export default function ChatPage() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">체결가</span>
                 <span className="text-sm font-semibold">
-                  {formatCurrency(passedVote.proposedPrice)}
+                  {formatCurrency(
+                    passedVote.executionPrice ??
+                      passedVote.proposedPrice
+                  )}
                 </span>
               </div>
             </div>
