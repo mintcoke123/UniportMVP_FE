@@ -35,6 +35,12 @@ function normalizeVoteItem(raw: Record<string, unknown>): VoteItem {
     })),
     totalMembers: Number(raw.totalMembers ?? raw.total_members ?? 0),
     status: (raw.status as VoteItem["status"]) ?? "ongoing",
+    orderStrategy: (raw.orderStrategy as VoteItem["orderStrategy"]) ?? undefined,
+    limitPrice: raw.limitPrice != null ? Number(raw.limitPrice) : undefined,
+    triggerPrice: raw.triggerPrice != null ? Number(raw.triggerPrice) : undefined,
+    triggerDirection: (raw.triggerDirection as VoteItem["triggerDirection"]) ?? undefined,
+    executionExpiresAt: raw.executionExpiresAt ? String(raw.executionExpiresAt) : undefined,
+    executedAt: raw.executedAt ? String(raw.executedAt) : undefined,
   };
 }
 
@@ -54,6 +60,10 @@ export interface CreateVotePayload {
   quantity: number;
   proposedPrice: number;
   reason: string;
+  orderStrategy?: "MARKET" | "LIMIT" | "CONDITIONAL";
+  limitPrice?: number;
+  triggerPrice?: number;
+  triggerDirection?: "ABOVE" | "BELOW";
 }
 
 export async function createVote(

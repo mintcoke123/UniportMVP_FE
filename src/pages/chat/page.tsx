@@ -49,6 +49,8 @@ export default function ChatPage() {
   /** WebSocket 연결 여부. false면 메시지 전송 시 REST로 fallback */
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  /** 폴링 시 getGroupPortfolio 과호출 방지: 이미 알고 있는 executed vote id 집합 */
+  const executedIdsRef = useRef<Set<number>>(new Set());
 
   const isInRoom = (room: MatchingRoom) =>
     room.isJoined === true ||
@@ -83,18 +85,21 @@ export default function ChatPage() {
     const t = String(c).trim();
     return t.length >= 6 ? t : t.padStart(6, "0");
   };
-  const voteStockCodes = useMemo(
-    () =>
-      [
-        ...new Set(
-          votes
-            .map((v) => normalizeStockCode(v.stockCode))
-            .filter((code) => code.length === 6)
-        ),
-      ],
-    [votes]
-  );
-  const realtimePrices = usePriceWebSocket(voteStockCodes);
+  /** 투표 + 보유종목 종목코드 통합 (WebSocket 구독용) */
+  const subscribeStockCodes = useMemo(() => {
+    const fromVotes = votes
+      .map((v) => normalizeStockCode(v.stockCode))
+      .filter((c) => c.length === 6);
+    const fromHoldings = (groupPortfolioData?.holdings ?? [])
+      .map((h) => normalizeStockCode(h.stockCode))
+      .filter((c) => c.length === 6);
+    return [...new Set([...fromVotes, ...fromHoldings])];
+  }, [votes, groupPortfolioData?.holdings]);
+  const realtimePrices = usePriceWebSocket(subscribeStockCodes);
+
+  /** 진행 중(투표/대기/주문중) 상태: ongoing, pending, executing, passed */
+  const isVoteActive = (s: VoteItem["status"]) =>
+    s === "ongoing" || s === "pending" || s === "executing" || s === "passed";
 
   /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true */
   const hasOngoingVoteForStock = (
@@ -104,7 +109,7 @@ export default function ChatPage() {
     const norm = (s: string | undefined) => String(s ?? "").trim();
     return votes.some(
       (v) =>
-        v.status === "ongoing" &&
+        isVoteActive(v.status) &&
         norm(v.stockCode) === norm(stockCode) &&
         v.type === type
     );
@@ -271,6 +276,47 @@ export default function ChatPage() {
     };
   }, [myWaitingRoom, groupId, user?.id]);
 
+  /** groupId 변경 시 executed 기준 집합을 현재 votes 기준으로 초기화 */
+  useEffect(() => {
+    executedIdsRef.current = new Set(
+      votes.filter((v) => v.status === "executed").map((v) => v.id)
+    );
+  }, [groupId]);
+
+  // pending/executing/passed 투표가 있으면 10초마다 getVotes 폴링; 새로 executed 된 경우에만 포트폴리오 갱신
+  useEffect(() => {
+    if (groupId == null) return;
+    const hasActive =
+      votes.some(
+        (v) =>
+          v.status === "pending" ||
+          v.status === "executing" ||
+          v.status === "passed"
+      );
+    if (!hasActive) return;
+    const interval = setInterval(() => {
+      getVotes(groupId).then((updated) => {
+        setVotes(updated);
+        const updatedExecutedIds = new Set(
+          updated.filter((v) => v.status === "executed").map((v) => v.id)
+        );
+        const prev = executedIdsRef.current;
+        let hasNew = false;
+        for (const id of updatedExecutedIds) {
+          if (!prev.has(id)) {
+            hasNew = true;
+            break;
+          }
+        }
+        executedIdsRef.current = updatedExecutedIds;
+        if (hasNew) {
+          getGroupPortfolio(groupId).then(setGroupPortfolioData).catch(() => {});
+        }
+      });
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [votes, groupId]);
+
   const handleLeaveFromChat = async (roomId: string) => {
     setActionRoomId(roomId);
     const result = await leaveMatchingRoom(roomId);
@@ -357,11 +403,11 @@ export default function ChatPage() {
         }
         return getVotes(groupId!).then((updated) => {
           setVotes(updated);
-          const passed = updated.find(
-            (v) => v.id === voteId && v.status === "passed",
+          const successVote = updated.find(
+            (v) => v.id === voteId && v.status === "executed",
           );
-          if (passed) {
-            setPassedVote(passed);
+          if (successVote) {
+            setPassedVote(successVote);
             setShowVoteSuccessModal(true);
             getGroupPortfolio(groupId!).then(setGroupPortfolioData).catch(() => {});
           }
@@ -552,16 +598,21 @@ export default function ChatPage() {
                         {(groupPortfolioData?.holdings ?? []).map(
                           (holding, index) => {
                             const holdings = groupPortfolioData?.holdings ?? [];
+                            const getValue = (h: (typeof holdings)[0]) => {
+                              const c = normalizeStockCode(h.stockCode);
+                              const price = c ? (realtimePrices[c]?.currentPrice ?? h.currentPrice) : h.currentPrice;
+                              return price * (h.quantity ?? 0);
+                            };
                             const total = holdings.reduce(
-                              (sum, h) => sum + h.currentValue,
+                              (sum, h) => sum + getValue(h),
                               0,
                             );
+                            if (total <= 0) return null;
                             let startAngle = 0;
                             for (let i = 0; i < index; i++) {
-                              startAngle +=
-                                (holdings[i].currentValue / total) * 360;
+                              startAngle += (getValue(holdings[i]) / total) * 360;
                             }
-                            const angle = (holding.currentValue / total) * 360;
+                            const angle = (getValue(holding) / total) * 360;
                             const endAngle = startAngle + angle;
                             const startRad =
                               ((startAngle - 90) * Math.PI) / 180;
@@ -643,13 +694,17 @@ export default function ChatPage() {
                       보유 종목
                     </h3>
                     {(groupPortfolioData?.holdings ?? []).map((holding) => {
-                      const profitLoss =
-                        holding.currentValue -
-                        holding.averagePrice * holding.quantity;
+                      const code = normalizeStockCode(holding.stockCode);
+                      const rt = code ? realtimePrices[code] : undefined;
+                      const currentPrice =
+                        rt?.currentPrice ?? holding.currentPrice;
+                      const currentValue =
+                        currentPrice * (holding.quantity ?? 0);
+                      const cost =
+                        (holding.averagePrice ?? 0) * (holding.quantity ?? 0);
+                      const profitLoss = cost > 0 ? currentValue - cost : 0;
                       const profitLossPercentage =
-                        (profitLoss /
-                          (holding.averagePrice * holding.quantity)) *
-                        100;
+                        cost > 0 ? (profitLoss / cost) * 100 : 0;
                       const isProfit = profitLoss >= 0;
                       const isSelected = selectedStock === holding.id;
                       return (
@@ -671,7 +726,12 @@ export default function ChatPage() {
                               </h4>
                               <span className="text-xs text-gray-500">
                                 {holding.quantity}주 ·{" "}
-                                {formatCurrency(holding.currentPrice)}
+                                {formatCurrency(currentPrice)}
+                                {rt && (
+                                  <span className="text-teal-600 ml-0.5">
+                                    (실시간)
+                                  </span>
+                                )}
                               </span>
                             </div>
                             <p
@@ -708,7 +768,7 @@ export default function ChatPage() {
                                     stockName: holding.stockName,
                                     stockCode: holding.stockCode,
                                     quantity: holding.quantity,
-                                    proposedPrice: holding.currentPrice,
+                                    proposedPrice: currentPrice,
                                     reason,
                                   });
                                   if (res.success) {
@@ -804,7 +864,7 @@ export default function ChatPage() {
                     >
                       <i className="ri-checkbox-circle-line" aria-hidden />
                       투표
-                      {votes.filter((v) => v.status === "ongoing").length >
+                      {votes.filter((v) => isVoteActive(v.status)).length >
                         0 && (
                         <span
                           className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${
@@ -813,7 +873,7 @@ export default function ChatPage() {
                               : "bg-red-500 text-white"
                           }`}
                         >
-                          {votes.filter((v) => v.status === "ongoing").length}
+                          {votes.filter((v) => isVoteActive(v.status)).length}
                         </span>
                       )}
                     </button>
@@ -1045,7 +1105,7 @@ export default function ChatPage() {
                             <div
                               key={vote.id}
                               className={`rounded-xl p-4 border ${
-                                vote.status === "passed"
+                                vote.status === "passed" || vote.status === "executed"
                                   ? "border-green-300 bg-green-50"
                                   : vote.status === "rejected"
                                     ? "border-red-300 bg-red-50"
@@ -1087,15 +1147,20 @@ export default function ChatPage() {
                                   <span>{vote.quantity}주</span>
                                   <span>
                                     {vote.executionPrice != null
-                                      ? formatCurrency(vote.executionPrice)
-                                      : formatCurrency(vote.proposedPrice)}
-                                    {vote.executionPrice != null && (
-                                      <span className="text-gray-400 ml-0.5">
-                                        (체결)
-                                      </span>
-                                    )}
+                                      ? `체결가: ${formatCurrency(vote.executionPrice)}`
+                                      : `제안가: ${formatCurrency(vote.proposedPrice)}`}
                                   </span>
                                 </div>
+                                {(vote.orderStrategy === "LIMIT" && vote.limitPrice != null) || (vote.orderStrategy === "CONDITIONAL" && vote.triggerPrice != null) ? (
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {vote.orderStrategy === "LIMIT"
+                                      ? `희망가: ${formatCurrency(vote.limitPrice!)}`
+                                      : `조건: ${vote.triggerDirection === "ABOVE" ? "이상" : "이하"} ${formatCurrency(vote.triggerPrice!)}`}
+                                    {vote.executionExpiresAt && ` · 유효기간: ${vote.executionExpiresAt}`}
+                                  </p>
+                                ) : vote.executionExpiresAt ? (
+                                  <p className="text-xs text-gray-500 mt-0.5">유효기간: {vote.executionExpiresAt}</p>
+                                ) : null}
                                 {(() => {
                                   const code = normalizeStockCode(vote.stockCode);
                                   const rt = code ? realtimePrices[code] : undefined;
@@ -1175,18 +1240,22 @@ export default function ChatPage() {
                               ) : (
                                 <div
                                   className={`py-2 rounded-lg text-xs font-bold text-center ${
-                                    vote.status === "passed"
+                                    vote.status === "executed"
                                       ? "bg-green-500 text-white"
                                       : vote.status === "rejected"
                                         ? "bg-red-500 text-white"
                                         : "bg-gray-300 text-gray-600"
                                   }`}
                                 >
-                                  {vote.status === "passed"
-                                    ? "✓ 통과"
-                                    : vote.status === "rejected"
-                                      ? "✗ 부결"
-                                      : "만료"}
+                                  {vote.status === "pending"
+                                    ? "대기"
+                                    : vote.status === "executing" || vote.status === "passed"
+                                      ? "주문 처리중"
+                                      : vote.status === "executed"
+                                        ? "✓ 체결"
+                                        : vote.status === "rejected"
+                                          ? "✗ 부결"
+                                          : "만료"}
                                 </div>
                               )}
                             </div>

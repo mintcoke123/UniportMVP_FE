@@ -78,6 +78,14 @@ const StockDetailPage = () => {
   const [pricePerShare, setPricePerShare] = useState(stock?.currentPrice || 0);
   const [investmentLogic, setInvestmentLogic] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [orderStrategy, setOrderStrategy] = useState<
+    "MARKET" | "LIMIT" | "CONDITIONAL"
+  >("MARKET");
+  const [limitPrice, setLimitPrice] = useState(0);
+  const [triggerPrice, setTriggerPrice] = useState(0);
+  const [triggerDirection, setTriggerDirection] = useState<
+    "ABOVE" | "BELOW"
+  >("ABOVE");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -121,13 +129,25 @@ const StockDetailPage = () => {
     getVotes(gid).then(setGroupVotes).catch(() => setGroupVotes([]));
   }, [stock?.id, user?.teamId]);
 
-  /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true */
+  /** 종목코드 6자리 통일 (비교용). 빈 값은 그대로. */
+  const normalizeCode = (s: string | undefined) => {
+    const t = String(s ?? "").trim();
+    if (!t) return "";
+    return t.length >= 6 ? t : t.padStart(6, "0");
+  };
+
+  /** 진행 중(투표/대기/주문중) 상태: ongoing, pending, executing, passed */
+  const isVoteActive = (s: VoteItem["status"]) =>
+    s === "ongoing" || s === "pending" || s === "executing" || s === "passed";
+
+  /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true. stockCode 비어 있는 투표는 제외. */
   const hasOngoingVoteForStock = (type: "매수" | "매도") => {
-    const norm = (s: string | undefined) => String(s ?? "").trim();
+    const code = normalizeCode(stock?.code);
+    if (!code) return false;
     return groupVotes.some(
       (v) =>
-        v.status === "ongoing" &&
-        norm(v.stockCode) === norm(stock.code) &&
+        isVoteActive(v.status) &&
+        normalizeCode(v.stockCode) === code &&
         v.type === type
     );
   };
@@ -179,6 +199,10 @@ const StockDetailPage = () => {
     }
     setInvestmentLogic("");
     setSelectedTags([]);
+    setOrderStrategy("MARKET");
+    setLimitPrice(displayCurrentPrice);
+    setTriggerPrice(displayCurrentPrice);
+    setTriggerDirection("ABOVE");
   };
 
   const handleCloseModal = () => {
@@ -200,6 +224,14 @@ const StockDetailPage = () => {
     setShareError(null);
     if (quantity <= 0) {
       setShareError("1주 이상만 매수/매도할 수 있습니다.");
+      return;
+    }
+    if (orderStrategy === "LIMIT" && (limitPrice <= 0 || !Number.isFinite(limitPrice))) {
+      setShareError("지정가 주문은 희망가를 0보다 크게 입력해주세요.");
+      return;
+    }
+    if (orderStrategy === "CONDITIONAL" && (triggerPrice <= 0 || !Number.isFinite(triggerPrice))) {
+      setShareError("조건부 주문은 조건가를 0보다 크게 입력해주세요.");
       return;
     }
     if (orderType === "sell") {
@@ -235,7 +267,7 @@ const StockDetailPage = () => {
       const existingVotes = await getVotes(groupId);
       const hasOngoing = existingVotes.some(
         (v) =>
-          v.status === "ongoing" &&
+          isVoteActive(v.status) &&
           norm(v.stockCode) === norm(stock.code) &&
           v.type === voteType
       );
@@ -262,14 +294,23 @@ const StockDetailPage = () => {
           tags: selectedTags,
         };
         await sendTradeMessage(groupId, tradeData);
-        await createVote(groupId, {
+        const payload: Parameters<typeof createVote>[1] = {
           type: action as "매수" | "매도",
           stockName: displayName,
           stockCode: stock.code,
           quantity,
           proposedPrice: pricePerShare,
           reason: tradeData.reason,
-        });
+          orderStrategy,
+        };
+        if (orderStrategy === "LIMIT" && limitPrice > 0) {
+          payload.limitPrice = limitPrice;
+        }
+        if (orderStrategy === "CONDITIONAL" && triggerPrice > 0) {
+          payload.triggerPrice = triggerPrice;
+          payload.triggerDirection = triggerDirection;
+        }
+        await createVote(groupId, payload);
       }
 
       setShowConfirmDialog(false);
@@ -403,6 +444,11 @@ const StockDetailPage = () => {
             매수
           </button>
         </div>
+        {hasOngoingVoteForStock("매수") && (
+          <p className="text-xs text-amber-600 mt-2 text-center">
+            이 종목에 대한 매수 투표가 진행 중이라 매수할 수 없습니다. 채팅방 투표에서 찬성/반대 후 진행해 주세요.
+          </p>
+        )}
       </div>
 
       {/* Order Modal */}
@@ -490,6 +536,79 @@ const StockDetailPage = () => {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* 주문 방식 */}
+              <div className="mb-6">
+                <span className="block text-gray-600 mb-2">주문 방식</span>
+                <div className="flex gap-2 flex-wrap">
+                  {(
+                    [
+                      { value: "MARKET" as const, label: "시장가" },
+                      { value: "LIMIT" as const, label: "지정가" },
+                      { value: "CONDITIONAL" as const, label: "조건부" },
+                    ] as const
+                  ).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setOrderStrategy(value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                        orderStrategy === value
+                          ? "bg-teal-500 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {orderStrategy === "LIMIT" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-gray-600 text-sm whitespace-nowrap">희망가</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={limitPrice || ""}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (e.target.value === "") setLimitPrice(0);
+                        else if (Number.isFinite(v) && v >= 0) setLimitPrice(v);
+                      }}
+                      className="flex-1 py-2 px-3 text-right font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <span className="text-gray-600 text-sm">원</span>
+                  </div>
+                )}
+                {orderStrategy === "CONDITIONAL" && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600 text-sm whitespace-nowrap">조건</span>
+                      <select
+                        value={triggerDirection}
+                        onChange={(e) =>
+                          setTriggerDirection(e.target.value as "ABOVE" | "BELOW")
+                        }
+                        className="py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="ABOVE">이상</option>
+                        <option value="BELOW">이하</option>
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        value={triggerPrice || ""}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          if (e.target.value === "") setTriggerPrice(0);
+                          else if (Number.isFinite(v) && v >= 0) setTriggerPrice(v);
+                        }}
+                        className="flex-1 py-2 px-3 text-right font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                      <span className="text-gray-600 text-sm">원</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <p className="text-center text-sm text-gray-500 mb-6">

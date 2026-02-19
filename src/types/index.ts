@@ -262,7 +262,13 @@ export interface VoteItem {
   expiresAt: string;
   votes: VoteParticipant[];
   totalMembers: number;
-  status: "ongoing" | "passed" | "rejected" | "expired";
+  status: "ongoing" | "passed" | "rejected" | "expired" | "pending" | "executing" | "executed";
+  orderStrategy?: "MARKET" | "LIMIT" | "CONDITIONAL";
+  limitPrice?: number;
+  triggerPrice?: number;
+  triggerDirection?: "ABOVE" | "BELOW";
+  executionExpiresAt?: string;
+  executedAt?: string;
 }
 
 // ---- Matching Room (매칭방) ----
