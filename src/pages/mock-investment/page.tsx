@@ -7,6 +7,7 @@ import {
   getStocksByRising,
   getStocksByFalling,
   usePriceWebSocket,
+  normalizeStockCodeForPrice,
 } from "../../services";
 import type { MarketIndex, StockListItem } from "../../types";
 
@@ -226,7 +227,8 @@ export default function MockInvestmentPage() {
           <div className="divide-y divide-gray-100">
             {getStockList().length > 0 ? (
               getStockList().map((stock, index) => {
-                const rt = realtimeUpdates[stock.code];
+                const codeKey = normalizeStockCodeForPrice(stock.code);
+                const rt = realtimeUpdates[codeKey];
                 const price = rt?.currentPrice ?? stock.currentPrice;
                 const change = rt?.change ?? stock.change;
                 const changeRate = rt?.changeRate ?? stock.changeRate;

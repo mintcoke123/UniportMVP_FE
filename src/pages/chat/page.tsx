@@ -119,14 +119,14 @@ export default function ChatPage() {
   /** 해당 종목에 동일 유형(매수/매도) 진행 중인 투표가 있으면 true */
   const hasOngoingVoteForStock = (
     stockCode: string | undefined,
-    type: "매수" | "매도"
+    type: "매수" | "매도",
   ) => {
     const norm = (s: string | undefined) => String(s ?? "").trim();
     return votes.some(
       (v) =>
         isVoteActive(v.status) &&
         norm(v.stockCode) === norm(stockCode) &&
-        v.type === type
+        v.type === type,
     );
   };
 
@@ -225,7 +225,9 @@ export default function ChatPage() {
           setChatError(e?.message ?? "채팅을 불러올 수 없습니다.");
         });
       getVotes(groupId).then(setVotes);
-      getGroupPortfolio(groupId).then(setGroupPortfolioData).catch(() => setGroupPortfolioData(null));
+      getGroupPortfolio(groupId)
+        .then(setGroupPortfolioData)
+        .catch(() => setGroupPortfolioData(null));
       return;
     }
 
@@ -249,14 +251,20 @@ export default function ChatPage() {
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data as string) as Record<string, unknown>;
+        const data = JSON.parse(event.data as string) as Record<
+          string,
+          unknown
+        >;
         const id = typeof data.id === "number" ? data.id : null;
         if (id == null) return;
         const type = (data.type as string) || "user";
         const userId = typeof data.userId === "number" ? data.userId : 0;
-        const userNickname = typeof data.userNickname === "string" ? data.userNickname : "";
-        const message = typeof data.message === "string" ? data.message : undefined;
-        const timestamp = typeof data.timestamp === "string" ? data.timestamp : "";
+        const userNickname =
+          typeof data.userNickname === "string" ? data.userNickname : "";
+        const message =
+          typeof data.message === "string" ? data.message : undefined;
+        const timestamp =
+          typeof data.timestamp === "string" ? data.timestamp : "";
         const tradeData = data.tradeData ?? null;
         const item: ChatMessageItem = {
           id,
@@ -294,26 +302,25 @@ export default function ChatPage() {
   /** groupId 변경 시 executed 기준 집합을 현재 votes 기준으로 초기화 */
   useEffect(() => {
     executedIdsRef.current = new Set(
-      votes.filter((v) => v.status === "executed").map((v) => v.id)
+      votes.filter((v) => v.status === "executed").map((v) => v.id),
     );
   }, [groupId]);
 
   // pending/executing/passed 투표가 있으면 10초마다 getVotes 폴링; 새로 executed 된 경우에만 포트폴리오 갱신
   useEffect(() => {
     if (groupId == null) return;
-    const hasActive =
-      votes.some(
-        (v) =>
-          v.status === "pending" ||
-          v.status === "executing" ||
-          v.status === "passed"
-      );
+    const hasActive = votes.some(
+      (v) =>
+        v.status === "pending" ||
+        v.status === "executing" ||
+        v.status === "passed",
+    );
     if (!hasActive) return;
     const interval = setInterval(() => {
       getVotes(groupId).then((updated) => {
         setVotes(updated);
         const updatedExecutedIds = new Set(
-          updated.filter((v) => v.status === "executed").map((v) => v.id)
+          updated.filter((v) => v.status === "executed").map((v) => v.id),
         );
         const prev = executedIdsRef.current;
         let hasNew = false;
@@ -325,7 +332,9 @@ export default function ChatPage() {
         }
         executedIdsRef.current = updatedExecutedIds;
         if (hasNew) {
-          getGroupPortfolio(groupId).then(setGroupPortfolioData).catch(() => {});
+          getGroupPortfolio(groupId)
+            .then(setGroupPortfolioData)
+            .catch(() => {});
         }
       });
     }, 10000);
@@ -422,8 +431,10 @@ export default function ChatPage() {
         if (responseStatus) {
           setVotes((prev) =>
             prev.map((v) =>
-              v.id === voteId ? { ...v, status: responseStatus as VoteItem["status"] } : v
-            )
+              v.id === voteId
+                ? { ...v, status: responseStatus as VoteItem["status"] }
+                : v,
+            ),
           );
         }
         return getVotes(groupId!).then((updated) => {
@@ -434,7 +445,9 @@ export default function ChatPage() {
           if (successVote) {
             setPassedVote(successVote);
             setShowVoteSuccessModal(true);
-            getGroupPortfolio(groupId!).then(setGroupPortfolioData).catch(() => {});
+            getGroupPortfolio(groupId!)
+              .then(setGroupPortfolioData)
+              .catch(() => {});
           }
         });
       })
@@ -625,7 +638,10 @@ export default function ChatPage() {
                             const holdings = groupPortfolioData?.holdings ?? [];
                             const getValue = (h: (typeof holdings)[0]) => {
                               const c = normalizeStockCode(h.stockCode);
-                              const price = c ? (realtimePrices[c]?.currentPrice ?? h.currentPrice) : h.currentPrice;
+                              const price = c
+                                ? (realtimePrices[c]?.currentPrice ??
+                                  h.currentPrice)
+                                : h.currentPrice;
                               return price * (h.quantity ?? 0);
                             };
                             const total = holdings.reduce(
@@ -635,7 +651,8 @@ export default function ChatPage() {
                             if (total <= 0) return null;
                             let startAngle = 0;
                             for (let i = 0; i < index; i++) {
-                              startAngle += (getValue(holdings[i]) / total) * 360;
+                              startAngle +=
+                                (getValue(holdings[i]) / total) * 360;
                             }
                             const angle = (getValue(holding) / total) * 360;
                             const endAngle = startAngle + angle;
@@ -773,18 +790,33 @@ export default function ChatPage() {
                               disabled={
                                 groupId == null ||
                                 creatingVoteStockId === holding.id ||
-                                hasOngoingVoteForStock(holding.stockCode, "매도")
+                                hasOngoingVoteForStock(
+                                  holding.stockCode,
+                                  "매도",
+                                )
                               }
                               title={
-                                hasOngoingVoteForStock(holding.stockCode, "매도")
+                                hasOngoingVoteForStock(
+                                  holding.stockCode,
+                                  "매도",
+                                )
                                   ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
                                   : undefined
                               }
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                if (groupId == null || creatingVoteStockId != null)
+                                if (
+                                  groupId == null ||
+                                  creatingVoteStockId != null
+                                )
                                   return;
-                                if (hasOngoingVoteForStock(holding.stockCode, "매도")) return;
+                                if (
+                                  hasOngoingVoteForStock(
+                                    holding.stockCode,
+                                    "매도",
+                                  )
+                                )
+                                  return;
                                 setCreatingVoteStockId(holding.id);
                                 const reason = `${holding.stockName} 전량 시장가 매도 제안입니다. 현재 보유 수량 ${holding.quantity}주를 모두 처분하고자 합니다.`;
                                 try {
@@ -802,7 +834,10 @@ export default function ChatPage() {
                                     setSelectedStock(null);
                                     setRightPanelTab("vote");
                                   } else {
-                                    alert(res.message ?? "처분 투표 생성에 실패했습니다.");
+                                    alert(
+                                      res.message ??
+                                        "처분 투표 생성에 실패했습니다.",
+                                    );
                                   }
                                 } catch (e) {
                                   const msg =
@@ -817,12 +852,21 @@ export default function ChatPage() {
                             >
                               {creatingVoteStockId === holding.id ? (
                                 <>
-                                  <i className="ri-loader-4-line mr-1 animate-spin" aria-hidden />
+                                  <i
+                                    className="ri-loader-4-line mr-1 animate-spin"
+                                    aria-hidden
+                                  />
                                   생성 중...
                                 </>
-                              ) : hasOngoingVoteForStock(holding.stockCode, "매도") ? (
+                              ) : hasOngoingVoteForStock(
+                                  holding.stockCode,
+                                  "매도",
+                                ) ? (
                                 <>
-                                  <i className="ri-time-line mr-1" aria-hidden />
+                                  <i
+                                    className="ri-time-line mr-1"
+                                    aria-hidden
+                                  />
                                   매도 투표 진행 중
                                 </>
                               ) : (
@@ -928,7 +972,9 @@ export default function ChatPage() {
                             aria-hidden
                           />
                           <span className="text-xs text-gray-500">
-                            {wsConnected ? "실시간 연결됨" : "연결 중… (메시지는 저장됩니다)"}
+                            {wsConnected
+                              ? "실시간 연결됨"
+                              : "연결 중… (메시지는 저장됩니다)"}
                           </span>
                         </div>
                       )}
@@ -1130,17 +1176,12 @@ export default function ChatPage() {
                             <div
                               key={vote.id}
                               className={`rounded-xl p-4 border ${
+                                vote.status === "passed" ||
                                 vote.status === "executed"
                                   ? "border-green-300 bg-green-50"
                                   : vote.status === "rejected"
                                     ? "border-red-300 bg-red-50"
-                                    : vote.status === "pending"
-                                      ? "border-amber-300 bg-amber-50"
-                                      : vote.status === "executing" || vote.status === "passed"
-                                        ? "border-blue-300 bg-blue-50"
-                                        : vote.status === "expired" || vote.status === "cancelled"
-                                          ? "border-gray-200 bg-gray-100"
-                                          : "border-gray-200 bg-gray-50"
+                                    : "border-gray-200 bg-gray-50"
                               }`}
                             >
                               <div className="flex items-start justify-between gap-2 mb-2">
@@ -1179,24 +1220,35 @@ export default function ChatPage() {
                                   <span>
                                     {vote.executionPrice != null
                                       ? `체결가: ${formatCurrency(vote.executionPrice)}`
-                                      : vote.status === "pending" && vote.orderStrategy === "CONDITIONAL"
+                                      : vote.status === "pending" &&
+                                          vote.orderStrategy === "CONDITIONAL"
                                         ? "시장가(체결 시점)"
                                         : `제안가: ${formatCurrency(vote.proposedPrice)}`}
                                   </span>
                                 </div>
-                                {(vote.orderStrategy === "LIMIT" && vote.limitPrice != null) || (vote.orderStrategy === "CONDITIONAL" && vote.triggerPrice != null) ? (
+                                {(vote.orderStrategy === "LIMIT" &&
+                                  vote.limitPrice != null) ||
+                                (vote.orderStrategy === "CONDITIONAL" &&
+                                  vote.triggerPrice != null) ? (
                                   <p className="text-xs text-gray-500 mt-0.5">
                                     {vote.orderStrategy === "LIMIT"
                                       ? `희망가: ${formatCurrency(vote.limitPrice!)}`
                                       : `조건: ${vote.triggerDirection === "ABOVE" ? "이상" : "이하"} ${formatCurrency(vote.triggerPrice!)}원`}
-                                    {vote.executionExpiresAt && ` · 유효기간: ${vote.executionExpiresAt}`}
+                                    {vote.executionExpiresAt &&
+                                      ` · 유효기간: ${vote.executionExpiresAt}`}
                                   </p>
                                 ) : vote.executionExpiresAt ? (
-                                  <p className="text-xs text-gray-500 mt-0.5">유효기간: {vote.executionExpiresAt}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    유효기간: {vote.executionExpiresAt}
+                                  </p>
                                 ) : null}
                                 {(() => {
-                                  const code = normalizeStockCode(vote.stockCode);
-                                  const rt = code ? realtimePrices[code] : undefined;
+                                  const code = normalizeStockCode(
+                                    vote.stockCode,
+                                  );
+                                  const rt = code
+                                    ? realtimePrices[code]
+                                    : undefined;
                                   if (!rt) return null;
                                   const ch = rt.change ?? 0;
                                   const cr = rt.changeRate ?? 0;
@@ -1205,7 +1257,8 @@ export default function ChatPage() {
                                     <p
                                       className={`text-xs mt-1 font-medium ${isUp ? "text-red-600" : "text-blue-600"}`}
                                     >
-                                      현재가 {formatCurrency(rt.currentPrice)} ({isUp ? "+" : ""}
+                                      현재가 {formatCurrency(rt.currentPrice)} (
+                                      {isUp ? "+" : ""}
                                       {Number(cr).toFixed(2)}%)
                                     </p>
                                   );
@@ -1285,7 +1338,8 @@ export default function ChatPage() {
                                   >
                                     {vote.status === "pending"
                                       ? "대기"
-                                      : vote.status === "executing" || vote.status === "passed"
+                                      : vote.status === "executing" ||
+                                          vote.status === "passed"
                                         ? "주문 처리중"
                                         : vote.status === "executed"
                                           ? "✓ 체결"
@@ -1296,21 +1350,31 @@ export default function ChatPage() {
                                               : "만료"}
                                   </div>
                                   {vote.status === "pending" &&
-                                    vote.proposerId === currentUserId &&
                                     groupId != null && (
                                       <button
                                         type="button"
                                         disabled={cancellingVoteId === vote.id}
                                         onClick={async () => {
-                                          if (groupId == null || cancellingVoteId === vote.id) return;
+                                          if (
+                                            groupId == null ||
+                                            cancellingVoteId === vote.id
+                                          )
+                                            return;
                                           setCancellingVoteId(vote.id);
                                           try {
-                                            const res = await cancelPendingVote(groupId, vote.id);
+                                            const res = await cancelPendingVote(
+                                              groupId,
+                                              vote.id,
+                                            );
                                             if (res.success) {
-                                              const updated = await getVotes(groupId);
+                                              const updated =
+                                                await getVotes(groupId);
                                               setVotes(updated);
                                             } else {
-                                              alert(res.message ?? "대기 취소에 실패했습니다.");
+                                              alert(
+                                                res.message ??
+                                                  "대기 취소에 실패했습니다.",
+                                              );
                                             }
                                           } catch {
                                             alert("대기 취소에 실패했습니다.");
@@ -1320,7 +1384,9 @@ export default function ChatPage() {
                                         }}
                                         className="w-full py-1.5 rounded-lg text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 cursor-pointer disabled:opacity-50"
                                       >
-                                        {cancellingVoteId === vote.id ? "처리 중..." : "대기 취소"}
+                                        {cancellingVoteId === vote.id
+                                          ? "처리 중..."
+                                          : "대기 취소"}
                                       </button>
                                     )}
                                 </div>
@@ -1448,8 +1514,7 @@ export default function ChatPage() {
                 <span className="text-sm text-gray-500">체결가</span>
                 <span className="text-sm font-semibold">
                   {formatCurrency(
-                    passedVote.executionPrice ??
-                      passedVote.proposedPrice
+                    passedVote.executionPrice ?? passedVote.proposedPrice,
                   )}
                 </span>
               </div>

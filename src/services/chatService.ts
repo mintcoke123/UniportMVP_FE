@@ -25,7 +25,7 @@ const FORBIDDEN_MESSAGE =
 
 /** GET 응답: { roomId, messages }. groupId 없거나 API 실패 시 빈 배열. 403 시 throw */
 export async function getChatMessages(
-  groupId?: number
+  groupId?: number,
 ): Promise<ChatMessageItem[]> {
   if (groupId == null) return [];
   try {
@@ -44,12 +44,12 @@ export async function getChatMessages(
 /** 메시지 전송. POST /api/groups/:groupId/chat/messages (로그인 필수, 멤버 아니면 403) */
 export async function sendChatMessage(
   groupId: number,
-  message: string
+  message: string,
 ): Promise<{ success: boolean; messageId?: number; message?: string }> {
   try {
     const res = await apiPost<{ success: boolean; messageId?: number }>(
       `/api/groups/${groupId}/chat/messages`,
-      { message }
+      { message },
     );
     return res;
   } catch (e) {
@@ -57,7 +57,7 @@ export async function sendChatMessage(
     const messageText =
       err.status === 403
         ? err.message || FORBIDDEN_MESSAGE
-        : err.message ?? "메시지 전송에 실패했습니다.";
+        : (err.message ?? "메시지 전송에 실패했습니다.");
     return { success: false, message: messageText };
   }
 }
@@ -73,14 +73,12 @@ export async function sendTradeMessage(
     totalAmount: number;
     reason: string;
     tags: string[];
-    /** FE 중복 렌더 방지용 (DB 스키마 변경 없이 JSON에 포함 가능) */
-    clientMessageId?: string;
-  }
+  },
 ): Promise<{ success: boolean; messageId?: number; message?: string }> {
   try {
     const res = await apiPost<{ success: boolean; messageId?: number }>(
       `/api/groups/${groupId}/chat/messages`,
-      { type: "trade", tradeData }
+      { type: "trade", tradeData },
     );
     return res;
   } catch (e) {
@@ -88,7 +86,7 @@ export async function sendTradeMessage(
     const messageText =
       err.status === 403
         ? err.message || FORBIDDEN_MESSAGE
-        : err.message ?? "공유에 실패했습니다.";
+        : (err.message ?? "공유에 실패했습니다.");
     return { success: false, message: messageText };
   }
 }

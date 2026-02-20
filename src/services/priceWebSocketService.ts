@@ -16,11 +16,15 @@ export function getPriceWebSocketUrl(): string {
   return `${getWsBaseUrl()}/prices`;
 }
 
-/** 6자리 종목코드로 정규화 */
-function normalizeCode(code: string): string {
-  const t = (code || "").trim();
+/** 6자리 종목코드로 정규화 (구독·저장·조회 시 동일 키 사용) */
+export function normalizeStockCodeForPrice(code: string | undefined): string {
+  const t = (code ?? "").trim();
   if (t.length >= 6) return t;
   return t.padStart(6, "0");
+}
+
+function normalizeCode(code: string): string {
+  return normalizeStockCodeForPrice(code);
 }
 
 export interface UsePriceWebSocketOptions {
@@ -95,7 +99,8 @@ export function usePriceWebSocket(stockCodes: string[]): Record<string, Realtime
     const close = connectPriceWebSocket({
       stockCodes: codes,
       onUpdate: (data) => {
-        setUpdates((prev) => ({ ...prev, [data.stockCode]: data }));
+        const key = normalizeStockCodeForPrice(data.stockCode);
+        setUpdates((prev) => ({ ...prev, [key]: data }));
       },
     });
     return close;

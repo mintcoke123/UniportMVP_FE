@@ -29,6 +29,7 @@ export {
   getPriceWebSocketUrl,
   connectPriceWebSocket,
   usePriceWebSocket,
+  normalizeStockCodeForPrice,
 } from "./priceWebSocketService";
 
 export {

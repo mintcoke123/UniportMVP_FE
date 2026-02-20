@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   getStockDetail,
@@ -9,6 +9,7 @@ import {
   getGroupPortfolio,
   getMyGroupPortfolio,
   usePriceWebSocket,
+  normalizeStockCodeForPrice,
 } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import Header from "../../components/feature/Header";
@@ -56,7 +57,7 @@ const StockDetailPage = () => {
 
   /** 실시간 시세 (백엔드 /prices WebSocket). 있으면 표시값으로 사용 */
   const realtimeUpdates = usePriceWebSocket(stock ? [stock.code] : []);
-  const rt = stock?.code ? realtimeUpdates[stock.code] : null;
+  const rt = stock?.code ? realtimeUpdates[normalizeStockCodeForPrice(stock.code)] : null;
   const displayCurrentPrice = rt?.currentPrice ?? stock?.currentPrice ?? 0;
   const displayChange = rt?.change ?? stock?.change ?? 0;
   const displayChangeRate = rt?.changeRate ?? stock?.changeRate ?? 0;
@@ -83,9 +84,9 @@ const StockDetailPage = () => {
   >("MARKET");
   const [limitPrice, setLimitPrice] = useState(0);
   const [triggerPrice, setTriggerPrice] = useState(0);
-  const [triggerDirection, setTriggerDirection] = useState<
-    "ABOVE" | "BELOW"
-  >("ABOVE");
+  const [triggerDirection, setTriggerDirection] = useState<"ABOVE" | "BELOW">(
+    "ABOVE",
+  );
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -105,13 +106,14 @@ const StockDetailPage = () => {
     }
     const gid = teamIdToGroupId(user?.teamId ?? null);
     if (gid == null) return;
-    const fetchPortfolio = gid > 0 ? () => getGroupPortfolio(gid) : getMyGroupPortfolio;
+    const fetchPortfolio =
+      gid > 0 ? () => getGroupPortfolio(gid) : getMyGroupPortfolio;
     fetchPortfolio()
       .then((res) => {
         if (!res?.holdings?.length) return;
         const code = (stock.code || "").trim();
         const match = res.holdings.find(
-          (h) => (h.stockCode || "").trim() === code
+          (h) => (h.stockCode || "").trim() === code,
         );
         if (match) setTeamHoldQuantityFallback(match.quantity ?? 0);
         else setTeamHoldQuantityFallback(null);
@@ -128,7 +130,9 @@ const StockDetailPage = () => {
       if (saved) gid = roomIdToGroupId(saved);
     }
     if (gid == null) return;
-    getVotes(gid).then(setGroupVotes).catch(() => setGroupVotes([]));
+    getVotes(gid)
+      .then(setGroupVotes)
+      .catch(() => setGroupVotes([]));
   }, [stock?.id, user?.teamId]);
 
   /** 종목코드 6자리 통일 (비교용). 빈 값은 그대로. */
@@ -150,7 +154,7 @@ const StockDetailPage = () => {
       (v) =>
         isVoteActive(v.status) &&
         normalizeCode(v.stockCode) === code &&
-        v.type === type
+        v.type === type,
     );
   };
 
@@ -245,12 +249,18 @@ const StockDetailPage = () => {
       submittingRef.current = false;
       return;
     }
-    if (orderStrategy === "LIMIT" && (limitPrice <= 0 || !Number.isFinite(limitPrice))) {
+    if (
+      orderStrategy === "LIMIT" &&
+      (limitPrice <= 0 || !Number.isFinite(limitPrice))
+    ) {
       setShareError("지정가 주문은 희망가를 0보다 크게 입력해주세요.");
       submittingRef.current = false;
       return;
     }
-    if (orderStrategy === "CONDITIONAL" && (triggerPrice <= 0 || !Number.isFinite(triggerPrice))) {
+    if (
+      orderStrategy === "CONDITIONAL" &&
+      (triggerPrice <= 0 || !Number.isFinite(triggerPrice))
+    ) {
       setShareError("조건부 주문은 조건가를 0보다 크게 입력해주세요.");
       submittingRef.current = false;
       return;
@@ -263,7 +273,7 @@ const StockDetailPage = () => {
       }
       if (quantity > maxQuantityByHolding) {
         setShareError(
-          `보유 수량(${maxQuantityByHolding.toLocaleString()}주)을 초과해 매도할 수 없습니다.`
+          `보유 수량(${maxQuantityByHolding.toLocaleString()}주)을 초과해 매도할 수 없습니다.`,
         );
         submittingRef.current = false;
         return;
@@ -292,11 +302,11 @@ const StockDetailPage = () => {
         (v) =>
           isVoteActive(v.status) &&
           norm(v.stockCode) === norm(stock.code) &&
-          v.type === voteType
+          v.type === voteType,
       );
       if (hasOngoing) {
         setShareError(
-          `이미 해당 종목에 대한 ${voteType} 투표가 진행 중입니다.`
+          `이미 해당 종목에 대한 ${voteType} 투표가 진행 중입니다.`,
         );
         submittingRef.current = false;
         return;
@@ -313,7 +323,12 @@ const StockDetailPage = () => {
           stockName: displayName,
           stockCode: stock.code,
           quantity,
-          proposedPrice: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
+          proposedPrice:
+            orderStrategy === "LIMIT"
+              ? limitPrice
+              : orderStrategy === "MARKET"
+                ? displayCurrentPrice
+                : triggerPrice,
           reason: investmentLogic.trim() || `${displayName} ${action} 계획`,
           orderStrategy,
         };
@@ -327,14 +342,20 @@ const StockDetailPage = () => {
         const createRes = await createVote(groupId, payload);
         const voteId = createRes.voteId;
         const clientMessageId =
-          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          typeof crypto !== "undefined" &&
+          typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const tradeData = {
           action: action as "매수" | "매도",
           stockName: displayName,
           quantity,
-          pricePerShare: orderStrategy === "LIMIT" ? limitPrice : orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice,
+          pricePerShare:
+            orderStrategy === "LIMIT"
+              ? limitPrice
+              : orderStrategy === "MARKET"
+                ? displayCurrentPrice
+                : triggerPrice,
           totalAmount: totalAmount ?? 0,
           reason: payload.reason,
           tags: selectedTags,
@@ -478,7 +499,8 @@ const StockDetailPage = () => {
         </div>
         {hasOngoingVoteForStock("매수") && (
           <p className="text-xs text-amber-600 mt-2 text-center">
-            이 종목에 대한 매수 투표가 진행 중이라 매수할 수 없습니다. 채팅방 투표에서 찬성/반대 후 진행해 주세요.
+            이 종목에 대한 매수 투표가 진행 중이라 매수할 수 없습니다. 채팅방
+            투표에서 찬성/반대 후 진행해 주세요.
           </p>
         )}
       </div>
@@ -597,7 +619,9 @@ const StockDetailPage = () => {
                 </div>
                 {orderStrategy === "LIMIT" && (
                   <div className="mt-3 flex items-center gap-2">
-                    <span className="text-gray-600 text-sm whitespace-nowrap">희망가</span>
+                    <span className="text-gray-600 text-sm whitespace-nowrap">
+                      희망가
+                    </span>
                     <input
                       type="number"
                       min={1}
@@ -615,11 +639,15 @@ const StockDetailPage = () => {
                 {orderStrategy === "CONDITIONAL" && (
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-600 text-sm whitespace-nowrap">조건</span>
+                      <span className="text-gray-600 text-sm whitespace-nowrap">
+                        조건
+                      </span>
                       <select
                         value={triggerDirection}
                         onChange={(e) =>
-                          setTriggerDirection(e.target.value as "ABOVE" | "BELOW")
+                          setTriggerDirection(
+                            e.target.value as "ABOVE" | "BELOW",
+                          )
                         }
                         className="py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       >
@@ -633,7 +661,8 @@ const StockDetailPage = () => {
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           if (e.target.value === "") setTriggerPrice(0);
-                          else if (Number.isFinite(v) && v >= 0) setTriggerPrice(v);
+                          else if (Number.isFinite(v) && v >= 0)
+                            setTriggerPrice(v);
                         }}
                         className="flex-1 py-2 px-3 text-right font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
@@ -653,11 +682,15 @@ const StockDetailPage = () => {
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">1주 가격</span>
-                      <span className="font-semibold">{displayCurrentPrice.toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {displayCurrentPrice.toLocaleString()}원
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">전체 주문 금액</span>
-                      <span className="font-semibold">{(displayCurrentPrice * quantity).toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {(displayCurrentPrice * quantity).toLocaleString()}원
+                      </span>
                     </div>
                   </>
                 )}
@@ -665,11 +698,15 @@ const StockDetailPage = () => {
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">1주 가격</span>
-                      <span className="font-semibold">{limitPrice.toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {limitPrice.toLocaleString()}원
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">전체 주문 금액</span>
-                      <span className="font-semibold">{(limitPrice * quantity).toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {(limitPrice * quantity).toLocaleString()}원
+                      </span>
                     </div>
                   </>
                 )}
@@ -677,7 +714,9 @@ const StockDetailPage = () => {
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">감시 가격</span>
-                      <span className="font-semibold">{triggerPrice.toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {triggerPrice.toLocaleString()}원
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">주문 가격</span>
@@ -775,11 +814,15 @@ const StockDetailPage = () => {
                   <>
                     <div className="flex justify-between">
                       <span className="text-gray-500">1주 가격</span>
-                      <span className="font-semibold">{displayCurrentPrice.toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {displayCurrentPrice.toLocaleString()}원
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">주문 금액</span>
-                      <span className="font-semibold">{(displayCurrentPrice * quantity).toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {(displayCurrentPrice * quantity).toLocaleString()}원
+                      </span>
                     </div>
                   </>
                 )}
@@ -787,11 +830,15 @@ const StockDetailPage = () => {
                   <>
                     <div className="flex justify-between">
                       <span className="text-gray-500">1주 가격</span>
-                      <span className="font-semibold">{limitPrice.toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {limitPrice.toLocaleString()}원
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">주문 금액</span>
-                      <span className="font-semibold">{(limitPrice * quantity).toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {(limitPrice * quantity).toLocaleString()}원
+                      </span>
                     </div>
                   </>
                 )}
@@ -799,7 +846,9 @@ const StockDetailPage = () => {
                   <>
                     <div className="flex justify-between">
                       <span className="text-gray-500">감시 가격</span>
-                      <span className="font-semibold">{triggerPrice.toLocaleString()}원</span>
+                      <span className="font-semibold">
+                        {triggerPrice.toLocaleString()}원
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">주문 가격</span>
