@@ -12,6 +12,7 @@ import {
   setAuthToken,
   clearAuthToken,
   getAuthToken,
+  getCurrentUserStorageKey,
   ApiError,
 } from "../services/apiClient";
 import { getMe } from "../services/meService";
@@ -51,70 +52,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isLoggedIn = user !== null;
   const isAdmin = user?.role === "admin";
 
+  // 새로고침 시: 캐시를 믿지 않고 반드시 /me로 검증. 실패/빈 응답이면 로그아웃 처리해 엉뚱한 유저 표시 방지.
   useEffect(() => {
-    const savedUser = localStorage.getItem("currentUser");
+    const storageKey = getCurrentUserStorageKey();
     const token = getAuthToken();
-    if (savedUser && token) {
-      try {
-        setUser(JSON.parse(savedUser));
-        getMe()
-          .then((data) => {
-            if (data?.id) {
-              const synced: User = {
-                id: data.id,
-                email: data.email ?? "",
-                nickname: data.nickname ?? "",
-                password: "",
-                totalAssets: data.totalAssets ?? 0,
-                investmentAmount: data.investmentAmount ?? 0,
-                profitLoss: data.profitLoss ?? 0,
-                profitLossRate: data.profitLossRate ?? 0,
-                teamId: data.teamId ?? null,
-                role: (data.role as "user" | "admin") ?? "user",
-              };
-              setUser(synced);
-              localStorage.setItem("currentUser", JSON.stringify(synced));
-              const teamId = data.teamId ?? null;
-              if (teamId && String(teamId).startsWith("team-")) {
-                const gid = parseInt(String(teamId).replace(/^team-/, ""), 10);
-                if (!Number.isNaN(gid))
-                  getGroupPortfolio(gid).then((portfolio) => {
-                    if (portfolio) {
-                      setUser((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              totalAssets: portfolio.totalValue,
-                              investmentAmount: portfolio.investmentAmount,
-                              profitLoss: portfolio.profitLoss,
-                              profitLossRate: portfolio.profitLossPercentage,
-                            }
-                          : null
-                      );
-                      const updated = {
-                        ...synced,
+    if (!token) {
+      if (typeof localStorage !== "undefined") localStorage.removeItem(storageKey);
+      return;
+    }
+    let cancelled = false;
+    getMe()
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.id) {
+          const synced: User = {
+            id: data.id,
+            email: data.email ?? "",
+            nickname: data.nickname ?? "",
+            password: "",
+            totalAssets: data.totalAssets ?? 0,
+            investmentAmount: data.investmentAmount ?? 0,
+            profitLoss: data.profitLoss ?? 0,
+            profitLossRate: data.profitLossRate ?? 0,
+            teamId: data.teamId ?? null,
+            role: (data.role as "user" | "admin") ?? "user",
+          };
+          setUser(synced);
+          localStorage.setItem(storageKey, JSON.stringify(synced));
+          const teamId = data.teamId ?? null;
+          if (teamId && String(teamId).startsWith("team-")) {
+            const gid = parseInt(String(teamId).replace(/^team-/, ""), 10);
+            if (!Number.isNaN(gid))
+              getGroupPortfolio(gid).then((portfolio) => {
+                if (cancelled || !portfolio) return;
+                setUser((prev) =>
+                  prev
+                    ? {
+                        ...prev,
                         totalAssets: portfolio.totalValue,
                         investmentAmount: portfolio.investmentAmount,
                         profitLoss: portfolio.profitLoss,
                         profitLossRate: portfolio.profitLossPercentage,
-                      };
-                      localStorage.setItem(
-                        "currentUser",
-                        JSON.stringify(updated)
-                      );
-                    }
-                  });
-              }
-            }
-          })
-          .catch(() => {});
-      } catch {
-        localStorage.removeItem("currentUser");
-        clearAuthToken();
-      }
-    } else if (savedUser && !token) {
-      localStorage.removeItem("currentUser");
-    }
+                      }
+                    : null
+                );
+                const updated = {
+                  ...synced,
+                  totalAssets: portfolio.totalValue,
+                  investmentAmount: portfolio.investmentAmount,
+                  profitLoss: portfolio.profitLoss,
+                  profitLossRate: portfolio.profitLossPercentage,
+                };
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+              });
+          }
+        } else {
+          clearAuthToken();
+          setUser(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearAuthToken();
+          setUser(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -161,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         setAuthToken(String(res.token).trim());
         setUser(userToSet);
-        localStorage.setItem("currentUser", JSON.stringify(userToSet));
+        localStorage.setItem(getCurrentUserStorageKey(), JSON.stringify(userToSet));
         const teamId = u.teamId ?? null;
         if (teamId && String(teamId).startsWith("team-")) {
           const gid = parseInt(String(teamId).replace(/^team-/, ""), 10);
@@ -177,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 };
                 setUser(withTeamAssets);
                 localStorage.setItem(
-                  "currentUser",
+                  getCurrentUserStorageKey(),
                   JSON.stringify(withTeamAssets)
                 );
               }
@@ -257,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("currentUser");
+    localStorage.removeItem(getCurrentUserStorageKey());
     clearAuthToken();
   };
 
@@ -272,14 +277,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const updatedUser = { ...user, ...assets };
     setUser(updatedUser);
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+    localStorage.setItem(getCurrentUserStorageKey(), JSON.stringify(updatedUser));
   };
 
   const updateUserTeam = (teamId: string | null) => {
     if (!user) return;
     const updatedUser = { ...user, teamId };
     setUser(updatedUser);
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+    localStorage.setItem(getCurrentUserStorageKey(), JSON.stringify(updatedUser));
   };
 
   return (

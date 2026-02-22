@@ -1,7 +1,7 @@
 /**
  * Backend API 클라이언트
  * - Base URL: VITE_API_BASE_URL (default http://localhost:8080)
- * - 인증: Authorization: Bearer {token} (localStorage "authToken")
+ * - 인증: Authorization: Bearer {token} (localStorage "uniport_authToken")
  * @see docs/API_SPEC.md
  */
 
@@ -11,10 +11,28 @@ const getBaseUrl = (): string => {
   return "http://localhost:8080";
 };
 
-/** localStorage 토큰 키. "token"이 아니라 "authToken" 사용. 디버깅 시 getItem("authToken") 확인 */
-const AUTH_TOKEN_KEY = "authToken";
+/** localStorage 키: 앱 네임스페이스로 다른 탭/앱과 충돌 방지 */
+const AUTH_TOKEN_KEY = "uniport_authToken";
+const CURRENT_USER_KEY = "uniport_currentUser";
+
+const LEGACY_AUTH_TOKEN_KEY = "authToken";
+const LEGACY_CURRENT_USER_KEY = "currentUser";
+
+/** 이전 키에서 새 키로 1회 마이그레이션 */
+function migrateAuthStorage(): void {
+  if (typeof localStorage === "undefined") return;
+  if (!localStorage.getItem(AUTH_TOKEN_KEY) && localStorage.getItem(LEGACY_AUTH_TOKEN_KEY)) {
+    localStorage.setItem(AUTH_TOKEN_KEY, localStorage.getItem(LEGACY_AUTH_TOKEN_KEY)!);
+    localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+  }
+  if (!localStorage.getItem(CURRENT_USER_KEY) && localStorage.getItem(LEGACY_CURRENT_USER_KEY)) {
+    localStorage.setItem(CURRENT_USER_KEY, localStorage.getItem(LEGACY_CURRENT_USER_KEY)!);
+    localStorage.removeItem(LEGACY_CURRENT_USER_KEY);
+  }
+}
 
 export function getAuthToken(): string | null {
+  migrateAuthStorage();
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
@@ -24,6 +42,12 @@ export function setAuthToken(token: string): void {
 
 export function clearAuthToken(): void {
   localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(CURRENT_USER_KEY);
+}
+
+/** 인증 관련 localStorage 키 (AuthContext 등에서 동일 키 사용) */
+export function getCurrentUserStorageKey(): string {
+  return CURRENT_USER_KEY;
 }
 
 export interface RequestConfig extends RequestInit {
@@ -71,7 +95,6 @@ async function request<T>(
 
   if (res.status === 401 && !config.skipAuth) {
     clearAuthToken();
-    localStorage.removeItem("currentUser");
     window.dispatchEvent(new CustomEvent("auth:session-expired"));
   }
 

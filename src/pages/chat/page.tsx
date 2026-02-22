@@ -23,6 +23,7 @@ import type {
   MatchingRoom,
 } from "../../types";
 import type { ApiError } from "../../services/apiClient";
+import { getPieSlicePathD } from "../../utils/portfolioPiePath";
 
 const CAPACITY = 3;
 
@@ -37,6 +38,7 @@ export default function ChatPage() {
   const [votes, setVotes] = useState<VoteItem[]>([]);
   const [groupPortfolioData, setGroupPortfolioData] =
     useState<GroupPortfolioResponse | null>(null);
+  const [portfolioLoadError, setPortfolioLoadError] = useState(false);
 
   /** 팀원 매칭 대기: 참가한 방 중 멤버 부족한 방 → "팀원을 매칭중입니다..." 표시 */
   const [matchingRooms, setMatchingRooms] = useState<MatchingRoom[]>([]);
@@ -79,6 +81,19 @@ export default function ChatPage() {
         myRooms.find((r) => r.status === "full") ??
         myRooms[0]);
   const groupId = selectedRoom ? roomIdToGroupId(selectedRoom.id) : undefined;
+
+  /** 팀 포트폴리오 로드(거래 가능 현금 등). 실패 시 portfolioLoadError 설정 */
+  const fetchGroupPortfolio = (gid: number) => {
+    getGroupPortfolio(gid)
+      .then((data) => {
+        setGroupPortfolioData(data);
+        setPortfolioLoadError(false);
+      })
+      .catch(() => {
+        setGroupPortfolioData(null);
+        setPortfolioLoadError(true);
+      });
+  };
 
   /** 투표에 올라온 종목코드만 6자리로 정규화해 WebSocket 구독용으로 사용 */
   const normalizeStockCode = (c: string | undefined): string => {
@@ -225,9 +240,7 @@ export default function ChatPage() {
           setChatError(e?.message ?? "채팅을 불러올 수 없습니다.");
         });
       getVotes(groupId).then(setVotes);
-      getGroupPortfolio(groupId)
-        .then(setGroupPortfolioData)
-        .catch(() => setGroupPortfolioData(null));
+      fetchGroupPortfolio(groupId);
       return;
     }
 
@@ -244,9 +257,7 @@ export default function ChatPage() {
           setChatError(e?.message ?? "이 그룹의 멤버가 아닙니다.");
         });
       getVotes(groupId).then(setVotes);
-      getGroupPortfolio(groupId)
-        .then(setGroupPortfolioData)
-        .catch(() => setGroupPortfolioData(null));
+      fetchGroupPortfolio(groupId);
     };
 
     ws.onmessage = (event) => {
@@ -332,9 +343,7 @@ export default function ChatPage() {
         }
         executedIdsRef.current = updatedExecutedIds;
         if (hasNew) {
-          getGroupPortfolio(groupId)
-            .then(setGroupPortfolioData)
-            .catch(() => {});
+          fetchGroupPortfolio(groupId);
         }
       });
     }, 10000);
@@ -445,9 +454,7 @@ export default function ChatPage() {
           if (successVote) {
             setPassedVote(successVote);
             setShowVoteSuccessModal(true);
-            getGroupPortfolio(groupId!)
-              .then(setGroupPortfolioData)
-              .catch(() => {});
+            fetchGroupPortfolio(groupId!);
           }
         });
       })
@@ -474,6 +481,21 @@ export default function ChatPage() {
   };
 
   const isProfit = (groupPortfolioData?.profitLoss ?? 0) >= 0;
+
+  /** 거래 가능 현금(원, 정수). totalValue - 보유 종목 평가합. 미체결 주문 예약 차감은 백엔드에 없음. */
+  const availableCash =
+    groupPortfolioData != null
+      ? Math.max(
+          0,
+          Math.floor(
+            (groupPortfolioData.totalValue ?? 0) -
+              (groupPortfolioData.holdings ?? []).reduce(
+                (s, h) => s + (h.currentValue ?? 0),
+                0,
+              ),
+          ),
+        )
+      : null;
 
   const handleTradeCardClick = (
     _tradeData: {
@@ -578,6 +600,39 @@ export default function ChatPage() {
                   </h2>
                 </div>
                 <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
+                  {/* 거래 가능 현금 (항상 표시) */}
+                  <div className="bg-white rounded-xl p-4 border border-gray-200">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-gray-600 text-sm font-medium">
+                        거래 가능 현금
+                      </span>
+                      {groupId == null ? (
+                        <span className="text-gray-400 text-sm">—</span>
+                      ) : availableCash !== null ? (
+                        <span className="text-lg font-bold text-gray-900">
+                          {availableCash.toLocaleString("ko-KR")}원
+                        </span>
+                      ) : portfolioLoadError ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-sm text-amber-600">
+                            현금 정보를 불러오지 못했습니다
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => groupId != null && fetchGroupPortfolio(groupId)}
+                            className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer"
+                          >
+                            재시도
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">
+                          거래 가능 현금 불러오는 중…
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* 투자 원금 및 손익 */}
                   <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white">
                     <div className="flex items-center gap-2 mb-3">
@@ -655,15 +710,16 @@ export default function ChatPage() {
                                 (getValue(holdings[i]) / total) * 360;
                             }
                             const angle = (getValue(holding) / total) * 360;
-                            const endAngle = startAngle + angle;
-                            const startRad =
-                              ((startAngle - 90) * Math.PI) / 180;
-                            const endRad = ((endAngle - 90) * Math.PI) / 180;
-                            const x1 = 100 + 80 * Math.cos(startRad);
-                            const y1 = 100 + 80 * Math.sin(startRad);
-                            const x2 = 100 + 80 * Math.cos(endRad);
-                            const y2 = 100 + 80 * Math.sin(endRad);
-                            const largeArc = angle > 180 ? 1 : 0;
+                            const cx = 100;
+                            const cy = 100;
+                            const r = 80;
+                            const pathD = getPieSlicePathD(
+                              cx,
+                              cy,
+                              r,
+                              startAngle,
+                              angle,
+                            );
                             const colors = [
                               "#14B8A6",
                               "#06B6D4",
@@ -675,7 +731,7 @@ export default function ChatPage() {
                             return (
                               <path
                                 key={holding.id}
-                                d={`M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                d={pathD}
                                 fill={colors[index % colors.length]}
                                 opacity="0.9"
                               />

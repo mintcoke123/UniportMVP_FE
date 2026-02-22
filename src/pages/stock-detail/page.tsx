@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   getStockDetail,
@@ -16,6 +16,7 @@ import Header from "../../components/feature/Header";
 import StockChart from "./components/StockChart";
 import MyHolding from "./components/MyHolding";
 import type { StockDetailResponse, VoteItem } from "../../types";
+import { computeMaxBuyQuantity } from "../../utils/orderLimit";
 
 type OrderType = "buy" | "sell" | null;
 
@@ -98,6 +99,9 @@ const StockDetailPage = () => {
   >(null);
   /** 그룹 투표 목록 (같은 종목 중복 매수/매도 투표 방지용) */
   const [groupVotes, setGroupVotes] = useState<VoteItem[]>([]);
+  /** 매수 시 주문 가능 현금(팀 잔액). null=미로드, 0=로드됨/잔액없음 */
+  const [availableCash, setAvailableCash] = useState<number | null>(null);
+  const [cashLoadError, setCashLoadError] = useState(false);
 
   useEffect(() => {
     if (!stock || stock.myHolding != null) {
@@ -133,6 +137,32 @@ const StockDetailPage = () => {
     getVotes(gid)
       .then(setGroupVotes)
       .catch(() => setGroupVotes([]));
+  }, [stock?.id, user?.teamId]);
+
+  /** 매수 시 주문 가능 현금(팀 잔액) 로드. totalValue - 보유 종목 평가합 */
+  useEffect(() => {
+    if (!stock) return;
+    setCashLoadError(false);
+    const gid = teamIdToGroupId(user?.teamId ?? null);
+    const fetchPortfolio =
+      gid != null ? () => getGroupPortfolio(gid) : () => getMyGroupPortfolio();
+    fetchPortfolio()
+      .then((res) => {
+        if (!res) {
+          setAvailableCash(0);
+          return;
+        }
+        const holdingsValue = (res.holdings ?? []).reduce(
+          (s, h) => s + (h.currentValue ?? 0),
+          0,
+        );
+        const cash = Math.max(0, (res.totalValue ?? 0) - holdingsValue);
+        setAvailableCash(cash);
+      })
+      .catch(() => {
+        setCashLoadError(true);
+        setAvailableCash(0);
+      });
   }, [stock?.id, user?.teamId]);
 
   /** 종목코드 6자리 통일 (비교용). 빈 값은 그대로. */
@@ -205,14 +235,30 @@ const StockDetailPage = () => {
   const maxQuantityByHolding =
     stock.myHolding?.quantity ?? teamHoldQuantityFallback ?? 0;
 
+  /** 매수 시 사용 가격 (시장가=현재가, 지정가=희망가, 조건부=감시가) */
+  const buyUnitPrice =
+    orderStrategy === "LIMIT"
+      ? limitPrice
+      : orderStrategy === "CONDITIONAL"
+        ? triggerPrice
+        : displayCurrentPrice;
+  /** 매수 최대 수량 (주문 가능 현금 기준, 정수 주) */
+  const maxBuyQuantity = computeMaxBuyQuantity({
+    availableCash: availableCash ?? 0,
+    price: buyUnitPrice,
+  });
+
   const handleOpenModal = (type: OrderType) => {
     setOrderType(type);
     setPricePerShare(displayCurrentPrice);
-    const maxQty = maxQuantityByHolding;
     if (type === "sell") {
+      const maxQty = maxQuantityByHolding;
       setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 1);
     } else {
-      setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 1);
+      const cash = availableCash ?? 0;
+      const price = displayCurrentPrice || 1;
+      const maxQ = computeMaxBuyQuantity({ availableCash: cash, price });
+      setQuantity(maxQ > 0 ? Math.min(1, maxQ) : 1);
     }
     setInvestmentLogic("");
     setSelectedTags([]);
@@ -274,6 +320,32 @@ const StockDetailPage = () => {
       if (quantity > maxQuantityByHolding) {
         setShareError(
           `보유 수량(${maxQuantityByHolding.toLocaleString()}주)을 초과해 매도할 수 없습니다.`,
+        );
+        submittingRef.current = false;
+        return;
+      }
+    }
+    if (orderType === "buy") {
+      const priceForSubmit =
+        orderStrategy === "LIMIT"
+          ? limitPrice
+          : orderStrategy === "MARKET"
+            ? displayCurrentPrice
+            : triggerPrice;
+      const maxQtySubmit = computeMaxBuyQuantity({
+        availableCash: availableCash ?? 0,
+        price: priceForSubmit,
+      });
+      if (priceForSubmit <= 0 || !Number.isFinite(priceForSubmit)) {
+        setShareError("가격을 입력해 주세요.");
+        submittingRef.current = false;
+        return;
+      }
+      if (quantity > maxQtySubmit) {
+        setShareError(
+          maxQtySubmit === 0
+            ? "주문 가능 잔액이 부족합니다."
+            : `최대 ${maxQtySubmit.toLocaleString()}주까지 가능합니다.`,
         );
         submittingRef.current = false;
         return;
@@ -528,6 +600,26 @@ const StockDetailPage = () => {
 
             {/* Modal Content */}
             <div className="px-5 py-5 max-h-[70vh] overflow-y-auto">
+              {/* 매수 시: 주문 가능 현금 */}
+              {orderType === "buy" && (
+                <div className="mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <span className="text-gray-600 text-sm">주문 가능 현금</span>
+                  {availableCash === null && !cashLoadError && (
+                    <p className="text-sm text-gray-500 mt-0.5">불러오는 중...</p>
+                  )}
+                  {cashLoadError && (
+                    <p className="text-sm text-amber-600 mt-0.5">
+                      현금 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.
+                    </p>
+                  )}
+                  {availableCash !== null && !cashLoadError && (
+                    <p className="text-lg font-semibold text-gray-900 mt-0.5">
+                      {availableCash.toLocaleString("ko-KR")}원
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Stock Name & Quantity */}
               <div className="flex flex-col gap-2 mb-6">
                 <div className="flex items-center justify-between">
@@ -536,18 +628,21 @@ const StockDetailPage = () => {
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-gray-600">거래 수량</span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <input
                       type="number"
-                      min={1}
+                      min={orderType === "buy" && maxBuyQuantity === 0 ? undefined : 1}
                       max={
                         orderType === "sell"
                           ? maxQuantityByHolding
-                          : maxQuantityByHolding > 0
-                            ? maxQuantityByHolding
-                            : undefined
+                          : orderType === "buy"
+                            ? (maxBuyQuantity > 0 ? maxBuyQuantity : undefined)
+                            : maxQuantityByHolding > 0
+                              ? maxQuantityByHolding
+                              : undefined
                       }
                       value={quantity}
+                      disabled={orderType === "buy" && maxBuyQuantity === 0}
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
                         if (e.target.value === "") {
@@ -559,9 +654,11 @@ const StockDetailPage = () => {
                         const maxQ =
                           orderType === "sell"
                             ? maxQuantityByHolding
-                            : maxQuantityByHolding > 0
-                              ? maxQuantityByHolding
-                              : undefined;
+                            : orderType === "buy"
+                              ? maxBuyQuantity
+                              : maxQuantityByHolding > 0
+                                ? maxQuantityByHolding
+                                : undefined;
                         const clamped =
                           maxQ != null
                             ? Math.min(Math.max(val, minQ), maxQ)
@@ -573,23 +670,47 @@ const StockDetailPage = () => {
                         const maxQ =
                           orderType === "sell"
                             ? maxQuantityByHolding
-                            : maxQuantityByHolding > 0
-                              ? maxQuantityByHolding
-                              : undefined;
+                            : orderType === "buy"
+                              ? maxBuyQuantity
+                              : maxQuantityByHolding > 0
+                                ? maxQuantityByHolding
+                                : undefined;
                         if (quantity < minQ) setQuantity(minQ);
                         else if (maxQ != null && quantity > maxQ)
                           setQuantity(maxQ);
                       }}
-                      className="w-20 py-2 px-3 text-right font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      className="w-20 py-2 px-3 text-right font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     />
                     <span className="text-gray-600">주</span>
-                    {maxQuantityByHolding > 0 && (
+                    {orderType === "sell" && maxQuantityByHolding > 0 && (
                       <span className="text-xs text-gray-400">
                         (최대 {maxQuantityByHolding.toLocaleString()}주)
                       </span>
                     )}
+                    {orderType === "buy" && maxBuyQuantity > 0 && (
+                      <>
+                        <span className="text-xs text-gray-400">
+                          (최대 {maxBuyQuantity.toLocaleString()}주)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(maxBuyQuantity)}
+                          className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer"
+                        >
+                          최대
+                        </button>
+                      </>
+                    )}
+                    {orderType === "buy" && maxBuyQuantity === 0 && availableCash !== null && !cashLoadError && (
+                      <span className="text-xs text-amber-600">잔액 부족</span>
+                    )}
                   </div>
                 </div>
+                {orderType === "buy" && quantity > maxBuyQuantity && maxBuyQuantity > 0 && (
+                  <p className="text-xs text-amber-600">
+                    최대 {maxBuyQuantity.toLocaleString()}주까지 가능합니다.
+                  </p>
+                )}
               </div>
 
               {/* 주문 방식 */}
