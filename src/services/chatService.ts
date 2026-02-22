@@ -62,7 +62,7 @@ export async function sendChatMessage(
   }
 }
 
-/** 투자계획 공유 메시지 전송 (채팅에 trade 카드 + 투표 생성은 별도 createVote 호출) */
+/** 투자계획 공유 메시지 전송 (채팅에 trade 카드 + 투표 생성은 별도 createVote 호출). voteId 있으면 중복 방지용 */
 export async function sendTradeMessage(
   groupId: number,
   tradeData: {
@@ -73,6 +73,7 @@ export async function sendTradeMessage(
     totalAmount: number;
     reason: string;
     tags: string[];
+    voteId?: number;
   },
 ): Promise<{ success: boolean; messageId?: number; message?: string }> {
   try {

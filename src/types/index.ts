@@ -225,16 +225,27 @@ export interface ChatTradeData {
   totalAmount: number;
   reason: string;
   tags: string[];
+  /** 중복 제거용 (투표 공유 시 voteId 등) */
+  clientMessageId?: string | number;
+}
+
+/** 매수/매도 체결 완료 알림 메시지 데이터 */
+export interface ChatExecutionData {
+  action: "매수" | "매도";
+  stockName: string;
+  quantity: number;
+  executionPrice: number;
 }
 
 export interface ChatMessageItem {
   id: number;
-  type: "user" | "trade";
+  type: "user" | "trade" | "execution";
   userId: number;
   userNickname: string;
   message?: string | null;
   timestamp: string;
   tradeData?: ChatTradeData | null;
+  executionData?: ChatExecutionData | null;
 }
 
 // ---- Vote ----

@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   getChatMessages,
   sendChatMessage,
+  sendTradeMessage,
   getChatWebSocketUrl,
   getVotes,
   submitVote as submitVoteApi,
@@ -277,19 +278,26 @@ export default function ChatPage() {
         const timestamp =
           typeof data.timestamp === "string" ? data.timestamp : "";
         const tradeData = data.tradeData ?? null;
+        const executionData = data.executionData ?? null;
         const item: ChatMessageItem = {
           id,
-          type: type === "trade" ? "trade" : "user",
+          type: type === "trade" ? "trade" : type === "execution" ? "execution" : "user",
           userId,
           userNickname,
           message: message ?? null,
           timestamp,
           tradeData: tradeData as ChatMessageItem["tradeData"],
+          executionData: executionData as ChatMessageItem["executionData"],
         };
         setMessages((prev) => {
           if (prev.some((m) => m.id === item.id)) return prev;
           return [...prev, item];
         });
+        if (type === "trade" && groupId != null) getVotes(groupId).then(setVotes);
+        if (type === "execution" && groupId != null) {
+          getVotes(groupId).then(setVotes);
+          fetchGroupPortfolio(groupId);
+        }
       } catch {
         // ignore non-JSON or invalid payloads
       }
@@ -344,6 +352,7 @@ export default function ChatPage() {
         executedIdsRef.current = updatedExecutedIds;
         if (hasNew) {
           fetchGroupPortfolio(groupId);
+          getChatMessages(groupId).then(setMessages);
         }
       });
     }, 10000);
@@ -371,7 +380,14 @@ export default function ChatPage() {
     null,
   );
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
+  /** 매도 투표 생성 시 수량 (선택된 보유종목 기준, 1 ~ 보유수량) */
+  const [sellQuantity, setSellQuantity] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const selectedHolding = groupPortfolioData?.holdings?.find((h) => h.id === selectedStock);
+  useEffect(() => {
+    if (selectedHolding) setSellQuantity(selectedHolding.quantity ?? 0);
+  }, [selectedStock, selectedHolding?.quantity]);
 
   // 대회 종료 여부 (실제로는 API에서 가져와야 함)
   const isTournamentEnded = false; // 대회 진행 중일 때 채팅 입력 UI 표시
@@ -455,6 +471,7 @@ export default function ChatPage() {
             setPassedVote(successVote);
             setShowVoteSuccessModal(true);
             fetchGroupPortfolio(groupId!);
+            getChatMessages(groupId!).then(setMessages);
           }
         });
       })
@@ -635,11 +652,18 @@ export default function ChatPage() {
                     </div>
                   </div>
 
-                  {/* 투자 원금 및 손익 */}
-                  <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white">
+                  {/* 투자 원금 및 손익 — 클릭 시 포트폴리오 화면으로 */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate("/group-portfolio")}
+                    onKeyDown={(e) => e.key === "Enter" && navigate("/group-portfolio")}
+                    className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white cursor-pointer hover:from-teal-600 hover:to-teal-700 transition-all"
+                  >
                     <div className="flex items-center gap-2 mb-3">
                       <i className="ri-wallet-3-line text-xl"></i>
                       <h3 className="text-sm font-bold">투자 요약</h3>
+                      <i className="ri-arrow-right-s-line text-teal-200 ml-auto" aria-hidden />
                     </div>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
@@ -839,10 +863,12 @@ export default function ChatPage() {
                                 isProfit ? "text-green-600" : "text-red-600"
                               }`}
                             >
+                              <span className="text-gray-500 font-normal">매수대비 </span>
                               {formatPercentage(profitLossPercentage)}
                             </p>
                           </div>
                           {isSelected && (
+                            <>
                             <button
                               type="button"
                               disabled={
@@ -887,8 +913,22 @@ export default function ChatPage() {
                                     reason,
                                   });
                                   if (res.success) {
+                                    await sendTradeMessage(groupId, {
+                                      action: "매도",
+                                      stockName: holding.stockName,
+                                      quantity: holding.quantity,
+                                      pricePerShare: currentPrice,
+                                      totalAmount: currentPrice * (holding.quantity ?? 0),
+                                      reason,
+                                      tags: ["처분"],
+                                      voteId: res.voteId,
+                                    }).catch(() => {});
                                     const updated = await getVotes(groupId);
                                     setVotes(updated);
+                                    setMessages((prev) => {
+                                      getChatMessages(groupId).then((list) => setMessages(list));
+                                      return prev;
+                                    });
                                     setSelectedStock(null);
                                     setRightPanelTab("vote");
                                   } else {
@@ -934,6 +974,76 @@ export default function ChatPage() {
                                 </>
                               )}
                             </button>
+                            {/* 매도 수량 입력 + 매도 투표 생성 (일부 수량 매도) */}
+                            <div className="mt-2 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-600 whitespace-nowrap">매도 수량</label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={holding.quantity ?? 0}
+                                  value={sellQuantity}
+                                  onChange={(e) => setSellQuantity(Math.max(1, Math.min(holding.quantity ?? 0, Number(e.target.value) || 0)))}
+                                  className="w-20 py-1.5 px-2 text-sm border border-gray-300 rounded-lg"
+                                />
+                                <span className="text-xs text-gray-500">/ {holding.quantity}주</span>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={
+                                  groupId == null ||
+                                  creatingVoteStockId === holding.id ||
+                                  hasOngoingVoteForStock(holding.stockCode, "매도") ||
+                                  sellQuantity < 1 ||
+                                  sellQuantity > (holding.quantity ?? 0)
+                                }
+                                title={hasOngoingVoteForStock(holding.stockCode, "매도") ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다." : undefined}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (groupId == null || creatingVoteStockId != null || hasOngoingVoteForStock(holding.stockCode, "매도")) return;
+                                  if (sellQuantity < 1 || sellQuantity > (holding.quantity ?? 0)) return;
+                                  setCreatingVoteStockId(holding.id);
+                                  const reason = `${holding.stockName} ${sellQuantity}주 시장가 매도 제안입니다.`;
+                                  try {
+                                    const res = await createVote(groupId, {
+                                      type: "매도",
+                                      stockName: holding.stockName,
+                                      stockCode: holding.stockCode,
+                                      quantity: sellQuantity,
+                                      proposedPrice: currentPrice,
+                                      reason,
+                                    });
+                                    if (res.success) {
+                                      await sendTradeMessage(groupId, {
+                                        action: "매도",
+                                        stockName: holding.stockName,
+                                        quantity: sellQuantity,
+                                        pricePerShare: currentPrice,
+                                        totalAmount: currentPrice * sellQuantity,
+                                        reason,
+                                        tags: ["매도"],
+                                        voteId: res.voteId,
+                                      }).catch(() => {});
+                                      getChatMessages(groupId).then(setMessages);
+                                      const updated = await getVotes(groupId);
+                                      setVotes(updated);
+                                      setSelectedStock(null);
+                                      setRightPanelTab("vote");
+                                    } else {
+                                      alert(res.message ?? "매도 투표 생성에 실패했습니다.");
+                                    }
+                                  } catch (err) {
+                                    alert((err as ApiError)?.message ?? "매도 투표 생성에 실패했습니다.");
+                                  } finally {
+                                    setCreatingVoteStockId(null);
+                                  }
+                                }}
+                                className="w-full py-2 border-2 border-teal-500 text-teal-600 text-xs font-bold rounded-lg hover:bg-teal-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                매도 투표 생성
+                              </button>
+                            </div>
+                            </>
                           )}
                         </div>
                       );
@@ -959,11 +1069,18 @@ export default function ChatPage() {
                         className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 min-w-0 max-w-[12rem]"
                         aria-label="채팅방 선택"
                       >
-                        {myRooms.map((room) => (
-                          <option key={room.id} value={room.id}>
-                            {room.name} ({room.memberCount}/{room.capacity})
-                          </option>
-                        ))}
+                        {myRooms.map((room) => {
+                          const gid = roomIdToGroupId(room.id);
+                          const myTeamNum = user?.teamId != null && String(user.teamId).startsWith("team-")
+                            ? parseInt(String(user.teamId).replace(/^team-/, ""), 10)
+                            : null;
+                          const isMyTeam = gid != null && myTeamNum != null && !Number.isNaN(myTeamNum) && gid === myTeamNum;
+                          return (
+                            <option key={room.id} value={room.id}>
+                              {room.name} ({room.memberCount}/{room.capacity}){isMyTeam ? " (내 팀)" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
                   </div>
@@ -1146,7 +1263,7 @@ export default function ChatPage() {
                                       </p>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                      {msg.tradeData.tags.map((tag, idx) => (
+                                      {(msg.tradeData.tags ?? []).map((tag, idx) => (
                                         <span
                                           key={idx}
                                           className="px-2 py-1 bg-white text-teal-600 text-xs font-medium rounded-full"
@@ -1155,6 +1272,41 @@ export default function ChatPage() {
                                         </span>
                                       ))}
                                     </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.type === "execution" && msg.executionData && (
+                              <div className="flex gap-3">
+                                <span
+                                  className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
+                                  aria-hidden
+                                >
+                                  <i className="ri-check-line text-lg" aria-hidden />
+                                </span>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs text-gray-400">
+                                      {msg.timestamp}
+                                    </span>
+                                  </div>
+                                  <div className="bg-green-50 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-green-200 max-w-xl">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
+                                        {msg.executionData.action} 체결 완료
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-800">
+                                      <span className="font-semibold">{msg.executionData.stockName}</span>
+                                      {" "}{msg.executionData.quantity}주 · 체결가{" "}
+                                      {formatCurrency(msg.executionData.executionPrice)}
+                                    </p>
+                                    {msg.userNickname && msg.userNickname !== "시스템" && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        제안: {msg.userNickname}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </div>

@@ -222,14 +222,31 @@ export default function MatchingRoomsPage() {
                 {rooms.map((room) => {
                   const full = isFull(room);
                   const busy = actionRoomId === room.id;
+                  const roomNum = parseInt(String(room.id).replace(/^room-/, ""), 10);
+                  const teamNum =
+                    user?.teamId != null && String(user.teamId).startsWith("team-")
+                      ? parseInt(String(user.teamId).replace(/^team-/, ""), 10)
+                      : null;
+                  const isMyTeam =
+                    !Number.isNaN(roomNum) &&
+                    teamNum != null &&
+                    !Number.isNaN(teamNum) &&
+                    roomNum === teamNum;
                   return (
                     <div
                       key={room.id}
-                      className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
+                      className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
+                        isMyTeam ? "ring-2 ring-teal-500 border-teal-500" : "border-gray-200"
+                      }`}
                     >
                       <div className="p-5 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-900 truncate">
+                        <h2 className="text-lg font-bold text-gray-900 truncate flex items-center gap-2">
                           {room.name}
+                          {isMyTeam && (
+                            <span className="shrink-0 px-2 py-0.5 text-xs font-semibold bg-teal-500 text-white rounded-full">
+                              내 팀
+                            </span>
+                          )}
                         </h2>
                         <p className="text-sm text-gray-500 mt-1">
                           멤버 {room.memberCount}/{room.capacity}명
