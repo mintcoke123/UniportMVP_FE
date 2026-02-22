@@ -619,7 +619,9 @@ export default function ChatPage() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => groupId != null && fetchGroupPortfolio(groupId)}
+                            onClick={() =>
+                              groupId != null && fetchGroupPortfolio(groupId)
+                            }
                             className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer"
                           >
                             재시도
