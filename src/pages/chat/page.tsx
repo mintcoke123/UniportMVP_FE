@@ -615,7 +615,7 @@ export default function ChatPage() {
                     setActionRoomId(myWaitingRoom.id);
                     try {
                       await startMatchingRoom(myWaitingRoom.id);
-                      navigate("/mock-investment");
+                      navigate(myWaitingRoom.capacity === 1 ? "/solo" : "/mock-investment");
                     } catch (e) {
                       const err = e as ApiError;
                       alert(err.message ?? "모의투자 시작에 실패했습니다.");
