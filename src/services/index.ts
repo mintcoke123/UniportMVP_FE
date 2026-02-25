@@ -25,6 +25,9 @@ export {
 
 export { getStockDetail } from "./stockService";
 
+export { placeTrade } from "./tradeService";
+export type { PlaceTradeRequest, PlaceTradeResponse } from "./tradeService";
+
 export {
   getPriceWebSocketUrl,
   connectPriceWebSocket,

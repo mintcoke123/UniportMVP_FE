@@ -8,6 +8,7 @@ import {
   getMyMatchingRooms,
   getGroupPortfolio,
   getMyGroupPortfolio,
+  placeTrade,
   usePriceWebSocket,
   normalizeStockCodeForPrice,
 } from "../../services";
@@ -107,6 +108,8 @@ const StockDetailPage = () => {
   /** 매수 시 주문 가능 현금(팀 잔액). null=미로드, 0=로드됨/잔액없음 */
   const [availableCash, setAvailableCash] = useState<number | null>(null);
   const [cashLoadError, setCashLoadError] = useState(false);
+  /** 1인 방 여부: 투표 없이 즉시 매매 후 /solo 리다이렉트 */
+  const [isSolo, setIsSolo] = useState(false);
 
   useEffect(() => {
     if (!stock || stock.myHolding != null) {
@@ -169,6 +172,24 @@ const StockDetailPage = () => {
         setAvailableCash(0);
       });
   }, [stock?.id, user?.teamId]);
+
+  /** 1인 방 여부: teamId로 내 방 조회 후 capacity === 1 */
+  useEffect(() => {
+    const tid = user?.teamId;
+    if (!tid || !tid.startsWith("team-")) {
+      setIsSolo(false);
+      return;
+    }
+    const teamNum = tid.replace(/^team-/, "");
+    getMyMatchingRooms()
+      .then((rooms) => {
+        const room = rooms.find(
+          (r) => r.id === `room-${teamNum}` || r.id === teamNum,
+        );
+        setIsSolo(room?.capacity === 1);
+      })
+      .catch(() => setIsSolo(false));
+  }, [user?.teamId]);
 
   /** 종목코드 6자리 통일 (비교용). 빈 값은 그대로. */
   const normalizeCode = (s: string | undefined) => {
@@ -371,7 +392,7 @@ const StockDetailPage = () => {
       groupId = room ? (roomIdToGroupId(room.id) ?? null) : null;
     }
 
-    if (groupId != null) {
+    if (groupId != null && !isSolo) {
       const voteType = orderType === "buy" ? "매수" : "매도";
       const norm = (s: string | undefined) => String(s ?? "").trim();
       const existingVotes = await getVotes(groupId);
@@ -393,6 +414,35 @@ const StockDetailPage = () => {
     setIsConfirming(true);
 
     try {
+      if (isSolo) {
+        const pricePerShare =
+          orderStrategy === "LIMIT"
+            ? limitPrice
+            : orderStrategy === "MARKET"
+              ? displayCurrentPrice
+              : triggerPrice;
+        const stockIdNum = parseInt(String(stock.code).trim(), 10);
+        if (!Number.isFinite(stockIdNum) || stockIdNum < 0) {
+          setShareError("종목 정보가 올바르지 않습니다.");
+          setIsConfirming(false);
+          submittingRef.current = false;
+          return;
+        }
+        await placeTrade({
+          stockId: stockIdNum,
+          side: orderType === "buy" ? "buy" : "sell",
+          quantity,
+          pricePerShare,
+          reason: investmentLogic.trim() || `${displayName} ${orderType === "buy" ? "매수" : "매도"}`,
+          tags: selectedTags.length > 0 ? selectedTags : undefined,
+        });
+        setShowConfirmDialog(false);
+        setOrderType(null);
+        setShowSuccessMessage(true);
+        setTimeout(() => navigate("/solo"), 1000);
+        return;
+      }
+
       if (groupId != null) {
         const action = orderType === "buy" ? "매수" : "매도";
         const payload: Parameters<typeof createVote>[1] = {
@@ -777,7 +827,9 @@ const StockDetailPage = () => {
               </div>
 
               <p className="text-center text-sm text-gray-500 mb-6">
-                {orderType === "buy" ? "매수" : "매도"} 계획을 공유합니다
+                {isSolo
+                  ? `바로 ${orderType === "buy" ? "매수" : "매도"}합니다`
+                  : `${orderType === "buy" ? "매수" : "매도"} 계획을 공유합니다`}
               </p>
 
               {/* Price & Total (전략별) */}
@@ -865,7 +917,7 @@ const StockDetailPage = () => {
                 ))}
               </div>
 
-              {/* Share Button */}
+              {/* Share / Execute Button */}
               <button
                 onClick={handleSharePlan}
                 className={`w-full py-4 rounded-xl font-semibold text-white transition-colors cursor-pointer whitespace-nowrap ${
@@ -874,7 +926,11 @@ const StockDetailPage = () => {
                     : "bg-blue-500 hover:bg-blue-600"
                 }`}
               >
-                {orderType === "buy" ? "매수" : "매도"} 계획 공유하기
+                {isSolo
+                  ? orderType === "buy"
+                    ? "매수"
+                    : "매도"
+                  : `${orderType === "buy" ? "매수" : "매도"} 계획 공유하기`}
               </button>
             </div>
           </div>
@@ -895,8 +951,9 @@ const StockDetailPage = () => {
                 {orderType === "buy" ? "매수" : "매도"} 확인
               </h4>
               <p className="text-sm text-gray-500">
-                아래 내용으로 {orderType === "buy" ? "매수" : "매도"} 계획을
-                공유합니다
+                {isSolo
+                  ? `아래 내용으로 ${orderType === "buy" ? "매수" : "매도"}합니다`
+                  : `아래 내용으로 ${orderType === "buy" ? "매수" : "매도"} 계획을 공유합니다`}
               </p>
             </div>
 
@@ -988,7 +1045,13 @@ const StockDetailPage = () => {
                     : "text-blue-500 hover:bg-blue-50"
                 }`}
               >
-                {isConfirming ? "처리 중..." : "확인"}
+                {isConfirming
+                  ? "처리 중..."
+                  : isSolo
+                    ? orderType === "buy"
+                      ? "매수"
+                      : "매도"
+                    : "확인"}
               </button>
             </div>
           </div>
@@ -1004,8 +1067,12 @@ const StockDetailPage = () => {
               <div className="w-16 h-16 bg-teal-500 rounded-full flex items-center justify-center">
                 <i className="ri-check-line text-white text-3xl"></i>
               </div>
-              <p className="text-lg font-bold text-gray-900">공유 완료!</p>
-              <p className="text-sm text-gray-500">채팅방으로 이동합니다</p>
+              <p className="text-lg font-bold text-gray-900">
+                {isSolo ? "체결 완료!" : "공유 완료!"}
+              </p>
+              <p className="text-sm text-gray-500">
+                {isSolo ? "내 투자 현황으로 이동합니다" : "채팅방으로 이동합니다"}
+              </p>
             </div>
           </div>
         </div>
