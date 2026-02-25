@@ -15,6 +15,7 @@ import {
   getMyMatchingRooms,
   getMatchingRooms,
   leaveMatchingRoom,
+  startMatchingRoom,
   usePriceWebSocket,
 } from "../../services";
 import type {
@@ -569,6 +570,13 @@ export default function ChatPage() {
             </p>
             <p className="text-sm text-gray-500 mb-8">
               현재 {myWaitingRoom.memberCount}명 / {myWaitingRoom.capacity}명
+              {myWaitingRoom.memberCount >= Math.min(2, myWaitingRoom.capacity ?? 3) && (
+                <span className="block mt-1 text-teal-600 font-medium">
+                  {myWaitingRoom.capacity === 1
+                    ? "모의투자를 시작할 수 있습니다."
+                    : "2명 이상이면 모의투자를 시작할 수 있습니다."}
+                </span>
+              )}
             </p>
             <ul className="flex flex-wrap justify-center gap-4 mb-8">
               {myWaitingRoom.members.map((member) => (
@@ -598,7 +606,28 @@ export default function ChatPage() {
                 </li>
               ))}
             </ul>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 justify-center">
+              {myWaitingRoom.memberCount >= Math.min(2, myWaitingRoom.capacity ?? 3) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setActionRoomId(myWaitingRoom.id);
+                    try {
+                      await startMatchingRoom(myWaitingRoom.id);
+                      navigate("/mock-investment");
+                    } catch (e) {
+                      const err = e as ApiError;
+                      alert(err.message ?? "모의투자 시작에 실패했습니다.");
+                    } finally {
+                      setActionRoomId(null);
+                    }
+                  }}
+                  disabled={actionRoomId === myWaitingRoom.id}
+                  className="py-2.5 px-6 rounded-xl text-sm font-semibold bg-teal-500 text-white hover:bg-teal-600 disabled:opacity-50 cursor-pointer transition-colors"
+                >
+                  {actionRoomId === myWaitingRoom.id ? "처리 중..." : "모의투자 시작"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate("/matching-rooms")}

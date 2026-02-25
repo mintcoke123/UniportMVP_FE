@@ -441,6 +441,13 @@ export default function MatchingRoomsPage() {
                           >
                             참가 불가 (3/3)
                           </button>
+                        ) : room.visibility === "PRIVATE" ? (
+                          <div
+                            className="w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 bg-gray-50 text-center"
+                            title="비공개 방은 초대코드로만 입장할 수 있습니다"
+                          >
+                            초대코드로만 입장
+                          </div>
                         ) : (
                           <button
                             type="button"
