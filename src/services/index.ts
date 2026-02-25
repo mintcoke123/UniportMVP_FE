@@ -66,6 +66,7 @@ export {
   getMyMatchingRooms,
   createMatchingRoom,
   joinMatchingRoom,
+  joinRoomByCode,
   leaveMatchingRoom,
   startMatchingRoom,
 } from "./matchingRoomService";

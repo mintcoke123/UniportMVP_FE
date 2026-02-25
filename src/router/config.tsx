@@ -9,6 +9,7 @@ import AdminProtectedRoute from "./AdminProtectedRoute";
 
 const GroupPortfolioPage = lazy(() => import("../pages/group-portfolio/page"));
 const MockInvestmentPage = lazy(() => import("../pages/mock-investment/page"));
+const SoloPage = lazy(() => import("../pages/solo/page"));
 const StockDetailPage = lazy(() => import("../pages/stock-detail/page"));
 const ChatPage = lazy(() => import("../pages/chat/page"));
 const LoginPage = lazy(() => import("../pages/login/page"));
@@ -39,6 +40,14 @@ const routes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <MockInvestmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/solo",
+    element: (
+      <ProtectedRoute>
+        <SoloPage />
       </ProtectedRoute>
     ),
   },

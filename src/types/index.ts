@@ -307,4 +307,8 @@ export interface MatchingRoom {
   createdAt: string;
   /** 로그인 후 GET /api/matching-rooms 응답에 포함. 현재 사용자가 해당 방에 참가 중이면 true */
   isJoined?: boolean;
+  /** PUBLIC(목록 노출) | PRIVATE(목록 비노출, 초대코드로만 입장) */
+  visibility?: "PUBLIC" | "PRIVATE";
+  /** 6~8자리 초대코드. 비공개 방 입장/공유용 */
+  inviteCode?: string | null;
 }

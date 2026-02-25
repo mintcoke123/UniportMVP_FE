@@ -207,6 +207,14 @@ export default function ChatPage() {
       .finally(() => setMyRoomsLoading(false));
   }, [user?.id, !!myWaitingRoom]);
 
+  /** 개인방(capacity=1)이면 채팅 없이 /solo로 리다이렉트 */
+  useEffect(() => {
+    if (myRoomsLoading || !selectedRoom) return;
+    if (selectedRoom.capacity === 1) {
+      navigate("/solo", { replace: true });
+    }
+  }, [myRoomsLoading, selectedRoom?.id, selectedRoom?.capacity, navigate]);
+
   useEffect(() => {
     getMatchingRooms().then((list) => {
       setMatchingRooms(list);

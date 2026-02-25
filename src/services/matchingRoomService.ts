@@ -49,14 +49,20 @@ export async function leaveMatchingRoom(
 }
 
 export async function createMatchingRoom(
-  name?: string
+  name?: string,
+  visibility?: "PUBLIC" | "PRIVATE",
+  capacity?: number
 ): Promise<{ success: boolean; message: string; room?: MatchingRoom }> {
   try {
+    const body: { name?: string; visibility?: string; capacity?: number } = {};
+    if (name != null) body.name = name;
+    if (visibility != null) body.visibility = visibility;
+    if (capacity != null && capacity >= 1) body.capacity = capacity;
     return await apiPost<{
       success: boolean;
       message: string;
       room?: MatchingRoom;
-    }>("/api/matching-rooms", name != null ? { name } : undefined);
+    }>("/api/matching-rooms", Object.keys(body).length > 0 ? body : undefined);
   } catch (e) {
     const err = e as ApiError;
     if (err.status != null && err.message) {
@@ -64,6 +70,16 @@ export async function createMatchingRoom(
     }
     throw e;
   }
+}
+
+/** 초대코드로 입장. POST /api/matching-rooms/join-by-code */
+export async function joinRoomByCode(
+  inviteCode: string
+): Promise<JoinMatchingRoomResponse> {
+  return await apiPost<JoinMatchingRoomResponse>(
+    "/api/matching-rooms/join-by-code",
+    { inviteCode: inviteCode.trim() }
+  );
 }
 
 export async function startMatchingRoom(roomId: string): Promise<{
