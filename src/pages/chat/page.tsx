@@ -868,7 +868,7 @@ export default function ChatPage() {
                             </p>
                           </div>
                           {isSelected && (
-                            <>
+                            <div onClick={(e) => e.stopPropagation()} className="space-y-2">
                             <button
                               type="button"
                               disabled={
@@ -1043,7 +1043,7 @@ export default function ChatPage() {
                                 매도 투표 생성
                               </button>
                             </div>
-                            </>
+                            </div>
                           )}
                         </div>
                       );
