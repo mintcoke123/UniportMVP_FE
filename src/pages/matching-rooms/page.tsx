@@ -99,11 +99,12 @@ export default function MatchingRoomsPage() {
     const result = await startMatchingRoom(room.id);
     setActionRoomId(null);
     if (result.success) {
+      // 팀방(2명 이상)은 3명일 때처럼 채팅 화면으로 이동. 개인방만 /solo
       const teamIdToSet =
         result.teamId ??
         (result.groupId != null ? String(result.groupId) : null);
       if (teamIdToSet) updateUserTeam(teamIdToSet);
-      navigate(room.capacity === 1 ? "/solo" : "/mock-investment");
+      navigate(room.capacity === 1 ? "/solo" : "/chat");
     }
   };
 
@@ -193,9 +194,9 @@ export default function MatchingRoomsPage() {
     room.isJoined === true ||
     (Boolean(user) && room.members.some((m) => m.userId === user!.id));
 
-  /** 내가 참가한 방 중 멤버가 부족한 방(2명 이하) — 이 경우 대기 페이지 표시 */
+  /** 내가 참가한 방 중 아직 모의투자를 시작하지 않은 방 — 이 경우 '채팅에서 대기' 배너 표시 */
   const myWaitingRoom = rooms.find(
-    (room) => isInRoom(room) && room.memberCount < CAPACITY
+    (room) => isInRoom(room) && room.status !== "started"
   );
   /** 이미 참가 중인 방이 하나라도 있으면 방 만들기 불가 (백엔드 400과 동일 규칙) */
   const hasJoinedRoom = rooms.some((room) => isInRoom(room));

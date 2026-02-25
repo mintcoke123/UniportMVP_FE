@@ -60,8 +60,9 @@ export default function ChatPage() {
   const isInRoom = (room: MatchingRoom) =>
     room.isJoined === true ||
     (Boolean(user) && room.members.some((m) => m.userId === user!.id));
+  /** 아직 모의투자를 시작하지 않은 방 → '팀원을 매칭중입니다' 대기 화면. started면 채팅 본문 표시 */
   const myWaitingRoom = matchingRooms.find(
-    (room) => isInRoom(room) && room.memberCount < CAPACITY,
+    (room) => isInRoom(room) && room.status !== "started",
   );
 
   /** 내가 속한 채팅방 목록. GET /api/me/matching-rooms (채팅 진입 시 로드) */
