@@ -76,7 +76,12 @@ const StockDetailPage = () => {
       : (stock?.name ?? "");
 
   const [orderType, setOrderType] = useState<OrderType>(null);
-  const [quantity, setQuantity] = useState(1);
+  const [quantityInput, setQuantityInput] = useState("1");
+  const parsedQuantity = (() => {
+    const p = parseInt(quantityInput, 10);
+    return Number.isNaN(p) || p < 1 ? 0 : p;
+  })();
+  const quantity = parsedQuantity;
   const [pricePerShare, setPricePerShare] = useState(stock?.currentPrice || 0);
   const [investmentLogic, setInvestmentLogic] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -630,26 +635,16 @@ const StockDetailPage = () => {
                   <span className="text-gray-600">거래 수량</span>
                   <div className="flex items-center gap-1 flex-wrap">
                     <input
-                      type="number"
-                      min={orderType === "buy" && maxBuyQuantity === 0 ? undefined : 1}
-                      max={
-                        orderType === "sell"
-                          ? maxQuantityByHolding
-                          : orderType === "buy"
-                            ? (maxBuyQuantity > 0 ? maxBuyQuantity : undefined)
-                            : maxQuantityByHolding > 0
-                              ? maxQuantityByHolding
-                              : undefined
-                      }
-                      value={quantity}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="1"
+                      value={quantityInput}
                       disabled={orderType === "buy" && maxBuyQuantity === 0}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (e.target.value === "") {
-                          setQuantity(1);
-                          return;
-                        }
-                        if (Number.isNaN(val)) return;
+                      onChange={(e) =>
+                        setQuantityInput(e.target.value.replace(/[^0-9]/g, ""))
+                      }
+                      onBlur={() => {
                         const minQ = 1;
                         const maxQ =
                           orderType === "sell"
@@ -661,23 +656,9 @@ const StockDetailPage = () => {
                                 : undefined;
                         const clamped =
                           maxQ != null
-                            ? Math.min(Math.max(val, minQ), maxQ)
-                            : Math.max(val, minQ);
-                        setQuantity(clamped);
-                      }}
-                      onBlur={() => {
-                        const minQ = 1;
-                        const maxQ =
-                          orderType === "sell"
-                            ? maxQuantityByHolding
-                            : orderType === "buy"
-                              ? maxBuyQuantity
-                              : maxQuantityByHolding > 0
-                                ? maxQuantityByHolding
-                                : undefined;
-                        if (quantity < minQ) setQuantity(minQ);
-                        else if (maxQ != null && quantity > maxQ)
-                          setQuantity(maxQ);
+                            ? Math.min(Math.max(quantity, minQ), maxQ)
+                            : Math.max(quantity, minQ);
+                        setQuantityInput(String(clamped > 0 ? clamped : 1));
                       }}
                       className="w-20 py-2 px-3 text-right font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                     />
@@ -694,7 +675,9 @@ const StockDetailPage = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => setQuantity(maxBuyQuantity)}
+                          onClick={() =>
+                            setQuantityInput(String(maxBuyQuantity))
+                          }
                           className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer"
                         >
                           최대

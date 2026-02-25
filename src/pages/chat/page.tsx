@@ -987,8 +987,6 @@ export default function ChatPage() {
                                   inputMode="numeric"
                                   pattern="[0-9]*"
                                   placeholder="1"
-                                  min={1}
-                                  max={holding.quantity ?? 0}
                                   value={sellQuantityInput}
                                   onChange={(e) => setSellQuantityInput(e.target.value.replace(/[^0-9]/g, ""))}
                                   className="w-20 py-1.5 px-2 text-sm border border-gray-300 rounded-lg"
