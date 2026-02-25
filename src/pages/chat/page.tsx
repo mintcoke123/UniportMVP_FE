@@ -267,9 +267,13 @@ export default function ChatPage() {
           string,
           unknown
         >;
+        const type = (data.type as string) || "user";
+        if (type === "vote_update" && groupId != null) {
+          getVotes(groupId).then(setVotes);
+          return;
+        }
         const id = typeof data.id === "number" ? data.id : null;
         if (id == null) return;
-        const type = (data.type as string) || "user";
         const userId = typeof data.userId === "number" ? data.userId : 0;
         const userNickname =
           typeof data.userNickname === "string" ? data.userNickname : "";
@@ -380,13 +384,13 @@ export default function ChatPage() {
     null,
   );
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
-  /** 매도 투표 생성 시 수량 (선택된 보유종목 기준, 1 ~ 보유수량) */
-  const [sellQuantity, setSellQuantity] = useState<number>(0);
+  /** 매도 수량 입력란 문자열 (선택된 보유종목 변경 시 해당 수량으로 초기화, 전송 시에만 숫자 파싱) */
+  const [sellQuantityInput, setSellQuantityInput] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selectedHolding = groupPortfolioData?.holdings?.find((h) => h.id === selectedStock);
   useEffect(() => {
-    if (selectedHolding) setSellQuantity(selectedHolding.quantity ?? 0);
+    if (selectedHolding != null) setSellQuantityInput(String(selectedHolding.quantity ?? 0));
   }, [selectedStock, selectedHolding?.quantity]);
 
   // 대회 종료 여부 (실제로는 API에서 가져와야 함)
@@ -979,29 +983,37 @@ export default function ChatPage() {
                               <div className="flex items-center gap-2">
                                 <label className="text-xs text-gray-600 whitespace-nowrap">매도 수량</label>
                                 <input
-                                  type="number"
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  placeholder="1"
                                   min={1}
                                   max={holding.quantity ?? 0}
-                                  value={sellQuantity}
-                                  onChange={(e) => setSellQuantity(Math.max(1, Math.min(holding.quantity ?? 0, Number(e.target.value) || 0)))}
+                                  value={sellQuantityInput}
+                                  onChange={(e) => setSellQuantityInput(e.target.value.replace(/[^0-9]/g, ""))}
                                   className="w-20 py-1.5 px-2 text-sm border border-gray-300 rounded-lg"
                                 />
                                 <span className="text-xs text-gray-500">/ {holding.quantity}주</span>
                               </div>
+                              {(() => {
+                                const maxQ = holding.quantity ?? 0;
+                                const parsed = parseInt(sellQuantityInput, 10);
+                                const isValid = !Number.isNaN(parsed) && parsed >= 1 && parsed <= maxQ;
+                                const sellQuantity = isValid ? parsed : 0;
+                                return (
                               <button
                                 type="button"
                                 disabled={
                                   groupId == null ||
                                   creatingVoteStockId === holding.id ||
                                   hasOngoingVoteForStock(holding.stockCode, "매도") ||
-                                  sellQuantity < 1 ||
-                                  sellQuantity > (holding.quantity ?? 0)
+                                  !isValid
                                 }
                                 title={hasOngoingVoteForStock(holding.stockCode, "매도") ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다." : undefined}
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   if (groupId == null || creatingVoteStockId != null || hasOngoingVoteForStock(holding.stockCode, "매도")) return;
-                                  if (sellQuantity < 1 || sellQuantity > (holding.quantity ?? 0)) return;
+                                  if (!isValid) return;
                                   setCreatingVoteStockId(holding.id);
                                   const reason = `${holding.stockName} ${sellQuantity}주 시장가 매도 제안입니다.`;
                                   try {
@@ -1034,14 +1046,16 @@ export default function ChatPage() {
                                     }
                                   } catch (err) {
                                     alert((err as ApiError)?.message ?? "매도 투표 생성에 실패했습니다.");
-                                  } finally {
-                                    setCreatingVoteStockId(null);
-                                  }
-                                }}
+                                    } finally {
+                                      setCreatingVoteStockId(null);
+                                    }
+                                  }}
                                 className="w-full py-2 border-2 border-teal-500 text-teal-600 text-xs font-bold rounded-lg hover:bg-teal-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 매도 투표 생성
                               </button>
+                                );
+                              })()}
                             </div>
                             </div>
                           )}
