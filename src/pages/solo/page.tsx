@@ -89,8 +89,11 @@ export default function SoloPage() {
             <h1 className="text-xl font-bold text-gray-900 mb-2">
               개인 모의투자
             </h1>
-            <p className="text-gray-600 mb-6">
-              개인방을 만들고 모의투자를 시작하면 여기서 주식을 관리할 수 있습니다.
+            <p className="text-gray-600 mb-2">
+              방에 참여하지 않으면 모의투자를 시작할 수 없습니다.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              개인방을 만들고 모의투자를 시작한 후, 여기서 주식을 관리할 수 있습니다.
             </p>
             <button
               type="button"

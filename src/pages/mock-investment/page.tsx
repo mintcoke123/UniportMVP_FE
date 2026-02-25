@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/feature/Header";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   getMarketIndices,
   getStocksByVolume,
   getStocksByRising,
   getStocksByFalling,
+  getMyMatchingRooms,
   usePriceWebSocket,
   normalizeStockCodeForPrice,
 } from "../../services";
@@ -15,6 +17,7 @@ type TabType = "volume" | "rising" | "falling";
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
   const [stocksByVolume, setStocksByVolume] = useState<StockListItem[]>([]);
   const [stocksByRising, setStocksByRising] = useState<StockListItem[]>([]);
@@ -23,6 +26,36 @@ export default function MockInvestmentPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [marketError, setMarketError] = useState<string | null>(null);
+  /** 팀 없음 → 매칭방, 개인방 → /solo 판별이 끝난 후에만 본문 표시 */
+  const [routeOk, setRouteOk] = useState(false);
+
+  /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)이면 /solo로. */
+  useEffect(() => {
+    if (!user) return;
+    if (!user.teamId) {
+      navigate("/matching-rooms", { replace: true });
+      return;
+    }
+    const teamNum = user.teamId.startsWith("team-")
+      ? user.teamId.replace(/^team-/, "")
+      : "";
+    if (!teamNum) {
+      setRouteOk(true);
+      return;
+    }
+    getMyMatchingRooms()
+      .then((rooms) => {
+        const myRoom = rooms.find(
+          (r) => r.id === `room-${teamNum}` || r.id === teamNum,
+        );
+        if (myRoom?.capacity === 1) {
+          navigate("/solo", { replace: true });
+          return;
+        }
+        setRouteOk(true);
+      })
+      .catch(() => setRouteOk(true));
+  }, [user, navigate]);
 
   useEffect(() => {
     setMarketError(null);
@@ -105,6 +138,17 @@ export default function MockInvestmentPage() {
   const handleStockClick = (stock: StockListItem) => {
     navigate(`/stock-detail?id=${stock.id}`, { state: { nameFromList: stock.name } });
   };
+
+  if (user && !routeOk) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-gray-500">이동 중...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
