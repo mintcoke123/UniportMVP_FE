@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../../components/feature/Header";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -17,7 +17,9 @@ type TabType = "volume" | "rising" | "falling";
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const fromSolo = (location.state as { fromSolo?: boolean } | null)?.fromSolo === true;
   const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
   const [stocksByVolume, setStocksByVolume] = useState<StockListItem[]>([]);
   const [stocksByRising, setStocksByRising] = useState<StockListItem[]>([]);
@@ -29,9 +31,10 @@ export default function MockInvestmentPage() {
   /** 팀 없음 → 매칭방, 개인방 → /solo 판별이 끝난 후에만 본문 표시 */
   const [routeOk, setRouteOk] = useState(false);
 
-  /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)이면 /solo로. */
+  /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)이면 /solo로(단, solo에서 온 경우는 그대로 표시). */
   useEffect(() => {
     if (!user) return;
+    if (fromSolo && user.teamId) setRouteOk(true);
     if (!user.teamId) {
       navigate("/matching-rooms", { replace: true });
       return;
@@ -48,14 +51,14 @@ export default function MockInvestmentPage() {
         const myRoom = rooms.find(
           (r) => r.id === `room-${teamNum}` || r.id === teamNum,
         );
-        if (myRoom?.capacity === 1) {
+        if (myRoom?.capacity === 1 && !fromSolo) {
           navigate("/solo", { replace: true });
           return;
         }
         setRouteOk(true);
       })
       .catch(() => setRouteOk(true));
-  }, [user, navigate]);
+  }, [user, navigate, fromSolo]);
 
   useEffect(() => {
     setMarketError(null);

@@ -354,7 +354,7 @@ export default function SoloPage() {
           <div className="pt-4">
             <button
               type="button"
-              onClick={() => navigate("/mock-investment")}
+              onClick={() => navigate("/mock-investment", { state: { fromSolo: true } })}
               className="w-full py-3 rounded-xl text-sm font-bold bg-teal-500 text-white hover:bg-teal-600 cursor-pointer transition-colors flex items-center justify-center gap-2"
             >
               <i className="ri-line-chart-line text-lg" aria-hidden />
