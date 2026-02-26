@@ -31,7 +31,7 @@ export default function MockInvestmentPage() {
   /** 팀 없음 → 매칭방, 개인방 → /solo 판별이 끝난 후에만 본문 표시 */
   const [routeOk, setRouteOk] = useState(false);
 
-  /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)이면 /solo로(단, solo에서 온 경우는 그대로 표시). */
+  /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)도 이 페이지에서 종목 선택·매수/매도 가능(헤더 모의투자 클릭 시 이동). */
   useEffect(() => {
     if (!user) return;
     if (fromSolo && user.teamId) setRouteOk(true);
@@ -47,16 +47,7 @@ export default function MockInvestmentPage() {
       return;
     }
     getMyMatchingRooms()
-      .then((rooms) => {
-        const myRoom = rooms.find(
-          (r) => r.id === `room-${teamNum}` || r.id === teamNum,
-        );
-        if (myRoom?.capacity === 1 && !fromSolo) {
-          navigate("/solo", { replace: true });
-          return;
-        }
-        setRouteOk(true);
-      })
+      .then(() => setRouteOk(true))
       .catch(() => setRouteOk(true));
   }, [user, navigate, fromSolo]);
 
