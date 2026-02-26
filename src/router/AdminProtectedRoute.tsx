@@ -13,9 +13,16 @@ interface AdminProtectedRouteProps {
 export default function AdminProtectedRoute({
   children,
 }: AdminProtectedRouteProps) {
-  const { isLoggedIn, isAdmin } = useAuth();
+  const { isLoggedIn, isAdmin, authInitialized } = useAuth();
   const location = useLocation();
 
+  if (!authInitialized) {
+    return (
+      <div className="flex justify-center items-center min-h-[40vh] text-gray-500">
+        로딩 중...
+      </div>
+    );
+  }
   if (!isLoggedIn) {
     return (
       <Navigate

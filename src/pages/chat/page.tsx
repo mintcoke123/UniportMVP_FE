@@ -31,7 +31,7 @@ const CAPACITY = 3;
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUserTeam } = useAuth();
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -378,10 +378,12 @@ export default function ChatPage() {
     const result = await leaveMatchingRoom(roomId);
     setActionRoomId(null);
     setLeaveConfirmRoomId(null);
-    if (result.success)
+    if (result.success) {
+      updateUserTeam(null);
       getMatchingRooms()
         .then(setMatchingRooms)
         .catch(() => {});
+    }
   };
   const [showVoteSuccessModal, setShowVoteSuccessModal] = useState(false);
   const [passedVote, setPassedVote] = useState<VoteItem | null>(null);

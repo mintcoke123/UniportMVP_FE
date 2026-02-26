@@ -21,6 +21,8 @@ import { getGroupPortfolio } from "../services/groupService";
 interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
+  /** 새로고침 후 /me 검증이 끝났는지. false면 ProtectedRoute에서 로그인 리다이렉트 보류 */
+  authInitialized: boolean;
   /** 어드민 계정 여부(role === 'admin'). 어드민 페이지 접근 시 사용 */
   isAdmin: boolean;
   login: (
@@ -49,6 +51,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const isLoggedIn = user !== null;
   const isAdmin = user?.role === "admin";
 
@@ -58,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getAuthToken();
     if (!token) {
       if (typeof localStorage !== "undefined") localStorage.removeItem(storageKey);
+      setAuthInitialized(true);
       return;
     }
     let cancelled = false;
@@ -110,12 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearAuthToken();
           setUser(null);
         }
+        setAuthInitialized(true);
       })
       .catch(() => {
         if (!cancelled) {
           clearAuthToken();
           setUser(null);
         }
+        setAuthInitialized(true);
       });
     return () => {
       cancelled = true;
@@ -292,6 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoggedIn,
+        authInitialized,
         isAdmin,
         login,
         signup,

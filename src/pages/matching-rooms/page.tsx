@@ -85,6 +85,7 @@ export default function MatchingRoomsPage() {
     setActionRoomId(null);
     setLeaveConfirmRoomId(null);
     if (result.success) {
+      updateUserTeam(null);
       getMatchingRooms()
         .then(setRooms)
         .catch(() => {});
