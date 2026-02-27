@@ -1270,7 +1270,7 @@ export default function ChatPage() {
               {/* 오른쪽: 채팅 — 카톡형 레이아웃, 모바일 평면화(카드 스타일 제거) */}
               <div className="flex flex-col flex-1 min-h-0 overflow-hidden order-1 lg:order-2 min-w-0">
                 {/* Row 1: 헤더 — 방 선택 + 채팅방 정보 */}
-                <header className="shrink-0 py-2 flex items-center justify-between gap-2 bg-teal-50 border-0 rounded-none shadow-none lg:border lg:border-gray-200 lg:border-b-0 lg:rounded-t-2xl lg:rounded-b-none lg:shadow-sm min-w-0">
+                <header className="shrink-0 -mx-4 px-4 lg:mx-0 lg:px-4 py-2 flex items-center justify-between gap-2 bg-teal-50 border-0 rounded-none shadow-none lg:border lg:border-gray-200 lg:border-b-0 lg:rounded-t-2xl lg:rounded-b-none lg:shadow-sm min-w-0">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="text-sm font-bold text-gray-800 shrink-0">
                       채팅 · 투표
@@ -1323,7 +1323,7 @@ export default function ChatPage() {
                 </header>
 
                 {/* Row 2: 채팅/투표 전환 — 정중앙 배치 */}
-                <div className="w-full min-w-0 py-2 flex justify-center shrink-0 bg-teal-50 border-0 lg:border-x lg:border-b lg:border-gray-200">
+                <div className="w-full min-w-0 -mx-4 px-4 lg:mx-0 lg:px-4 py-2 flex justify-center shrink-0 bg-teal-50 border-0 lg:border-x lg:border-b lg:border-gray-200">
                   <div className="inline-flex max-w-full bg-white rounded-full p-1 shadow border border-gray-300">
                     <button
                       type="button"
@@ -1378,7 +1378,7 @@ export default function ChatPage() {
                         </div>
                       )}
                       {groupId != null && !chatError && (
-                        <div className="flex-shrink-0 py-1.5 border-b border-gray-100 flex items-center gap-2">
+                        <div className="flex-shrink-0 -mx-4 px-4 lg:mx-0 lg:px-4 py-1.5 border-b border-gray-100 flex items-center gap-2">
                           <span
                             className={`inline-block w-2 h-2 rounded-full ${wsConnected ? "bg-green-500" : "bg-gray-300"}`}
                             aria-hidden
@@ -1392,7 +1392,7 @@ export default function ChatPage() {
                       )}
                       <div
                         ref={messageListRef}
-                        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 pb-4 space-y-4 min-w-0"
+                        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 pb-[calc(56px+16px)] lg:pb-4 space-y-4 min-w-0"
                       >
                         {dedupedMessages.map((msg) => (
                           <div key={msg.id} className="min-w-0">
@@ -1585,7 +1585,7 @@ export default function ChatPage() {
                         )}
                       </div>
                       {/* 채팅 입력 — 하단 고정, 탭바 56px pb-14, 스크롤 영역과 분리 */}
-                      <div className="shrink-0 sticky bottom-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200 py-3 pb-14 md:pb-3">
+                      <div className="shrink-0 sticky bottom-0 z-20 -mx-4 px-4 lg:mx-0 lg:px-4 bg-white/95 backdrop-blur border-t border-gray-200 py-3 pb-3">
                         {isTournamentEnded ? (
                           <button
                             type="button"
