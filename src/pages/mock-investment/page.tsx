@@ -286,40 +286,50 @@ export default function MockInvestmentPage() {
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => e.key === "Enter" && handleStockClick(stock)}
-                    className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
+                    className="grid grid-cols-12 gap-2 lg:gap-4 px-4 lg:px-6 py-2.5 lg:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
                   >
                     <span className="hidden lg:block text-sm font-medium text-gray-500 col-span-1">
                       {index + 1}
                     </span>
-                    <div className="flex items-center gap-3 lg:col-span-4 col-span-1 min-w-0">
+                    <div className="flex items-center gap-2 lg:gap-3 col-span-7 lg:col-span-4 min-w-0">
                       <span className="lg:hidden text-sm font-medium text-gray-500 w-6 flex-shrink-0">
                         {index + 1}
                       </span>
                       <div
-                        className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
                         style={{ backgroundColor: stock.logoColor }}
                       >
                         {stock.name.charAt(0)}
                       </div>
                       <div className="min-w-0 overflow-hidden">
-                        <p className="font-semibold text-gray-900 truncate">
+                        <p className="font-semibold text-gray-900 truncate text-sm lg:text-base">
                           {stock.name}
                         </p>
                         <p className="text-xs text-gray-500">{stock.code}</p>
                       </div>
                     </div>
-                    <div className="lg:text-right lg:col-span-2">
-                      <p className="lg:hidden text-xs text-gray-500 mb-0.5">
-                        현재가
+                    {/* 모바일 전용: 현재가 + 등락/등락률 압축 */}
+                    <div className="col-span-5 lg:hidden flex flex-col items-end gap-0.5 min-w-0">
+                      <p className="font-bold text-gray-900 tabular-nums text-sm">
+                        {formatNumber(price)}원
                       </p>
+                      <p
+                        className={`font-semibold tabular-nums text-xs ${
+                          changeRate >= 0 ? "text-red-600" : "text-blue-600"
+                        }`}
+                      >
+                        {change >= 0 ? "+" : ""}
+                        {formatNumber(change)} ({changeRate >= 0 ? "+" : ""}
+                        {changeRate.toFixed(2)}%)
+                      </p>
+                    </div>
+                    {/* 데스크톱: 현재가 / 등락 / 등락률 */}
+                    <div className="hidden lg:flex lg:text-right lg:col-span-2 flex-col justify-center">
                       <p className="font-bold text-gray-900 tabular-nums">
                         {formatNumber(price)}원
                       </p>
                     </div>
-                    <div className="lg:text-right lg:col-span-2">
-                      <p className="lg:hidden text-xs text-gray-500 mb-0.5">
-                        등락
-                      </p>
+                    <div className="hidden lg:flex lg:text-right lg:col-span-2 flex-col justify-center">
                       <p
                         className={`font-semibold tabular-nums ${
                           change >= 0 ? "text-red-600" : "text-blue-600"
@@ -329,10 +339,7 @@ export default function MockInvestmentPage() {
                         {formatNumber(change)}
                       </p>
                     </div>
-                    <div className="lg:text-right lg:col-span-3">
-                      <p className="lg:hidden text-xs text-gray-500 mb-0.5">
-                        등락률
-                      </p>
+                    <div className="hidden lg:flex lg:text-right lg:col-span-3 flex-col justify-center">
                       <p
                         className={`font-semibold ${
                           changeRate >= 0 ? "text-red-600" : "text-blue-600"
