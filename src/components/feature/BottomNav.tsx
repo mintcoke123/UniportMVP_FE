@@ -20,7 +20,7 @@ export default function BottomNav() {
 
   const baseItems: NavItem[] = [
     { to: "/", label: "홈", icon: "ri-home-5-line", iconActive: "ri-home-5-fill" },
-    { to: "/competition", label: "대회", icon: "ri-trophy-line", iconActive: "ri-trophy-fill" },
+    { to: "/matching-rooms", label: "팀 참가방", icon: "ri-team-line", iconActive: "ri-team-fill" },
     { to: "/ranking", label: "랭킹", icon: "ri-bar-chart-box-line", iconActive: "ri-bar-chart-box-fill" },
   ];
 

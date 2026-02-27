@@ -343,23 +343,6 @@ export default function MatchingRoomsPage() {
                             </span>
                           )}
                         </p>
-                        {room.inviteCode && room.capacity > 1 && (
-                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
-                            <span>초대코드</span>
-                            <code className="font-mono tracking-wider">{room.inviteCode}</code>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                copyInviteCode(room.inviteCode!);
-                              }}
-                              className="text-teal-600 hover:text-teal-700 cursor-pointer"
-                              title="복사"
-                            >
-                              <i className="ri-file-copy-line text-sm" aria-hidden />
-                            </button>
-                          </p>
-                        )}
                       </div>
 
                       <div className="p-5">

@@ -11,7 +11,7 @@ import {
   usePriceWebSocket,
   normalizeStockCodeForPrice,
 } from "../../services";
-import type { MarketIndex, StockListItem } from "../../types";
+import type { MarketIndex, StockListItem, MatchingRoom } from "../../types";
 
 type TabType = "volume" | "rising" | "falling";
 
@@ -32,6 +32,9 @@ export default function MockInvestmentPage() {
   /** 팀 없음 → 매칭방, 개인방 → /solo 판별이 끝난 후에만 본문 표시 */
   const [routeOk, setRouteOk] = useState(false);
 
+  /** 현재 팀에 해당하는 매칭방(초대코드 표시용). 팀방(capacity>1)만 해당. */
+  const [currentTeamRoom, setCurrentTeamRoom] = useState<MatchingRoom | null>(null);
+
   /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)도 이 페이지에서 종목 선택·매수/매도 가능(헤더 모의투자 클릭 시 이동). */
   useEffect(() => {
     if (!user) return;
@@ -48,7 +51,14 @@ export default function MockInvestmentPage() {
       return;
     }
     getMyMatchingRooms()
-      .then(() => setRouteOk(true))
+      .then((rooms) => {
+        setRouteOk(true);
+        const myRoom = rooms.find(
+          (r) => String(r.id) === teamNum || String(r.id) === `room-${teamNum}`
+        );
+        if (myRoom && myRoom.capacity > 1) setCurrentTeamRoom(myRoom);
+        else setCurrentTeamRoom(null);
+      })
       .catch(() => setRouteOk(true));
   }, [user, navigate, fromSolo]);
 
@@ -128,6 +138,13 @@ export default function MockInvestmentPage() {
     return num.toLocaleString("ko-KR");
   };
 
+  const copyInviteCode = (code: string) => {
+    navigator.clipboard
+      .writeText(code)
+      .then(() => alert("초대코드가 복사되었습니다."))
+      .catch(() => alert("복사에 실패했습니다."));
+  };
+
   const handleStockClick = (stock: StockListItem) => {
     navigate(`/stock-detail?id=${stock.id}`, {
       state: { nameFromList: stock.name },
@@ -154,6 +171,35 @@ export default function MockInvestmentPage() {
             종목을 선택해 매수·매도 체험을 해보세요
           </p>
         </div>
+
+        {/* 팀 초대코드 (팀방만, 모바일·데스크톱 공통) */}
+        {currentTeamRoom?.inviteCode && currentTeamRoom.capacity > 1 && (
+          <div className="mb-4 lg:mb-6 p-4 bg-teal-50 border border-teal-200 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shrink-0" aria-hidden>
+                <i className="ri-team-fill text-lg" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{currentTeamRoom.name}</p>
+                <p className="text-xs text-gray-600">팀원 초대코드</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <code className="px-3 py-2 bg-white border border-teal-200 rounded-xl text-sm font-mono font-bold tracking-wider text-teal-800">
+                {currentTeamRoom.inviteCode}
+              </code>
+              <button
+                type="button"
+                onClick={() => copyInviteCode(currentTeamRoom.inviteCode!)}
+                className="py-2 px-4 rounded-xl text-sm font-medium bg-teal-500 text-white hover:bg-teal-600 cursor-pointer transition-colors flex items-center gap-2"
+                title="초대코드 복사"
+              >
+                <i className="ri-file-copy-line" aria-hidden />
+                복사
+              </button>
+            </div>
+          </div>
+        )}
 
         {marketError && (
           <div className="mb-4 lg:mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-center gap-2 min-w-0">

@@ -589,7 +589,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-hidden flex flex-col min-w-0 bg-gray-50">
+    <div className="flex-1 min-h-0 overflow-hidden flex flex-col min-w-0 bg-teal-500 lg:bg-gray-50">
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col w-full box-border lg:max-w-7xl lg:mx-auto lg:px-8">
         <div className="flex-1 min-h-0 w-full px-4 lg:px-0 flex flex-col min-w-0 overflow-hidden">
         {/* 팀원 매칭 대기 중: "팀원을 매칭중입니다..." 표시 */}

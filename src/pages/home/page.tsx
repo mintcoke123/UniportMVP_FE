@@ -197,10 +197,10 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
       <main className="pt-4 pb-12 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full box-border">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
-          {/* 왼쪽 컬럼 - 자산 정보 */}
-          <div className="md:col-span-8 min-w-0">
-            {/* 진행 중인 대회 */}
-            <section>
+          {/* 왼쪽 컬럼 - 모바일에서 자산 먼저, 데스크톱에서는 대회 → 자산 → 보유 주식 */}
+          <div className="md:col-span-8 min-w-0 flex flex-col">
+            {/* 진행 중인 대회 - 모바일에서는 자산 아래 */}
+            <section className="order-2 md:order-1 mt-6 md:mt-0">
               <h3 className="text-base font-semibold text-gray-700 mb-4">
                 진행 중인 대회
               </h3>
@@ -290,8 +290,8 @@ export default function Home() {
               )}
             </section>
 
-            {/* 자산 */}
-            <section className="mt-6">
+            {/* 자산 - 모바일에서 맨 위 */}
+            <section className="mt-0 md:mt-6 order-1 md:order-2">
               <h3 className="text-base font-semibold text-gray-700 mb-4">
                 자산
               </h3>
@@ -344,7 +344,7 @@ export default function Home() {
             </section>
 
             {/* 보유 주식 (팀 보유 종목) */}
-            <section className="mt-6">
+            <section className="mt-6 order-3">
               <h3 className="text-base font-semibold text-gray-700 mb-4">
                 {groupId != null ? "우리 팀 보유 주식" : "보유 주식"}
               </h3>
