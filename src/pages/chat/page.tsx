@@ -407,6 +407,9 @@ export default function ChatPage() {
   /** 매도 수량 입력란 문자열 (선택된 보유종목 변경 시 해당 수량으로 초기화, 전송 시에만 숫자 파싱) */
   const [sellQuantityInput, setSellQuantityInput] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const userJustSentRef = useRef(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const selectedHolding = groupPortfolioData?.holdings?.find(
     (h) => h.id === selectedStock,
@@ -435,12 +438,28 @@ export default function ChatPage() {
     [votes, currentUserId],
   );
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    const listEl = messageListRef.current;
+    if (userJustSentRef.current) {
+      userJustSentRef.current = false;
+      scrollToBottom("auto");
+      setShowScrollToBottom(false);
+      return;
+    }
+    if (!listEl || dedupedMessages.length === 0) return;
+    const threshold = 80;
+    const { scrollHeight, scrollTop, clientHeight } = listEl;
+    const fromBottom = scrollHeight - scrollTop - clientHeight;
+    if (fromBottom < threshold) {
+      scrollToBottom("auto");
+      setShowScrollToBottom(false);
+    } else {
+      setShowScrollToBottom(true);
+    }
   }, [messages]);
 
   const [sending, setSending] = useState(false);
@@ -450,6 +469,7 @@ export default function ChatPage() {
 
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) {
+      userJustSentRef.current = true;
       ws.send(
         JSON.stringify({
           userId: currentUserId,
@@ -462,6 +482,7 @@ export default function ChatPage() {
     }
 
     setSending(true);
+    userJustSentRef.current = true;
     const result = await sendChatMessage(groupId, text);
     setSending(false);
     if (result.success) {
@@ -568,15 +589,15 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col min-w-0 lg:min-h-0">
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 lg:py-6 box-border flex flex-col min-h-0 lg:min-h-0">
+    <div className="h-dvh bg-gray-50 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 box-border">
         {/* 팀원 매칭 대기 중: "팀원을 매칭중입니다..." 표시 */}
         {matchingLoading ? (
-          <div className="flex justify-center py-16">
+          <div className="flex-1 min-h-0 flex justify-center items-center overflow-hidden">
             <span className="text-gray-500">불러오는 중...</span>
           </div>
         ) : myWaitingRoom ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center min-h-[60vh] text-center px-4 py-8">
             <div className="w-20 h-20 rounded-full bg-teal-100 flex items-center justify-center mb-6">
               <i
                 className="ri-user-search-line text-4xl text-teal-600"
@@ -679,8 +700,8 @@ export default function ChatPage() {
           </div>
         ) : (
           <div className="flex-1 min-h-0 flex flex-col">
-            {/* 왼쪽: 포트폴리오 (데스크톱만) | 오른쪽: 채팅/투표 — 높이 고정으로 메시지 영역만 스크롤 */}
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-4 lg:gap-6 flex-1 min-h-0 lg:h-[calc(100vh-6rem)] lg:min-h-0">
+            {/* 왼쪽: 포트폴리오 (데스크톱만) | 오른쪽: 채팅/투표 — flex-1 min-h-0만으로 높이 제한, 고정 calc 제거 */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-4 lg:gap-6 flex-1 min-h-0">
               {/* 왼쪽: 포트폴리오 — 모바일에서는 숨기고 바텀시트로 노출 */}
               <div className="hidden lg:flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-0 order-2 lg:order-1">
                 <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
@@ -1300,9 +1321,9 @@ export default function ChatPage() {
                   </button>
                 </header>
 
-                {/* Row 2: 채팅/투표 전환 — 정중앙 배치 */}
-                <div className="w-full px-4 py-2 flex justify-center shrink-0 bg-teal-50 border-x border-b border-gray-200">
-                  <div className="inline-flex bg-white rounded-full p-1 shadow border border-gray-300">
+                {/* Row 2: 채팅/투표 전환 — 정중앙 배치, overflow 방지 */}
+                <div className="w-full min-w-0 px-4 py-2 flex justify-center shrink-0 bg-teal-50 border-x border-b border-gray-200">
+                  <div className="inline-flex max-w-full bg-white rounded-full p-1 shadow border border-gray-300">
                     <button
                       type="button"
                       onClick={() => setRightPanelTab("chat")}
@@ -1346,7 +1367,7 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                {/* Row 3+4: 메시지/투표 영역(스크롤) + 입력창(하단 고정) */}
+                {/* Row 3+4: 메시지/투표 영역(스크롤) + 입력창(하단 고정) — flex flex-col h-full min-h-0 */}
                 <div className="flex flex-col flex-1 min-h-0 w-full min-w-0 overflow-hidden bg-white rounded-b-2xl border border-t-0 border-gray-200 shadow-sm">
                   {rightPanelTab === "chat" && (
                     <>
@@ -1368,7 +1389,10 @@ export default function ChatPage() {
                           </span>
                         </div>
                       )}
-                      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-4 space-y-4 min-w-0">
+                      <div
+                        ref={messageListRef}
+                        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-4 space-y-4 min-w-0"
+                      >
                         {dedupedMessages.map((msg) => (
                           <div key={msg.id} className="min-w-0">
                             {msg.type === "user" && (
@@ -1544,9 +1568,23 @@ export default function ChatPage() {
                           </div>
                         ))}
                         <div ref={messagesEndRef} />
+                        {showScrollToBottom && (
+                          <div className="sticky bottom-4 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                scrollToBottom("smooth");
+                                setShowScrollToBottom(false);
+                              }}
+                              className="px-4 py-2 rounded-full bg-teal-500 text-white text-sm font-medium shadow-lg hover:bg-teal-600 cursor-pointer"
+                            >
+                              맨 아래로
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      {/* 채팅 입력 — 하단 고정(카톡형), 바텀 네비 대비 패딩 */}
-                      <div className="flex-shrink-0 sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-gray-200 px-4 py-3 pb-16 md:pb-3">
+                      {/* 채팅 입력 — 하단 고정(카톡형), 탭바 56px 대비 pb-14 */}
+                      <div className="flex-shrink-0 sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-gray-200 px-4 py-3 pb-14 md:pb-3">
                         {isTournamentEnded ? (
                           <button
                             type="button"
