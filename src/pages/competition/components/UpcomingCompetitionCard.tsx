@@ -51,23 +51,25 @@ const UpcomingCompetitionCard = ({
   };
 
   return (
-    <div
-      className="bg-white rounded-2xl p-6 border border-gray-200 cursor-pointer hover:shadow-lg transition-all duration-300"
+    <button
+      type="button"
+      className="w-full text-left bg-white rounded-2xl p-4 sm:p-6 border border-gray-200 cursor-pointer hover:shadow-lg active:scale-[0.99] transition-all duration-300 min-h-[44px]"
       onClick={handleJoin}
+      aria-label={`${name} 예정된 대회`}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">{name}</h3>
-          <p className="text-base text-gray-600 font-mono">
-            <span className="text-sm mr-2">시작까지</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2 truncate">{name}</h3>
+          <p className="text-sm sm:text-base text-gray-600 font-mono tabular-nums">
+            <span className="text-xs sm:text-sm mr-2">시작까지</span>
             {timeUntilStart}
           </p>
         </div>
-        <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors duration-300">
-          <i className="ri-arrow-right-line text-2xl text-gray-700"></i>
+        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors duration-300">
+          <i className="ri-arrow-right-line text-xl sm:text-2xl text-gray-700" aria-hidden />
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 
