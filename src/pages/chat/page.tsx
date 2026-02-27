@@ -589,8 +589,8 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-dvh bg-gray-50 flex flex-col min-w-0 overflow-hidden">
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 box-border">
+    <div className="flex-1 min-h-0 bg-gray-50 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-0 box-border">
         {/* 팀원 매칭 대기 중: "팀원을 매칭중입니다..." 표시 */}
         {matchingLoading ? (
           <div className="flex-1 min-h-0 flex justify-center items-center overflow-hidden">
