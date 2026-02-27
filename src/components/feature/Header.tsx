@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -13,26 +13,11 @@ export default function Header() {
   const hasTeam = Boolean(user && "teamId" in user && user.teamId);
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMockInvestmentPage = location.pathname === "/mock-investment";
 
   const formatNumber = (num: number) => {
     return Math.floor(num).toLocaleString("ko-KR");
   };
-
-  // 모바일 메뉴 열림 시 배경 스크롤 방지
-  useEffect(() => {
-    if (isMobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isMobileMenuOpen]);
-
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const navLinkClass = (active?: boolean) =>
     `text-base font-medium whitespace-nowrap cursor-pointer transition-colors ${
@@ -149,164 +134,52 @@ export default function Header() {
           )}
         </div>
 
-        {/* 모바일: 햄버거 버튼 */}
-        <div className="flex md:hidden items-center gap-2 shrink-0">
-          {isLoggedIn && user && (
-            <span
-              className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold"
-              aria-hidden
-            >
-              {user.nickname.charAt(0)}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen((v) => !v)}
-            className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-            aria-label={isMobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
-            aria-expanded={isMobileMenuOpen}
-          >
-            <i
-              className={
-                isMobileMenuOpen
-                  ? "ri-close-line text-2xl text-gray-700"
-                  : "ri-menu-line text-2xl text-gray-700"
-              }
-              aria-hidden
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* 모바일: 네비게이션 드로어 */}
-      <div
-        className={`fixed inset-0 z-40 md:hidden ${
-          isMobileMenuOpen ? "visible" : "invisible"
-        }`}
-        aria-hidden={!isMobileMenuOpen}
-      >
-        {/* 배경 딤 */}
-        <div
-          className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ${
-            isMobileMenuOpen ? "opacity-100" : "opacity-0"
-          }`}
-          onClick={closeMobileMenu}
-        />
-        {/* 드로어 패널 (오른쪽에서 슬라이드) */}
-        <div
-          className={`absolute top-0 right-0 bottom-0 w-full max-w-sm bg-white shadow-xl flex flex-col transition-transform duration-200 ease-out ${
-            isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-            <span className="text-lg font-semibold text-gray-900">메뉴</span>
+        {/* 모바일: 로그인/프로필 아이콘 (하단 네비와 함께 사용) */}
+        <div className="relative flex md:hidden items-center shrink-0">
+          {isLoggedIn && user ? (
             <button
               type="button"
-              onClick={closeMobileMenu}
-              className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
-              aria-label="메뉴 닫기"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors"
+              aria-label="내 메뉴"
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="true"
             >
-              <i className="ri-close-line text-2xl text-gray-700" aria-hidden />
+              <span className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold">
+                {user.nickname.charAt(0)}
+              </span>
             </button>
-          </div>
-          <nav className="flex-1 overflow-y-auto py-4">
-            <ul className="space-y-1 px-4">
-              {NAV_LINKS.map(({ to, label }) => (
-                <li key={to}>
-                  <Link
-                    to={to}
-                    onClick={closeMobileMenu}
-                    className={`block px-4 py-3 rounded-xl ${navLinkClass(
-                      location.pathname === to
-                    )}`}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-              {isLoggedIn && (
-                <>
-                  <li>
-                    <Link
-                      to="/matching-rooms"
-                      onClick={closeMobileMenu}
-                      className={`block px-4 py-3 rounded-xl ${navLinkClass(
-                        location.pathname === "/matching-rooms"
-                      )}`}
-                    >
-                      팀 참가방
-                    </Link>
-                  </li>
-                  <li>
-                    {!hasTeam ? (
-                      <span className="block px-4 py-3 rounded-xl text-base font-medium text-gray-400 cursor-not-allowed">
-                        모의투자
-                      </span>
-                    ) : (
-                      <Link
-                        to="/mock-investment"
-                        onClick={closeMobileMenu}
-                        className={`block px-4 py-3 rounded-xl ${navLinkClass(
-                          isMockInvestmentPage
-                        )}`}
-                      >
-                        모의투자
-                      </Link>
-                    )}
-                  </li>
-                  <li>
-                    <Link
-                      to="/chat"
-                      onClick={closeMobileMenu}
-                      className={`block px-4 py-3 rounded-xl ${navLinkClass(
-                        location.pathname === "/chat"
-                      )}`}
-                    >
-                      채팅
-                    </Link>
-                  </li>
-                </>
-              )}
-            </ul>
-          </nav>
-          <div className="p-4 border-t border-gray-200">
-            {isLoggedIn && user ? (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50">
-                <span className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0">
-                  {user.nickname.charAt(0)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {user.nickname}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {hasTeam ? `팀 ${formatNumber(user.totalAssets)}원` : "—"}
-                  </p>
-                </div>
-              </div>
-            ) : null}
+          ) : (
             <button
-              onClick={() => {
-                if (isLoggedIn && user) {
-                  logout();
-                  closeMobileMenu();
-                } else {
-                  navigate("/login");
-                  closeMobileMenu();
-                }
-              }}
-              className="mt-3 w-full px-4 py-3 text-center text-base font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 cursor-pointer transition-colors flex items-center justify-center gap-2"
+              type="button"
+              onClick={() => navigate("/login")}
+              className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+              aria-label="로그인"
             >
-              {isLoggedIn && user ? (
-                <>
+              <i className="ri-user-line text-xl text-gray-600" aria-hidden />
+            </button>
+          )}
+          {isDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                aria-hidden
+                onClick={() => setIsDropdownOpen(false)}
+              />
+              <div className="absolute right-4 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsDropdownOpen(false);
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-2"
+                >
                   <i className="ri-logout-box-r-line" aria-hidden />
                   로그아웃
-                </>
-              ) : (
-                "로그인"
-              )}
-            </button>
-          </div>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
