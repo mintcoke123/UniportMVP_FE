@@ -530,7 +530,7 @@ const StockDetailPage = () => {
       setShowConfirmDialog(false);
       setOrderType(null);
       setShowSuccessMessage(true);
-      setTimeout(() => navigate("/chat"), 1000);
+      setTimeout(() => navigate("/mock-investment"), 1000);
     } catch (e) {
       setShareError(e instanceof Error ? e.message : "공유에 실패했습니다.");
     } finally {

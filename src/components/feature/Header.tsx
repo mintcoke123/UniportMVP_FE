@@ -13,6 +13,7 @@ export default function Header() {
   const hasTeam = Boolean(user && "teamId" in user && user.teamId);
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const isStockPage = location.pathname === "/stock";
   const isMockInvestmentPage = location.pathname === "/mock-investment";
 
   const formatNumber = (num: number) => {
@@ -54,18 +55,18 @@ export default function Header() {
                   className="text-base font-medium text-gray-400 whitespace-nowrap cursor-not-allowed"
                   title="매칭방에서 팀(3명)을 만든 후 이용할 수 있습니다"
                 >
-                  모의투자
+                  종목
                 </span>
               ) : (
                 <Link
-                  to="/mock-investment"
-                  className={navLinkClass(isMockInvestmentPage)}
+                  to="/stock"
+                  className={navLinkClass(isStockPage)}
                 >
-                  모의투자
+                  종목
                 </Link>
               )}
-              <Link to="/chat" className={navLinkClass()}>
-                채팅
+              <Link to="/mock-investment" className={navLinkClass(isMockInvestmentPage)}>
+                모의투자
               </Link>
             </>
           )}

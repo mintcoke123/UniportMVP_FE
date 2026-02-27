@@ -200,7 +200,7 @@ export default function GroupPortfolioPage() {
       {/* 모의투자 이동 버튼 */}
       <div className="px-5 py-4">
         <button
-          onClick={() => navigate("/mock-investment")}
+          onClick={() => navigate("/stock")}
           className="w-full py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-base font-bold rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2"
         >
           <i className="ri-stock-line text-xl"></i>

@@ -496,7 +496,7 @@ export default function ChatPage() {
   };
 
   const handleTradeShare = () => {
-    navigate("/mock-investment");
+    navigate("/stock");
   };
 
   const handleVote = (voteId: number, voteType: "찬성" | "반대" | "보류") => {
@@ -665,7 +665,7 @@ export default function ChatPage() {
                       navigate(
                         myWaitingRoom.capacity === 1
                           ? "/solo"
-                          : "/mock-investment",
+                          : "/stock",
                       );
                     } catch (e) {
                       const err = e as ApiError;
@@ -1944,7 +1944,7 @@ export default function ChatPage() {
               <button
                 onClick={() => {
                   setShowTradeModal(false);
-                  navigate("/mock-investment");
+                  navigate("/stock");
                 }}
                 className="flex-1 py-3 bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 cursor-pointer whitespace-nowrap transition-colors"
               >

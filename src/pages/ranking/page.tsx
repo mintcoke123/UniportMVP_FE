@@ -181,7 +181,7 @@ export default function Ranking() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/chat")}
+            onClick={() => navigate("/mock-investment")}
             className="flex-1 min-h-[44px] py-3.5 sm:py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-base sm:text-lg font-bold rounded-2xl hover:from-teal-600 hover:to-teal-700 transition-all cursor-pointer whitespace-nowrap"
           >
             채팅

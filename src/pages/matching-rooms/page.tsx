@@ -104,7 +104,7 @@ export default function MatchingRoomsPage() {
         result.teamId ??
         (result.groupId != null ? String(result.groupId) : null);
       if (teamIdToSet) updateUserTeam(teamIdToSet);
-      navigate(room.capacity === 1 ? "/solo" : "/chat");
+      navigate(room.capacity === 1 ? "/solo" : "/mock-investment");
     }
   };
 
@@ -220,7 +220,7 @@ export default function MatchingRoomsPage() {
             </p>
             <button
               type="button"
-              onClick={() => navigate("/chat")}
+              onClick={() => navigate("/mock-investment")}
               className="py-2.5 px-5 rounded-xl text-sm font-semibold bg-teal-500 text-white hover:bg-teal-600 cursor-pointer transition-colors flex items-center gap-2"
             >
               <i className="ri-chat-3-line text-lg" aria-hidden />

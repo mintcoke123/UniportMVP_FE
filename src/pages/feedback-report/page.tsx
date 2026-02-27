@@ -268,7 +268,7 @@ export default function FeedbackReportPage() {
         {/* 하단 버튼 */}
         <div className="flex gap-3 pb-6">
           <button
-            onClick={() => navigate("/chat")}
+            onClick={() => navigate("/mock-investment")}
             className="flex-1 py-4 bg-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-300 cursor-pointer whitespace-nowrap transition-colors"
           >
             채팅방으로 돌아가기

@@ -26,13 +26,13 @@ export default function BottomNav() {
 
   const authItems: NavItem[] = [
     {
-      to: "/mock-investment",
-      label: "모의투자",
-      icon: "ri-line-chart-line",
-      iconActive: "ri-line-chart-fill",
+      to: "/stock",
+      label: "종목",
+      icon: "ri-stock-line",
+      iconActive: "ri-stock-fill",
       fallbackWhenNoTeam: "/matching-rooms",
     },
-    { to: "/chat", label: "채팅", icon: "ri-chat-3-line", iconActive: "ri-chat-3-fill", loginRequired: true },
+    { to: "/mock-investment", label: "모의투자", icon: "ri-chat-3-line", iconActive: "ri-chat-3-fill", loginRequired: true },
   ];
 
   const items = isLoggedIn ? [...baseItems, ...authItems] : baseItems;

@@ -29,7 +29,7 @@ const routes: RouteObject[] = [
       { path: "ranking", element: <Ranking /> },
       { path: "group-portfolio", element: <GroupPortfolioPage /> },
       {
-        path: "mock-investment",
+        path: "stock",
         element: (
           <ProtectedRoute>
             <MockInvestmentPage />
@@ -46,7 +46,7 @@ const routes: RouteObject[] = [
       },
       { path: "stock-detail", element: <StockDetailPage /> },
       {
-        path: "chat",
+        path: "mock-investment",
         element: (
           <ProtectedRoute>
             <ChatPage />
