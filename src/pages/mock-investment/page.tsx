@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../../components/feature/Header";
+import StockSearchSection from "../../components/feature/StockSearchSection";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getMarketIndices,
@@ -194,6 +195,8 @@ export default function MockInvestmentPage() {
             </div>
           </div>
         </section>
+
+        <StockSearchSection />
 
         {/* 탭 + 검색 + 종목 리스트 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
