@@ -40,8 +40,9 @@ const FALLBACK_COMPETITION: CompetitionSummary = {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, updateUserAssets } = useAuth();
+  const { user, isLoggedIn, logout, updateUserAssets } = useAuth();
   const groupId = teamIdToGroupId(user?.teamId ?? null);
+  const hasTeam = Boolean(user && "teamId" in user && user.teamId);
 
   const [data, setData] = useState<InvestmentData>(FALLBACK_DATA);
   const [stocks, setStocks] = useState<StockHolding[]>([]);
@@ -196,6 +197,49 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
       <main className="pt-4 pb-12 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full box-border">
+        {/* 모바일 전용: 상단 유저 프로필 (데스크톱은 Header에 있음) */}
+        <div className="lg:hidden mb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:px-0">
+          {isLoggedIn && user ? (
+            <div className="flex items-center justify-between gap-3 py-3 px-4 bg-white rounded-2xl border border-gray-200 shadow-sm min-h-[56px]">
+              <div className="flex items-center gap-3 min-w-0">
+                <span
+                  className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
+                  aria-hidden
+                >
+                  {user.nickname.charAt(0)}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {user.nickname}
+                  </p>
+                  <p className="text-xs text-gray-500" title={hasTeam ? "우리 팀 총 자산" : "팀 참가 후 팀 총 자산이 표시됩니다"}>
+                    {hasTeam ? `팀 ${formatNumber(user.totalAssets ?? 0)}원` : "—"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="shrink-0 py-2 px-4 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-2 min-h-[44px]"
+                aria-label="로그아웃"
+              >
+                <i className="ri-logout-box-r-line text-lg" aria-hidden />
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end py-2">
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="py-2.5 px-5 text-sm font-medium text-white bg-teal-500 rounded-xl hover:bg-teal-600 cursor-pointer transition-colors"
+              >
+                로그인
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
           {/* 왼쪽 컬럼 - 모바일에서 자산 먼저, 데스크톱에서는 대회 → 자산 → 보유 주식 */}
           <div className="md:col-span-8 min-w-0 flex flex-col">
