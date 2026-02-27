@@ -556,9 +556,8 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col min-w-0 overflow-x-hidden">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 box-border">
         {/* 팀원 매칭 대기 중: "팀원을 매칭중입니다..." 표시 */}
         {matchingLoading ? (
           <div className="flex justify-center py-16">
@@ -660,514 +659,16 @@ export default function ChatPage() {
           </div>
         ) : (
           <>
-            {/* 왼쪽: 포트폴리오 | 오른쪽: 채팅/투표 토글 */}
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-6 lg:h-[calc(100vh-6rem)] min-h-[24rem]">
-              {/* 왼쪽: 포트폴리오 */}
-              <div className="flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-0 order-2 lg:order-1">
-                <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
-                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                    <i className="ri-pie-chart-line text-teal-500"></i>팀 투자
-                    현황
-                  </h2>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
-                  {/* 거래 가능 현금 (항상 표시) */}
-                  <div className="bg-white rounded-xl p-4 border border-gray-200">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-gray-600 text-sm font-medium">
-                        거래 가능 현금
-                      </span>
-                      {groupId == null ? (
-                        <span className="text-gray-400 text-sm">—</span>
-                      ) : availableCash !== null ? (
-                        <span className="text-lg font-bold text-gray-900">
-                          {availableCash.toLocaleString("ko-KR")}원
-                        </span>
-                      ) : portfolioLoadError ? (
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-sm text-amber-600">
-                            현금 정보를 불러오지 못했습니다
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              groupId != null && fetchGroupPortfolio(groupId)
-                            }
-                            className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer"
-                          >
-                            재시도
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500">
-                          거래 가능 현금 불러오는 중…
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 투자 원금 및 손익 — 클릭 시 포트폴리오 화면으로 */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate("/group-portfolio")}
-                    onKeyDown={(e) => e.key === "Enter" && navigate("/group-portfolio")}
-                    className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white cursor-pointer hover:from-teal-600 hover:to-teal-700 transition-all"
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <i className="ri-wallet-3-line text-xl"></i>
-                      <h3 className="text-sm font-bold">투자 요약</h3>
-                      <i className="ri-arrow-right-s-line text-teal-200 ml-auto" aria-hidden />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-teal-100">투자 원금</span>
-                        <span className="font-bold">
-                          {formatCurrency(
-                            groupPortfolioData?.investmentAmount ?? 0,
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-teal-100">현재 평가액</span>
-                        <span className="font-bold">
-                          {formatCurrency(groupPortfolioData?.totalValue ?? 0)}
-                        </span>
-                      </div>
-                      <div className="border-t border-teal-400 pt-2 flex justify-between items-center text-sm">
-                        <span className="text-teal-100">총 손익</span>
-                        <div className="text-right">
-                          <span
-                            className={`font-bold ${
-                              isProfit ? "text-yellow-300" : "text-red-200"
-                            }`}
-                          >
-                            {isProfit ? "+" : ""}
-                            {formatCurrency(
-                              groupPortfolioData?.profitLoss ?? 0,
-                            )}
-                          </span>
-                          <span
-                            className={`text-xs ml-1 ${
-                              isProfit ? "text-yellow-300" : "text-red-200"
-                            }`}
-                          >
-                            {formatPercentage(
-                              groupPortfolioData?.profitLossPercentage ?? 0,
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 내 지정가 주문 */}
-                  {myPendingLimitOrders.length > 0 && (
-                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                      <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                        <i className="ri-price-tag-3-line text-amber-600" aria-hidden />
-                        내 지정가 주문
-                      </h3>
-                      <ul className="space-y-2">
-                        {myPendingLimitOrders.map((vote) => {
-                          const stockId = vote.stockCode
-                            ? parseInt(vote.stockCode, 10)
-                            : 0;
-                          return (
-                            <li key={vote.id}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  stockId > 0 &&
-                                  navigate(`/stock-detail?id=${stockId}`)
-                                }
-                                className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
-                              >
-                                <div className="flex justify-between items-start gap-2">
-                                  <span className="font-semibold text-gray-900 truncate">
-                                    {vote.stockName || vote.stockCode || "—"}
-                                  </span>
-                                  <span
-                                    className={`text-xs font-medium shrink-0 ${
-                                      vote.type === "매수"
-                                        ? "text-red-600"
-                                        : "text-blue-600"
-                                    }`}
-                                  >
-                                    {vote.type}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  희망가 {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원
-                                  · {vote.quantity}주
-                                </p>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* 파이 차트 */}
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <h3 className="text-sm font-bold text-gray-900 mb-3">
-                      포트폴리오 구성
-                    </h3>
-                    <div className="flex items-center justify-center mb-3">
-                      <svg viewBox="0 0 200 200" className="w-28 h-28">
-                        {(groupPortfolioData?.holdings ?? []).map(
-                          (holding, index) => {
-                            const holdings = groupPortfolioData?.holdings ?? [];
-                            const getValue = (h: (typeof holdings)[0]) => {
-                              const c = normalizeStockCode(h.stockCode);
-                              const price = c
-                                ? (realtimePrices[c]?.currentPrice ??
-                                  h.currentPrice)
-                                : h.currentPrice;
-                              return price * (h.quantity ?? 0);
-                            };
-                            const total = holdings.reduce(
-                              (sum, h) => sum + getValue(h),
-                              0,
-                            );
-                            if (total <= 0) return null;
-                            let startAngle = 0;
-                            for (let i = 0; i < index; i++) {
-                              startAngle +=
-                                (getValue(holdings[i]) / total) * 360;
-                            }
-                            const angle = (getValue(holding) / total) * 360;
-                            const cx = 100;
-                            const cy = 100;
-                            const r = 80;
-                            const pathD = getPieSlicePathD(
-                              cx,
-                              cy,
-                              r,
-                              startAngle,
-                              angle,
-                            );
-                            const colors = [
-                              "#14B8A6",
-                              "#06B6D4",
-                              "#8B5CF6",
-                              "#EC4899",
-                              "#F59E0B",
-                              "#10B981",
-                            ];
-                            return (
-                              <path
-                                key={holding.id}
-                                d={pathD}
-                                fill={colors[index % colors.length]}
-                                opacity="0.9"
-                              />
-                            );
-                          },
-                        )}
-                        <circle cx="100" cy="100" r="50" fill="white" />
-                      </svg>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(groupPortfolioData?.holdings ?? []).map(
-                        (holding, index) => {
-                          const colors = [
-                            "bg-teal-500",
-                            "bg-cyan-500",
-                            "bg-purple-500",
-                            "bg-pink-500",
-                            "bg-amber-500",
-                            "bg-green-500",
-                          ];
-                          const total = (
-                            groupPortfolioData?.holdings ?? []
-                          ).reduce((sum, h) => sum + h.currentValue, 0);
-                          const percentage =
-                            total > 0
-                              ? ((holding.currentValue / total) * 100).toFixed(
-                                  1,
-                                )
-                              : "0";
-                          return (
-                            <div
-                              key={holding.id}
-                              className="flex items-center gap-1.5"
-                            >
-                              <div
-                                className={`w-2.5 h-2.5 rounded-full ${
-                                  colors[index % colors.length]
-                                }`}
-                              ></div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-gray-900 truncate">
-                                  {holding.stockName}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {percentage}%
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        },
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 보유 종목 리스트 */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-bold text-gray-900">
-                      보유 종목
-                    </h3>
-                    {(groupPortfolioData?.holdings ?? []).map((holding) => {
-                      const code = normalizeStockCode(holding.stockCode);
-                      const rt = code ? realtimePrices[code] : undefined;
-                      const currentPrice =
-                        rt?.currentPrice ?? holding.currentPrice;
-                      const currentValue =
-                        currentPrice * (holding.quantity ?? 0);
-                      const cost =
-                        (holding.averagePrice ?? 0) * (holding.quantity ?? 0);
-                      const profitLoss = cost > 0 ? currentValue - cost : 0;
-                      const profitLossPercentage =
-                        cost > 0 ? (profitLoss / cost) * 100 : 0;
-                      const isProfit = profitLoss >= 0;
-                      const isSelected = selectedStock === holding.id;
-                      return (
-                        <div
-                          key={holding.id}
-                          onClick={() =>
-                            setSelectedStock(isSelected ? null : holding.id)
-                          }
-                          className={`rounded-xl p-3 border transition-all cursor-pointer ${
-                            isSelected
-                              ? "border-teal-500 ring-2 ring-teal-200 bg-teal-50"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="min-w-0">
-                              <h4 className="text-sm font-bold text-gray-900 truncate">
-                                {holding.stockName}
-                              </h4>
-                              <span className="text-xs text-gray-500">
-                                {holding.quantity}주 ·{" "}
-                                {formatCurrency(currentPrice)}
-                                {rt && (
-                                  <span className="text-teal-600 ml-0.5">
-                                    (실시간)
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                            <p
-                              className={`text-xs font-semibold flex-shrink-0 ml-2 ${
-                                isProfit ? "text-green-600" : "text-red-600"
-                              }`}
-                            >
-                              <span className="text-gray-500 font-normal">매수대비 </span>
-                              {formatPercentage(profitLossPercentage)}
-                            </p>
-                          </div>
-                          {isSelected && (
-                            <div onClick={(e) => e.stopPropagation()} className="space-y-2">
-                            <button
-                              type="button"
-                              disabled={
-                                groupId == null ||
-                                creatingVoteStockId === holding.id ||
-                                hasOngoingVoteForStock(
-                                  holding.stockCode,
-                                  "매도",
-                                )
-                              }
-                              title={
-                                hasOngoingVoteForStock(
-                                  holding.stockCode,
-                                  "매도",
-                                )
-                                  ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
-                                  : undefined
-                              }
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (
-                                  groupId == null ||
-                                  creatingVoteStockId != null
-                                )
-                                  return;
-                                if (
-                                  hasOngoingVoteForStock(
-                                    holding.stockCode,
-                                    "매도",
-                                  )
-                                )
-                                  return;
-                                setCreatingVoteStockId(holding.id);
-                                const reason = `${holding.stockName} 전량 시장가 매도 제안입니다. 현재 보유 수량 ${holding.quantity}주를 모두 처분하고자 합니다.`;
-                                try {
-                                  const res = await createVote(groupId, {
-                                    type: "매도",
-                                    stockName: holding.stockName,
-                                    stockCode: holding.stockCode,
-                                    quantity: holding.quantity,
-                                    proposedPrice: currentPrice,
-                                    reason,
-                                  });
-                                  if (res.success) {
-                                    await sendTradeMessage(groupId, {
-                                      action: "매도",
-                                      stockName: holding.stockName,
-                                      quantity: holding.quantity,
-                                      pricePerShare: currentPrice,
-                                      totalAmount: currentPrice * (holding.quantity ?? 0),
-                                      reason,
-                                      tags: ["처분"],
-                                      voteId: res.voteId,
-                                    }).catch(() => {});
-                                    const updated = await getVotes(groupId);
-                                    setVotes(updated);
-                                    setMessages((prev) => {
-                                      getChatMessages(groupId).then((list) => setMessages(list));
-                                      return prev;
-                                    });
-                                    setSelectedStock(null);
-                                    setRightPanelTab("vote");
-                                  } else {
-                                    alert(
-                                      res.message ??
-                                        "처분 투표 생성에 실패했습니다.",
-                                    );
-                                  }
-                                } catch (e) {
-                                  const msg =
-                                    (e as ApiError)?.message ??
-                                    "처분 투표 생성에 실패했습니다.";
-                                  alert(msg);
-                                } finally {
-                                  setCreatingVoteStockId(null);
-                                }
-                              }}
-                              className="w-full py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {creatingVoteStockId === holding.id ? (
-                                <>
-                                  <i
-                                    className="ri-loader-4-line mr-1 animate-spin"
-                                    aria-hidden
-                                  />
-                                  생성 중...
-                                </>
-                              ) : hasOngoingVoteForStock(
-                                  holding.stockCode,
-                                  "매도",
-                                ) ? (
-                                <>
-                                  <i
-                                    className="ri-time-line mr-1"
-                                    aria-hidden
-                                  />
-                                  매도 투표 진행 중
-                                </>
-                              ) : (
-                                <>
-                                  <i className="ri-arrow-down-line mr-1"></i>
-                                  처분 투표 생성
-                                </>
-                              )}
-                            </button>
-                            {/* 매도 수량 입력 + 매도 투표 생성 (일부 수량 매도) */}
-                            <div className="mt-2 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs text-gray-600 whitespace-nowrap">매도 수량</label>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  placeholder="1"
-                                  value={sellQuantityInput}
-                                  onChange={(e) => setSellQuantityInput(e.target.value.replace(/[^0-9]/g, ""))}
-                                  className="w-20 py-1.5 px-2 text-sm border border-gray-300 rounded-lg"
-                                />
-                                <span className="text-xs text-gray-500">/ {holding.quantity}주</span>
-                              </div>
-                              {(() => {
-                                const maxQ = holding.quantity ?? 0;
-                                const parsed = parseInt(sellQuantityInput, 10);
-                                const isValid = !Number.isNaN(parsed) && parsed >= 1 && parsed <= maxQ;
-                                const sellQuantity = isValid ? parsed : 0;
-                                return (
-                              <button
-                                type="button"
-                                disabled={
-                                  groupId == null ||
-                                  creatingVoteStockId === holding.id ||
-                                  hasOngoingVoteForStock(holding.stockCode, "매도") ||
-                                  !isValid
-                                }
-                                title={hasOngoingVoteForStock(holding.stockCode, "매도") ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다." : undefined}
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (groupId == null || creatingVoteStockId != null || hasOngoingVoteForStock(holding.stockCode, "매도")) return;
-                                  if (!isValid) return;
-                                  setCreatingVoteStockId(holding.id);
-                                  const reason = `${holding.stockName} ${sellQuantity}주 시장가 매도 제안입니다.`;
-                                  try {
-                                    const res = await createVote(groupId, {
-                                      type: "매도",
-                                      stockName: holding.stockName,
-                                      stockCode: holding.stockCode,
-                                      quantity: sellQuantity,
-                                      proposedPrice: currentPrice,
-                                      reason,
-                                    });
-                                    if (res.success) {
-                                      await sendTradeMessage(groupId, {
-                                        action: "매도",
-                                        stockName: holding.stockName,
-                                        quantity: sellQuantity,
-                                        pricePerShare: currentPrice,
-                                        totalAmount: currentPrice * sellQuantity,
-                                        reason,
-                                        tags: ["매도"],
-                                        voteId: res.voteId,
-                                      }).catch(() => {});
-                                      getChatMessages(groupId).then(setMessages);
-                                      const updated = await getVotes(groupId);
-                                      setVotes(updated);
-                                      setSelectedStock(null);
-                                      setRightPanelTab("vote");
-                                    } else {
-                                      alert(res.message ?? "매도 투표 생성에 실패했습니다.");
-                                    }
-                                  } catch (err) {
-                                    alert((err as ApiError)?.message ?? "매도 투표 생성에 실패했습니다.");
-                                    } finally {
-                                      setCreatingVoteStockId(null);
-                                    }
-                                  }}
-                                className="w-full py-2 border-2 border-teal-500 text-teal-600 text-xs font-bold rounded-lg hover:bg-teal-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                매도 투표 생성
-                              </button>
-                                );
-                              })()}
-                            </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
+            {/* 메인: 채팅·투표 한 화면; 팀 투자 현황은 '채팅방 정보'로 슬라이드 업 */}
+            <div className="flex flex-col lg:h-[calc(100vh-6rem)] min-h-[24rem] w-full min-w-0 overflow-x-hidden">
+              {/* 채팅·투표 카드 (메인) */}
+              <div className="flex flex-col min-h-0 flex-1">
               {/* 오른쪽: 채팅 위 헤더(별도 행) + 채팅 블록 카드 — 겹침 방지 */}
               <div className="flex flex-col min-h-0 order-1 lg:order-2">
                 {/* 채팅 위 헤더: 고정 높이, 본문과 겹치지 않음 */}
-                <header className="flex-none shrink-0 px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-teal-50 border border-gray-200 border-b-0 rounded-t-2xl rounded-b-none shadow-sm">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="text-sm font-bold text-gray-800 shrink-0">
+                <header className="flex-none shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3 bg-teal-50 border border-gray-200 border-b-0 rounded-t-2xl rounded-b-none shadow-sm">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <span className="text-xs sm:text-sm font-bold text-gray-800 shrink-0">
                       채팅 · 투표
                     </span>
                     {myRooms.length > 1 && (
@@ -1176,7 +677,7 @@ export default function ChatPage() {
                         onChange={(e) =>
                           setSelectedRoomId(e.target.value || null)
                         }
-                        className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 min-w-0 max-w-[12rem]"
+                        className="text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-2.5 sm:px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 min-w-0 max-w-[10rem] sm:max-w-[12rem] min-h-[44px] sm:min-h-0"
                         aria-label="채팅방 선택"
                       >
                         {myRooms.map((room) => {
@@ -1194,23 +695,23 @@ export default function ChatPage() {
                       </select>
                     )}
                   </div>
-                  <div className="flex bg-white rounded-full p-1 shadow border border-gray-300 flex-1 min-w-0 max-w-[14rem]">
+                  <div className="flex bg-white rounded-full p-1 shadow border border-gray-300 flex-1 min-w-0 max-w-[12rem] sm:max-w-[14rem]">
                     <button
                       type="button"
                       onClick={() => setRightPanelTab("chat")}
-                      className={`flex-1 py-2 px-3 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      className={`flex-1 py-2 px-2 sm:px-3 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap min-h-[40px] sm:min-h-0 ${
                         rightPanelTab === "chat"
                           ? "bg-teal-500 text-white shadow-sm"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                       }`}
                     >
-                      <i className="ri-chat-3-line mr-1" aria-hidden />
+                      <i className="ri-chat-3-line mr-0.5 sm:mr-1" aria-hidden />
                       채팅
                     </button>
                     <button
                       type="button"
                       onClick={() => setRightPanelTab("vote")}
-                      className={`flex-1 py-2 px-3 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
+                      className={`flex-1 py-2 px-2 sm:px-3 rounded-full text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5 sm:gap-1 min-h-[40px] sm:min-h-0 ${
                         rightPanelTab === "vote"
                           ? "bg-teal-500 text-white shadow-sm"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -1235,7 +736,7 @@ export default function ChatPage() {
                   <button
                     type="button"
                     onClick={() => setShowGroupInfoModal(true)}
-                    className="text-sm text-teal-600 hover:text-teal-700 font-semibold whitespace-nowrap py-1 px-2"
+                    className="text-xs sm:text-sm text-teal-600 hover:text-teal-700 font-semibold whitespace-nowrap py-2 px-2 sm:py-1 sm:px-2 min-h-[44px] sm:min-h-0 flex items-center"
                   >
                     채팅방 정보
                   </button>
@@ -1719,6 +1220,7 @@ export default function ChatPage() {
                   )}
                 </div>
               </div>
+              </div>
             </div>
           </>
         )}
@@ -1852,70 +1354,99 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* 그룹 정보 모달 */}
+      {/* 팀 투자 현황 슬라이드업 시트 (채팅방 정보 버튼으로 열기) */}
       {showGroupInfoModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-5">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-gray-900">채팅방 정보</h3>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end md:items-center md:justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 transition-opacity"
+            onClick={() => setShowGroupInfoModal(false)}
+            aria-hidden
+          />
+          <div
+            className="relative w-full max-w-lg max-h-[90vh] overflow-hidden bg-white rounded-t-2xl md:rounded-2xl shadow-xl flex flex-col md:max-h-[85vh]"
+            role="dialog"
+            aria-label="팀 투자 현황"
+          >
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <span className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-lg font-bold shrink-0">
+                  {(groupPortfolioData?.groupName ?? "").charAt(0)}
+                </span>
+                <h3 className="text-base font-bold text-gray-900">
+                  팀 투자 현황
+                </h3>
+              </div>
               <button
+                type="button"
                 onClick={() => setShowGroupInfoModal(false)}
-                className="w-8 h-8 flex items-center justify-center cursor-pointer"
+                className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="닫기"
               >
-                <i className="ri-close-line text-xl text-gray-700"></i>
+                <i className="ri-close-line text-xl text-gray-700" aria-hidden />
               </button>
             </div>
-
-            {/* 그룹 정보 */}
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
                 <span
-                  className="w-16 h-16 rounded-full bg-teal-500 text-white flex items-center justify-center text-xl font-bold shrink-0"
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-teal-500 text-white flex items-center justify-center text-lg sm:text-xl font-bold shrink-0"
                   aria-hidden
                 >
                   {(groupPortfolioData?.groupName ?? "").charAt(0)}
                 </span>
-                <div>
-                  <h4 className="text-base font-bold text-gray-900">
+                <div className="min-w-0">
+                  <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate">
                     {groupPortfolioData?.groupName ?? "-"}
                   </h4>
-                  <span className="text-sm text-gray-500">멤버 5명</span>
+                  <span className="text-xs sm:text-sm text-gray-500">멤버 5명</span>
                 </div>
               </div>
 
-              {/* 투자 정보 */}
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-gray-600 text-sm font-medium">거래 가능 현금</span>
+                  {groupId == null ? (
+                    <span className="text-gray-400 text-sm">—</span>
+                  ) : availableCash !== null ? (
+                    <span className="text-base sm:text-lg font-bold text-gray-900 tabular-nums">
+                      {availableCash.toLocaleString("ko-KR")}원
+                    </span>
+                  ) : portfolioLoadError ? (
+                    <button
+                      type="button"
+                      onClick={() => groupId != null && fetchGroupPortfolio(groupId)}
+                      className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+                    >
+                      재시도
+                    </button>
+                  ) : (
+                    <span className="text-sm text-gray-500">불러오는 중…</span>
+                  )}
+                </div>
+              </div>
+
               <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-2">
-                  <i className="ri-wallet-3-line text-teal-600 text-lg"></i>
-                  <span className="text-sm font-semibold text-gray-700">
-                    팀 투자 현황
-                  </span>
+                  <i className="ri-wallet-3-line text-teal-600 text-lg" aria-hidden />
+                  <span className="text-sm font-semibold text-gray-700">투자 요약</span>
                 </div>
-
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      팀 투자금(실시간)
-                    </span>
-                    <span className="text-base font-bold text-gray-900">
-                      {formatCurrency(
-                        groupPortfolioData?.investmentAmount ?? 0,
-                      )}
+                    <span className="text-sm text-gray-600">팀 투자금</span>
+                    <span className="text-base font-bold text-gray-900 tabular-nums">
+                      {formatCurrency(groupPortfolioData?.investmentAmount ?? 0)}
                     </span>
                   </div>
-
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">전체 자산</span>
-                    <span className="text-base font-bold text-gray-900">
+                    <span className="text-base font-bold text-gray-900 tabular-nums">
                       {formatCurrency(groupPortfolioData?.totalValue ?? 0)}
                     </span>
                   </div>
-
                   <div className="flex justify-between items-center pt-2 border-t border-teal-200">
                     <span className="text-sm text-gray-600">투자 손익</span>
                     <div className="text-right">
                       <span
-                        className={`text-base font-bold ${
+                        className={`text-base font-bold tabular-nums ${
                           isProfit ? "text-green-600" : "text-red-600"
                         }`}
                       >
@@ -1937,11 +1468,12 @@ export default function ChatPage() {
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setShowGroupInfoModal(false);
                   navigate("/group-portfolio");
                 }}
-                className="w-full py-3 bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 cursor-pointer whitespace-nowrap transition-colors"
+                className="w-full py-3.5 min-h-[44px] bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 cursor-pointer transition-colors"
               >
                 그룹 포트폴리오 보기
               </button>

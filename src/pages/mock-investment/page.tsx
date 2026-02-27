@@ -144,38 +144,37 @@ export default function MockInvestmentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      <main className="pt-8 pb-12 px-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
+      <main className="pt-4 pb-12 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full box-border">
         {/* 페이지 타이틀 */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">모의투자</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">모의투자</h1>
           <p className="text-sm text-gray-500 mt-1">
             종목을 선택해 매수·매도 체험을 해보세요
           </p>
         </div>
 
         {marketError && (
-          <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-            <i className="ri-error-warning-line"></i>
-            {marketError}
+          <div className="mb-4 sm:mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2">
+            <i className="ri-error-warning-line flex-shrink-0" aria-hidden />
+            <span className="min-w-0">{marketError}</span>
           </div>
         )}
 
         {/* 시장 지수 카드 */}
-        <section className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">
+        <section className="mb-6 sm:mb-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 min-w-0">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
               시장 지수
             </h2>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
               {marketIndices.map((index) => (
                 <div
                   key={index.id}
-                  className="text-center py-3 px-4 rounded-xl bg-gray-50"
+                  className="text-center py-3 px-3 sm:px-4 rounded-xl bg-gray-50 min-w-0"
                 >
-                  <p className="text-sm text-gray-600 mb-1">{index.name}</p>
-                  <p className="text-xl font-bold text-gray-900 mb-1">
+                  <p className="text-xs sm:text-sm text-gray-600 mb-1 truncate">{index.name}</p>
+                  <p className="text-base sm:text-xl font-bold text-gray-900 mb-1 tabular-nums break-all">
                     {formatNumber(index.value)}
                   </p>
                   <p
@@ -196,13 +195,14 @@ export default function MockInvestmentPage() {
         <StockSearchSection />
 
         {/* 탭 + 검색 + 종목 리스트 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0">
           {/* 탭 & 검색 한 줄 */}
-          <div className="flex flex-wrap items-center gap-4 p-5 border-b border-gray-100">
-            <div className="flex rounded-xl bg-gray-100 p-1">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 p-4 sm:p-5 border-b border-gray-100">
+            <div className="flex rounded-xl bg-gray-100 p-1 w-full sm:w-auto">
               <button
+                type="button"
                 onClick={() => setActiveTab("volume")}
-                className={`py-2 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex-1 sm:flex-none py-2.5 sm:py-2 px-4 sm:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[44px] sm:min-h-0 ${
                   activeTab === "volume"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
@@ -211,8 +211,9 @@ export default function MockInvestmentPage() {
                 거래량
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("rising")}
-                className={`py-2 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex-1 sm:flex-none py-2.5 sm:py-2 px-4 sm:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[44px] sm:min-h-0 ${
                   activeTab === "rising"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
@@ -221,8 +222,9 @@ export default function MockInvestmentPage() {
                 급상승
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("falling")}
-                className={`py-2 px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex-1 sm:flex-none py-2.5 sm:py-2 px-4 sm:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[44px] sm:min-h-0 ${
                   activeTab === "falling"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
@@ -231,7 +233,7 @@ export default function MockInvestmentPage() {
                 급하락
               </button>
             </div>
-            <div className="flex-1 min-w-[200px] max-w-md relative">
+            <div className="flex-1 w-full sm:min-w-[180px] sm:max-w-md relative">
               <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none"></i>
               <input
                 ref={searchInputRef}
@@ -239,7 +241,7 @@ export default function MockInvestmentPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="종목명 또는 종목코드 검색"
-                className="w-full py-2.5 pl-10 pr-4 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white border border-transparent"
+                className="w-full py-2.5 pl-10 pr-10 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white border border-transparent min-h-[44px]"
               />
               {searchQuery && (
                 <button
@@ -274,7 +276,7 @@ export default function MockInvestmentPage() {
                   <div
                     key={`${activeTab}-${stock.code}-${index}`}
                     onClick={() => handleStockClick(stock)}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center"
+                    className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
                   >
                     <span className="hidden md:block text-sm font-medium text-gray-500 col-span-1">
                       {index + 1}
@@ -289,8 +291,8 @@ export default function MockInvestmentPage() {
                       >
                         {stock.name.charAt(0)}
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 truncate">
                           {stock.name}
                         </p>
                         <p className="text-xs text-gray-500">{stock.code}</p>
