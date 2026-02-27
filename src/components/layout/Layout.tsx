@@ -7,12 +7,12 @@ import BottomNav from "../feature/BottomNav";
  */
 export default function Layout() {
   return (
-    <>
+    <div className="flex flex-col min-h-dvh">
       <Header />
-      <main className="pb-16 md:pb-0">
+      <main className="flex-1 min-h-0 pb-16 md:pb-0">
         <Outlet />
       </main>
       <BottomNav />
-    </>
+    </div>
   );
 }

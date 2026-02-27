@@ -568,8 +568,8 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col min-w-0 overflow-x-hidden">
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 box-border">
+    <div className="min-h-screen bg-gray-50 flex flex-col min-w-0 lg:min-h-0">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 lg:py-6 box-border flex flex-col min-h-0 lg:min-h-0">
         {/* 팀원 매칭 대기 중: "팀원을 매칭중입니다..." 표시 */}
         {matchingLoading ? (
           <div className="flex justify-center py-16">
@@ -678,9 +678,9 @@ export default function ChatPage() {
             </div>
           </div>
         ) : (
-          <>
-            {/* 왼쪽: 포트폴리오 (데스크톱만) | 오른쪽: 채팅/투표 */}
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-6 lg:h-[calc(100vh-6rem)] min-h-[24rem]">
+          <div className="flex-1 min-h-0 flex flex-col">
+            {/* 왼쪽: 포트폴리오 (데스크톱만) | 오른쪽: 채팅/투표 — 높이 고정으로 메시지 영역만 스크롤 */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-4 lg:gap-6 flex-1 min-h-0 lg:h-[calc(100vh-6rem)] lg:min-h-0">
               {/* 왼쪽: 포트폴리오 — 모바일에서는 숨기고 바텀시트로 노출 */}
               <div className="hidden lg:flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-0 order-2 lg:order-1">
                 <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
@@ -1245,11 +1245,11 @@ export default function ChatPage() {
                 </div>
               </div>
 
-              {/* 오른쪽: 채팅 위 헤더(별도 행) + 채팅 블록 카드 — 겹침 방지 */}
-              <div className="flex flex-col min-h-0 order-1 lg:order-2">
-                {/* 채팅 위 헤더: 고정 높이, 본문과 겹치지 않음 */}
-                <header className="flex-none shrink-0 px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-teal-50 border border-gray-200 border-b-0 rounded-t-2xl rounded-b-none shadow-sm">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* 오른쪽: 채팅 — 카톡형 레이아웃(헤더 / 중앙 토글 / 메시지만 스크롤 / 입력창 하단 고정) */}
+              <div className="flex flex-col flex-1 min-h-0 order-1 lg:order-2 min-w-0">
+                {/* Row 1: 헤더 — 방 선택 + 채팅방 정보 */}
+                <header className="flex-none shrink-0 px-4 py-2 flex items-center justify-between gap-2 bg-teal-50 border border-gray-200 border-b-0 rounded-t-2xl rounded-b-none shadow-sm min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="text-sm font-bold text-gray-800 shrink-0">
                       채팅 · 투표
                     </span>
@@ -1287,15 +1287,32 @@ export default function ChatPage() {
                       </select>
                     )}
                   </div>
-                  <div className="flex bg-white rounded-full p-1 shadow border border-gray-300 flex-1 min-w-0 max-w-[14rem]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowGroupInfoModal(true);
+                      setMobilePortfolioSheetOpen(true);
+                    }}
+                    className="text-sm text-teal-600 hover:text-teal-700 font-semibold whitespace-nowrap py-2 px-3 min-h-[44px] flex items-center cursor-pointer shrink-0"
+                    aria-label="채팅방 정보"
+                  >
+                    채팅방 정보
+                  </button>
+                </header>
+
+                {/* Row 2: 채팅/투표 전환 — 정중앙 배치 */}
+                <div className="w-full px-4 py-2 flex justify-center shrink-0 bg-teal-50 border-x border-b border-gray-200">
+                  <div className="inline-flex bg-white rounded-full p-1 shadow border border-gray-300">
                     <button
                       type="button"
                       onClick={() => setRightPanelTab("chat")}
-                      className={`flex-1 py-2 px-3 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      className={`min-h-[44px] py-2 px-4 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                         rightPanelTab === "chat"
                           ? "bg-teal-500 text-white shadow-sm"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                       }`}
+                      aria-pressed={rightPanelTab === "chat"}
+                      aria-label="채팅 탭"
                     >
                       <i className="ri-chat-3-line mr-1" aria-hidden />
                       채팅
@@ -1303,11 +1320,13 @@ export default function ChatPage() {
                     <button
                       type="button"
                       onClick={() => setRightPanelTab("vote")}
-                      className={`flex-1 py-2 px-3 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
+                      className={`min-h-[44px] py-2 px-4 rounded-full text-sm font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
                         rightPanelTab === "vote"
                           ? "bg-teal-500 text-white shadow-sm"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                       }`}
+                      aria-pressed={rightPanelTab === "vote"}
+                      aria-label="투표 탭"
                     >
                       <i className="ri-checkbox-circle-line" aria-hidden />
                       투표
@@ -1325,21 +1344,10 @@ export default function ChatPage() {
                       )}
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowGroupInfoModal(true);
-                      setMobilePortfolioSheetOpen(true);
-                    }}
-                    className="text-sm text-teal-600 hover:text-teal-700 font-semibold whitespace-nowrap py-2 px-3 min-h-[44px] flex items-center cursor-pointer"
-                    aria-label="채팅방 정보"
-                  >
-                    채팅방 정보
-                  </button>
-                </header>
+                </div>
 
-                {/* 채팅 블록 카드: 헤더 아래만 차지, 겹치지 않음 */}
-                <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-white rounded-b-2xl rounded-t-none border border-t-0 border-gray-200 shadow-sm">
+                {/* Row 3+4: 메시지/투표 영역(스크롤) + 입력창(하단 고정) */}
+                <div className="flex flex-col flex-1 min-h-0 w-full min-w-0 overflow-hidden bg-white rounded-b-2xl border border-t-0 border-gray-200 shadow-sm">
                   {rightPanelTab === "chat" && (
                     <>
                       {chatError && (
@@ -1360,28 +1368,26 @@ export default function ChatPage() {
                           </span>
                         </div>
                       )}
-                      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 space-y-4">
+                      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 pb-4 space-y-4 min-w-0">
                         {dedupedMessages.map((msg) => (
-                          <div key={msg.id}>
+                          <div key={msg.id} className="min-w-0">
                             {msg.type === "user" && (
-                              <div className="flex gap-3">
+                              <div className="flex gap-2 sm:gap-3 items-start">
                                 <span
                                   className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
                                   aria-hidden
-                                >
-                                  {msg.userNickname.charAt(0)}
-                                </span>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm font-semibold text-gray-900">
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span className="text-sm font-semibold text-gray-900 truncate">
                                       {msg.userNickname}
                                     </span>
-                                    <span className="text-xs text-gray-400">
+                                    <span className="text-xs text-gray-400 shrink-0">
                                       {msg.timestamp}
                                     </span>
                                   </div>
-                                  <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 inline-block max-w-xl">
-                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                                  <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-full overflow-hidden break-words">
+                                    <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
                                       {msg.message}
                                     </p>
                                   </div>
@@ -1390,30 +1396,37 @@ export default function ChatPage() {
                             )}
 
                             {msg.type === "trade" && msg.tradeData && (
-                              <div className="flex gap-3">
+                              <div className="flex gap-2 sm:gap-3 items-start">
                                 <span
                                   className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
                                   aria-hidden
-                                >
-                                  {msg.userNickname.charAt(0)}
-                                </span>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm font-semibold text-gray-900">
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span className="text-sm font-semibold text-gray-900 truncate">
                                       {msg.userNickname}
                                     </span>
-                                    <span className="text-xs text-gray-400">
+                                    <span className="text-xs text-gray-400 shrink-0">
                                       {msg.timestamp}
                                     </span>
                                   </div>
                                   <div
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() =>
                                       handleTradeCardClick(
                                         msg.tradeData,
                                         msg.userNickname || "",
                                       )
                                     }
-                                    className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-teal-200 max-w-xl cursor-pointer hover:shadow-md transition-shadow"
+                                    onKeyDown={(e) =>
+                                      e.key === "Enter" &&
+                                      handleTradeCardClick(
+                                        msg.tradeData,
+                                        msg.userNickname || "",
+                                      )
+                                    }
+                                    className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-teal-200 max-w-full overflow-hidden break-words cursor-pointer hover:shadow-md transition-shadow"
                                   >
                                     <div className="flex items-center gap-2 mb-3">
                                       <div
@@ -1431,20 +1444,20 @@ export default function ChatPage() {
                                         <span className="text-sm text-gray-600">
                                           종목
                                         </span>
-                                        <span className="text-sm font-semibold text-gray-900">
+                                        <span className="text-sm font-semibold text-gray-900 break-words">
                                           {msg.tradeData.stockName}
                                         </span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">
+                                      <div className="flex justify-between gap-2">
+                                        <span className="text-sm text-gray-600 shrink-0">
                                           수량
                                         </span>
                                         <span className="text-sm font-semibold text-gray-900">
                                           {msg.tradeData.quantity}주
                                         </span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">
+                                      <div className="flex justify-between gap-2">
+                                        <span className="text-sm text-gray-600 shrink-0">
                                           희망 가격
                                         </span>
                                         <span className="text-sm font-semibold text-gray-900">
@@ -1453,8 +1466,8 @@ export default function ChatPage() {
                                           )}
                                         </span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">
+                                      <div className="flex justify-between gap-2">
+                                        <span className="text-sm text-gray-600 shrink-0">
                                           주문 금액
                                         </span>
                                         <span className="text-sm font-bold text-teal-600">
@@ -1465,7 +1478,7 @@ export default function ChatPage() {
                                       </div>
                                     </div>
                                     <div className="border-t border-teal-200 pt-3 mb-3">
-                                      <p className="text-sm text-gray-700">
+                                      <p className="text-sm text-gray-700 break-words">
                                         {msg.tradeData.reason}
                                       </p>
                                     </div>
@@ -1487,7 +1500,7 @@ export default function ChatPage() {
                             )}
 
                             {msg.type === "execution" && msg.executionData && (
-                              <div className="flex gap-3">
+                              <div className="flex gap-2 sm:gap-3 items-start">
                                 <span
                                   className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
                                   aria-hidden
@@ -1497,13 +1510,13 @@ export default function ChatPage() {
                                     aria-hidden
                                   />
                                 </span>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs text-gray-400">
                                       {msg.timestamp}
                                     </span>
                                   </div>
-                                  <div className="bg-green-50 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-green-200 max-w-xl">
+                                  <div className="bg-green-50 rounded-2xl rounded-tl-sm p-4 shadow-sm border border-green-200 max-w-full overflow-hidden break-words">
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
                                         {msg.executionData.action} 체결 완료
@@ -1532,31 +1545,33 @@ export default function ChatPage() {
                         ))}
                         <div ref={messagesEndRef} />
                       </div>
-                      {/* 채팅 입력 */}
-                      <div className="flex-shrink-0 border-t border-gray-200 p-4">
+                      {/* 채팅 입력 — 하단 고정(카톡형), 바텀 네비 대비 패딩 */}
+                      <div className="flex-shrink-0 sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-gray-200 px-4 py-3 pb-16 md:pb-3">
                         {isTournamentEnded ? (
                           <button
+                            type="button"
                             onClick={() => navigate("/feedback-report")}
-                            className="w-full py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-sm font-bold rounded-xl hover:from-teal-600 hover:to-teal-700 cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full min-h-[44px] py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-sm font-bold rounded-xl hover:from-teal-600 hover:to-teal-700 cursor-pointer flex items-center justify-center gap-2"
                           >
-                            <i className="ri-file-chart-line"></i>
+                            <i className="ri-file-chart-line" aria-hidden />
                             피드백 리포트 보기
                           </button>
                         ) : (
                           <>
                             <button
+                              type="button"
                               onClick={handleTradeShare}
-                              className="w-full py-2.5 mb-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-xl hover:from-red-600 hover:to-pink-600 cursor-pointer flex items-center justify-center gap-2"
+                              className="w-full min-h-[44px] py-2.5 mb-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-xl hover:from-red-600 hover:to-pink-600 cursor-pointer flex items-center justify-center gap-2"
                             >
-                              <i className="ri-stock-line"></i>
+                              <i className="ri-stock-line" aria-hidden />
                               매수/매도 계획 공유
                             </button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="text"
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
-                                onKeyPress={(e) =>
+                                onKeyDown={(e) =>
                                   e.key === "Enter" && handleSendMessage()
                                 }
                                 placeholder={
@@ -1569,7 +1584,7 @@ export default function ChatPage() {
                                 disabled={
                                   groupId == null || sending || !!chatError
                                 }
-                                className="flex-1 px-3 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="flex-1 min-w-0 min-h-[44px] px-3 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
                               />
                               <button
                                 type="button"
@@ -1577,9 +1592,10 @@ export default function ChatPage() {
                                 disabled={
                                   groupId == null || sending || !!chatError
                                 }
-                                className="w-10 h-10 bg-teal-500 rounded-xl flex items-center justify-center hover:bg-teal-600 cursor-pointer transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="w-11 h-11 min-h-[44px] min-w-[44px] bg-teal-500 rounded-xl flex items-center justify-center hover:bg-teal-600 cursor-pointer transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                                aria-label="보내기"
                               >
-                                <i className="ri-send-plane-fill text-white text-lg"></i>
+                                <i className="ri-send-plane-fill text-white text-lg" aria-hidden />
                               </button>
                             </div>
                           </>
@@ -1589,7 +1605,7 @@ export default function ChatPage() {
                   )}
 
                   {rightPanelTab === "vote" && (
-                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-3">
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-3 min-w-0">
                       {votes.length === 0 ? (
                         <div className="text-center py-12">
                           <i className="ri-checkbox-circle-line text-4xl text-gray-300 mb-2"></i>
@@ -1827,7 +1843,7 @@ export default function ChatPage() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </main>
 
