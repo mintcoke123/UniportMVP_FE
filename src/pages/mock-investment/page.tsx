@@ -19,7 +19,8 @@ export default function MockInvestmentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const fromSolo = (location.state as { fromSolo?: boolean } | null)?.fromSolo === true;
+  const fromSolo =
+    (location.state as { fromSolo?: boolean } | null)?.fromSolo === true;
   const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
   const [stocksByVolume, setStocksByVolume] = useState<StockListItem[]>([]);
   const [stocksByRising, setStocksByRising] = useState<StockListItem[]>([]);
@@ -75,15 +76,13 @@ export default function MockInvestmentPage() {
       if (r3.status === "rejected") errors.push("하락률 순위");
       if (errors.length > 0) {
         const base = `${errors.join(", ")}를 불러오지 못했습니다.`;
-        const kisHint =
-          [r2, r3].some(
-            (r) =>
-              r.status === "rejected" &&
-              (r.reason?.message?.includes("KIS") ||
-                r.reason?.status === 503)
-          )
-            ? " (한국투자증권 KIS API 미설정 시 상승/하락 순위는 불가. 백엔드에 KIS_API_APPKEY, KIS_API_APPSECRET 설정 필요)"
-            : "";
+        const kisHint = [r2, r3].some(
+          (r) =>
+            r.status === "rejected" &&
+            (r.reason?.message?.includes("KIS") || r.reason?.status === 503),
+        )
+          ? " (한국투자증권 KIS API 미설정 시 상승/하락 순위는 불가. 백엔드에 KIS_API_APPKEY, KIS_API_APPSECRET 설정 필요)"
+          : "";
         setMarketError(base + kisHint);
       }
     });
@@ -119,7 +118,7 @@ export default function MockInvestmentPage() {
       return stocks.filter(
         (stock) =>
           stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          stock.code.includes(searchQuery)
+          stock.code.includes(searchQuery),
       );
     }
     return stocks;
@@ -130,7 +129,9 @@ export default function MockInvestmentPage() {
   };
 
   const handleStockClick = (stock: StockListItem) => {
-    navigate(`/stock-detail?id=${stock.id}`, { state: { nameFromList: stock.name } });
+    navigate(`/stock-detail?id=${stock.id}`, {
+      state: { nameFromList: stock.name },
+    });
   };
 
   if (user && !routeOk) {
@@ -145,36 +146,36 @@ export default function MockInvestmentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
-      <main className="pt-4 pb-12 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full box-border">
+      <main className="pt-4 lg:pt-8 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full box-border">
         {/* 페이지 타이틀 */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">모의투자</h1>
+        <div className="mb-6 lg:mb-8">
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">모의투자</h1>
           <p className="text-sm text-gray-500 mt-1">
             종목을 선택해 매수·매도 체험을 해보세요
           </p>
         </div>
 
         {marketError && (
-          <div className="mb-4 sm:mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl flex items-center gap-2">
+          <div className="mb-4 lg:mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-center gap-2 min-w-0">
             <i className="ri-error-warning-line flex-shrink-0" aria-hidden />
             <span className="min-w-0">{marketError}</span>
           </div>
         )}
 
         {/* 시장 지수 카드 */}
-        <section className="mb-6 sm:mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 min-w-0">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
+        <section className="mb-6 lg:mb-8 min-w-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 lg:p-6 min-w-0">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">
               시장 지수
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
               {marketIndices.map((index) => (
                 <div
                   key={index.id}
-                  className="text-center py-3 px-3 sm:px-4 rounded-xl bg-gray-50 min-w-0"
+                  className="text-center py-3 px-4 rounded-xl bg-gray-50"
                 >
-                  <p className="text-xs sm:text-sm text-gray-600 mb-1 truncate">{index.name}</p>
-                  <p className="text-base sm:text-xl font-bold text-gray-900 mb-1 tabular-nums break-all">
+                  <p className="text-sm text-gray-600 mb-1">{index.name}</p>
+                  <p className="text-xl font-bold text-gray-900 mb-1">
                     {formatNumber(index.value)}
                   </p>
                   <p
@@ -197,43 +198,49 @@ export default function MockInvestmentPage() {
         {/* 탭 + 검색 + 종목 리스트 */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0">
           {/* 탭 & 검색 한 줄 */}
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 p-4 sm:p-5 border-b border-gray-100">
-            <div className="flex rounded-xl bg-gray-100 p-1 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-3 lg:gap-4 p-4 lg:p-5 border-b border-gray-100">
+            <div className="flex rounded-xl bg-gray-100 p-1">
               <button
                 type="button"
                 onClick={() => setActiveTab("volume")}
-                className={`flex-1 sm:flex-none py-2.5 sm:py-2 px-4 sm:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[44px] sm:min-h-0 ${
+                className={`min-h-[44px] py-2 px-4 lg:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === "volume"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
+                aria-pressed={activeTab === "volume"}
+                aria-label="거래량 순 탭"
               >
                 거래량
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("rising")}
-                className={`flex-1 sm:flex-none py-2.5 sm:py-2 px-4 sm:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[44px] sm:min-h-0 ${
+                className={`min-h-[44px] py-2 px-4 lg:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === "rising"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
+                aria-pressed={activeTab === "rising"}
+                aria-label="급상승 순 탭"
               >
                 급상승
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("falling")}
-                className={`flex-1 sm:flex-none py-2.5 sm:py-2 px-4 sm:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[44px] sm:min-h-0 ${
+                className={`min-h-[44px] py-2 px-4 lg:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === "falling"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
+                aria-pressed={activeTab === "falling"}
+                aria-label="급하락 순 탭"
               >
                 급하락
               </button>
             </div>
-            <div className="flex-1 w-full sm:min-w-[180px] sm:max-w-md relative">
+            <div className="flex-1 min-w-0 max-w-full lg:min-w-[200px] lg:max-w-md relative">
               <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none"></i>
               <input
                 ref={searchInputRef}
@@ -241,7 +248,7 @@ export default function MockInvestmentPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="종목명 또는 종목코드 검색"
-                className="w-full py-2.5 pl-10 pr-10 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white border border-transparent min-h-[44px]"
+                className="w-full py-2.5 pl-10 pr-4 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white border border-transparent"
               />
               {searchQuery && (
                 <button
@@ -255,7 +262,7 @@ export default function MockInvestmentPage() {
           </div>
 
           {/* 리스트 헤더 (웹용 테이블 스타일) */}
-          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <div className="hidden lg:grid grid-cols-12 gap-4 px-4 lg:px-6 py-3 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
             <div className="col-span-1">순위</div>
             <div className="col-span-4">종목</div>
             <div className="col-span-2 text-right">현재가</div>
@@ -276,13 +283,16 @@ export default function MockInvestmentPage() {
                   <div
                     key={`${activeTab}-${stock.code}-${index}`}
                     onClick={() => handleStockClick(stock)}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && handleStockClick(stock)}
+                    className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
                   >
-                    <span className="hidden md:block text-sm font-medium text-gray-500 col-span-1">
+                    <span className="hidden lg:block text-sm font-medium text-gray-500 col-span-1">
                       {index + 1}
                     </span>
-                    <div className="flex items-center gap-3 md:col-span-4 col-span-1">
-                      <span className="md:hidden text-sm font-medium text-gray-500 w-6">
+                    <div className="flex items-center gap-3 lg:col-span-4 col-span-1 min-w-0">
+                      <span className="lg:hidden text-sm font-medium text-gray-500 w-6 flex-shrink-0">
                         {index + 1}
                       </span>
                       <div
@@ -291,27 +301,27 @@ export default function MockInvestmentPage() {
                       >
                         {stock.name.charAt(0)}
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 overflow-hidden">
                         <p className="font-semibold text-gray-900 truncate">
                           {stock.name}
                         </p>
                         <p className="text-xs text-gray-500">{stock.code}</p>
                       </div>
                     </div>
-                    <div className="md:text-right md:col-span-2">
-                      <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                    <div className="lg:text-right lg:col-span-2">
+                      <p className="lg:hidden text-xs text-gray-500 mb-0.5">
                         현재가
                       </p>
-                      <p className="font-bold text-gray-900">
+                      <p className="font-bold text-gray-900 tabular-nums">
                         {formatNumber(price)}원
                       </p>
                     </div>
-                    <div className="md:text-right md:col-span-2">
-                      <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                    <div className="lg:text-right lg:col-span-2">
+                      <p className="lg:hidden text-xs text-gray-500 mb-0.5">
                         등락
                       </p>
                       <p
-                        className={`font-semibold ${
+                        className={`font-semibold tabular-nums ${
                           change >= 0 ? "text-red-600" : "text-blue-600"
                         }`}
                       >
@@ -319,8 +329,8 @@ export default function MockInvestmentPage() {
                         {formatNumber(change)}
                       </p>
                     </div>
-                    <div className="md:text-right md:col-span-3">
-                      <p className="md:hidden text-xs text-gray-500 mb-0.5">
+                    <div className="lg:text-right lg:col-span-3">
+                      <p className="lg:hidden text-xs text-gray-500 mb-0.5">
                         등락률
                       </p>
                       <p
