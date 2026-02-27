@@ -4,6 +4,7 @@ import {
   getStockDetail,
   sendTradeMessage,
   createVote,
+  submitVote,
   getVotes,
   getMyMatchingRooms,
   getGroupPortfolio,
@@ -59,7 +60,9 @@ const StockDetailPage = () => {
 
   /** 실시간 시세 (백엔드 /prices WebSocket). 있으면 표시값으로 사용 */
   const realtimeUpdates = usePriceWebSocket(stock ? [stock.code] : []);
-  const rt = stock?.code ? realtimeUpdates[normalizeStockCodeForPrice(stock.code)] : null;
+  const rt = stock?.code
+    ? realtimeUpdates[normalizeStockCodeForPrice(stock.code)]
+    : null;
   const displayCurrentPrice = rt?.currentPrice ?? stock?.currentPrice ?? 0;
   const displayChange = rt?.change ?? stock?.change ?? 0;
   const displayChangeRate = rt?.changeRate ?? stock?.changeRate ?? 0;
@@ -415,6 +418,38 @@ const StockDetailPage = () => {
 
     try {
       if (isSolo) {
+        const soloGroupId = teamIdToGroupId(user?.teamId ?? null);
+        if (orderStrategy === "LIMIT") {
+          if (soloGroupId == null) {
+            setShareError("개인방 정보를 불러올 수 없어 지정가 주문을 등록할 수 없습니다.");
+            setIsConfirming(false);
+            submittingRef.current = false;
+            return;
+          }
+          const action = orderType === "buy" ? "매수" : "매도";
+          const payload = {
+            type: action as "매수" | "매도",
+            stockName: displayName,
+            stockCode: stock.code,
+            quantity,
+            proposedPrice: limitPrice,
+            reason:
+              investmentLogic.trim() ||
+              `${displayName} ${action} (지정가 대기)`,
+            orderStrategy: "LIMIT" as const,
+            limitPrice,
+          };
+          const createRes = await createVote(soloGroupId, payload);
+          const voteId = createRes.voteId;
+          if (voteId != null && Number.isFinite(voteId)) {
+            await submitVote(soloGroupId, voteId, "찬성");
+          }
+          setShowConfirmDialog(false);
+          setOrderType(null);
+          setShowSuccessMessage(true);
+          setTimeout(() => navigate("/solo"), 1000);
+          return;
+        }
         const pricePerShare =
           orderStrategy === "LIMIT"
             ? limitPrice
@@ -433,7 +468,9 @@ const StockDetailPage = () => {
           side: orderType === "buy" ? "buy" : "sell",
           quantity,
           pricePerShare,
-          reason: investmentLogic.trim() || `${displayName} ${orderType === "buy" ? "매수" : "매도"}`,
+          reason:
+            investmentLogic.trim() ||
+            `${displayName} ${orderType === "buy" ? "매수" : "매도"}`,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
         });
         setShowConfirmDialog(false);
@@ -660,11 +697,14 @@ const StockDetailPage = () => {
                 <div className="mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100">
                   <span className="text-gray-600 text-sm">주문 가능 현금</span>
                   {availableCash === null && !cashLoadError && (
-                    <p className="text-sm text-gray-500 mt-0.5">불러오는 중...</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      불러오는 중...
+                    </p>
                   )}
                   {cashLoadError && (
                     <p className="text-sm text-amber-600 mt-0.5">
-                      현금 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.
+                      현금 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해
+                      주세요.
                     </p>
                   )}
                   {availableCash !== null && !cashLoadError && (
@@ -734,16 +774,23 @@ const StockDetailPage = () => {
                         </button>
                       </>
                     )}
-                    {orderType === "buy" && maxBuyQuantity === 0 && availableCash !== null && !cashLoadError && (
-                      <span className="text-xs text-amber-600">잔액 부족</span>
-                    )}
+                    {orderType === "buy" &&
+                      maxBuyQuantity === 0 &&
+                      availableCash !== null &&
+                      !cashLoadError && (
+                        <span className="text-xs text-amber-600">
+                          잔액 부족
+                        </span>
+                      )}
                   </div>
                 </div>
-                {orderType === "buy" && quantity > maxBuyQuantity && maxBuyQuantity > 0 && (
-                  <p className="text-xs text-amber-600">
-                    최대 {maxBuyQuantity.toLocaleString()}주까지 가능합니다.
-                  </p>
-                )}
+                {orderType === "buy" &&
+                  quantity > maxBuyQuantity &&
+                  maxBuyQuantity > 0 && (
+                    <p className="text-xs text-amber-600">
+                      최대 {maxBuyQuantity.toLocaleString()}주까지 가능합니다.
+                    </p>
+                  )}
               </div>
 
               {/* 주문 방식 */}
@@ -1070,7 +1117,9 @@ const StockDetailPage = () => {
                 {isSolo ? "체결 완료!" : "공유 완료!"}
               </p>
               <p className="text-sm text-gray-500">
-                {isSolo ? "내 투자 현황으로 이동합니다" : "채팅방으로 이동합니다"}
+                {isSolo
+                  ? "내 투자 현황으로 이동합니다"
+                  : "채팅방으로 이동합니다"}
               </p>
             </div>
           </div>
