@@ -3,7 +3,7 @@ import Header from "../feature/Header";
 import BottomNav from "../feature/BottomNav";
 
 /**
- * 공통 레이아웃: 헤더 + 페이지 컨텐츠(Outlet) + 모바일 하단 네비게이션.
+ * 공통 레이아웃: 헤더(lg 이상만 표시) + 페이지 컨텐츠(Outlet) + 모바일 하단 네비게이션.
  */
 export default function Layout() {
   return (

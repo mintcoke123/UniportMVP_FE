@@ -25,7 +25,7 @@ export default function Header() {
     }`;
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <header className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 md:py-4">
         {/* 로고 */}
         <Link to="/" className="flex items-center gap-2 md:gap-3 shrink-0">
