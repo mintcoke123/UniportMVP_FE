@@ -754,7 +754,6 @@ const StockDetailPage = () => {
                     [
                       { value: "MARKET" as const, label: "시장가" },
                       { value: "LIMIT" as const, label: "지정가" },
-                      { value: "CONDITIONAL" as const, label: "조건부" },
                     ] as const
                   ).map(({ value, label }) => (
                     <button
