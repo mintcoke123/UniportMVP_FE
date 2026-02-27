@@ -194,37 +194,37 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      <main className="pt-8 pb-12 px-8 max-w-7xl mx-auto">
-        <div className="grid grid-cols-12 gap-6">
+    <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
+      <main className="pt-4 pb-12 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto w-full box-border">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
           {/* 왼쪽 컬럼 - 자산 정보 */}
-          <div className="col-span-8">
+          <div className="md:col-span-8 min-w-0">
             {/* 진행 중인 대회 */}
             <section>
               <h3 className="text-base font-semibold text-gray-700 mb-4">
                 진행 중인 대회
               </h3>
-              <div
-                className="bg-gradient-to-br from-[#0088FF] to-[#6155F5] rounded-2xl p-6 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+              <button
+                type="button"
+                className="w-full text-left bg-gradient-to-br from-[#0088FF] to-[#6155F5] rounded-2xl p-4 sm:p-6 cursor-pointer hover:shadow-xl active:scale-[0.99] transition-all duration-300 min-h-[44px]"
                 onClick={() => navigate("/competition")}
+                aria-label="진행 중인 대회 보기"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base sm:text-lg font-semibold text-white truncate">
                       {competitionData?.name ?? "대회 이름"}
                     </h2>
-                    <p className="text-sm text-white/90 mt-3 font-mono text-base">
-                      {formatTime(countdown.days)}:{formatTime(countdown.hours)}
-                      :{formatTime(countdown.minutes)}:
-                      {formatTime(countdown.seconds)}
+                    <p className="text-sm text-white/90 mt-2 sm:mt-3 font-mono tabular-nums">
+                      {formatTime(countdown.days)}:{formatTime(countdown.hours)}:
+                      {formatTime(countdown.minutes)}:{formatTime(countdown.seconds)}
                     </p>
                   </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                    <i className="ri-arrow-right-line text-3xl text-white"></i>
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <i className="ri-arrow-right-line text-2xl sm:text-3xl text-white" aria-hidden />
                   </div>
                 </div>
-              </div>
+              </button>
 
               {/* 경쟁 팀 실시간 투자금 (랭킹 페이지와 동일 API: /api/ranking/groups) */}
               {allGroupsRanking.length > 0 && (
@@ -239,13 +239,14 @@ export default function Home() {
                       const isProfit = group.profitRate >= 0;
                       const profitPercent = group.profitRate * 100;
                       return (
-                        <div
+                        <button
                           key={group.id}
+                          type="button"
                           onClick={() => navigate("/ranking")}
-                          className={`flex items-center justify-between rounded-xl px-4 py-3 border cursor-pointer transition-colors hover:shadow-sm ${
+                          className={`w-full flex items-center justify-between rounded-xl px-4 py-3 min-h-[44px] border cursor-pointer transition-colors hover:shadow-sm text-left ${
                             isMyTeam
                               ? "bg-teal-50 border-teal-200"
-                              : "bg-white border-gray-200 hover:bg-gray-50"
+                              : "bg-white border-gray-200 hover:bg-gray-50 active:bg-gray-100"
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -281,7 +282,7 @@ export default function Home() {
                               {formatPercentWithSign(profitPercent)}
                             </span>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -296,27 +297,27 @@ export default function Home() {
               </h3>
 
               {/* 총 자산 (유저는 자산 없음 → 표시되는 값은 우리 팀 자산) */}
-              <div className="bg-yellow-50 rounded-2xl p-6 mb-4">
+              <div className="bg-yellow-50 rounded-2xl p-4 sm:p-6 mb-4 min-w-0">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    <i className="ri-wallet-3-line text-2xl text-yellow-600"></i>
+                  <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                    <i className="ri-wallet-3-line text-2xl text-yellow-600" aria-hidden />
                   </div>
                   <span className="text-base text-gray-700">
                     {groupId != null ? "우리 팀 총 자산" : "나의 총 자산"}
                   </span>
                 </div>
-                <div className="flex items-end justify-between">
-                  <h2 className="text-4xl font-bold text-gray-900">
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+                  <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 break-all">
                     {formatNumber(data.totalAssets)}원
                   </h2>
                   <div
-                    className={`text-lg font-semibold ${
+                    className={`text-base sm:text-lg font-semibold flex-shrink-0 ${
                       data.profitLoss >= 0 ? "text-red-500" : "text-blue-500"
                     }`}
                   >
                     {data.profitLoss >= 0 ? "▲" : "▼"}
                     {formatNumber(Math.abs(data.profitLoss))}
-                    <span className="ml-2">
+                    <span className="ml-1 sm:ml-2">
                       ({formatPercentage(data.profitLossPercentage)}%)
                     </span>
                   </div>
@@ -324,18 +325,18 @@ export default function Home() {
               </div>
 
               {/* 투자 원금 & 남은 자산 (팀 기준) */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200 min-w-0">
                   <p className="text-sm text-gray-500 mb-2">
                     {groupId != null ? "팀 투자 원금" : "투자 원금"}
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 break-all">
                     {formatNumber(data.investmentPrincipal)}원
                   </p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200 min-w-0">
                   <p className="text-sm text-gray-500 mb-2">남은 자산</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 break-all">
                     {formatNumber(data.cashBalance)}원
                   </p>
                 </div>
@@ -352,33 +353,34 @@ export default function Home() {
                 {stocks.map((stock) => (
                   <div
                     key={stock.id}
-                    className="bg-white rounded-2xl p-5 border border-gray-200"
+                    className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 min-w-0"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                       {/* 종목 로고 */}
                       <div
-                        className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0"
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0"
                         style={{ backgroundColor: stock.logoColor }}
+                        aria-hidden
                       >
                         {stock.name.substring(0, 2)}
                       </div>
 
                       {/* 종목 정보 */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-base font-semibold text-gray-900">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center justify-between gap-2 mb-1 sm:mb-2">
+                          <h4 className="text-base font-semibold text-gray-900 truncate">
                             {stock.name}
                           </h4>
-                          <p className="text-base font-bold text-gray-900">
+                          <p className="text-sm sm:text-base font-bold text-gray-900 flex-shrink-0 tabular-nums">
                             {formatNumber(stock.currentValue)}원
                           </p>
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <p className="text-sm text-gray-500">
                             {stock.quantity}주 보유
                           </p>
                           <p
-                            className={`text-sm font-medium ${
+                            className={`text-sm font-medium tabular-nums ${
                               stock.profitLoss >= 0
                                 ? "text-red-500"
                                 : "text-blue-500"
@@ -398,22 +400,24 @@ export default function Home() {
           </div>
 
           {/* 오른쪽 컬럼 - 대회 내역 */}
-          <div className="col-span-4">
+          <div className="md:col-span-4 min-w-0">
             <section>
               <h3 className="text-base font-semibold text-gray-700 mb-4">
                 대회 내역
               </h3>
 
-              <div
-                className="bg-white rounded-2xl p-5 border border-gray-200 cursor-pointer hover:shadow-lg transition-all"
+              <button
+                type="button"
+                className="w-full text-left bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 cursor-pointer hover:shadow-lg active:scale-[0.99] transition-all min-h-[44px]"
                 onClick={() => navigate("/competition")}
+                aria-label="대회 내역 보기"
               >
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <i className="ri-trophy-line text-2xl text-purple-600"></i>
+                    <i className="ri-trophy-line text-2xl text-purple-600" aria-hidden />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-base font-semibold text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-base font-semibold text-gray-900 truncate">
                       {competitionData?.name ?? "대회 이름"}
                     </h4>
                     <p className="text-sm text-gray-500 mt-2">
@@ -423,9 +427,9 @@ export default function Home() {
                       D-{competitionData?.daysRemaining ?? 0}
                     </p>
                   </div>
-                  <i className="ri-arrow-right-s-line text-2xl text-gray-400"></i>
+                  <i className="ri-arrow-right-s-line text-2xl text-gray-400 flex-shrink-0" aria-hidden />
                 </div>
-              </div>
+              </button>
             </section>
           </div>
         </div>
