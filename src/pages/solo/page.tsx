@@ -5,7 +5,6 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/feature/Header";
 import {
   getGroupPortfolio,
   getVotes,
@@ -98,7 +97,6 @@ export default function SoloPage() {
   if (groupId == null) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <main className="max-w-2xl mx-auto px-4 py-12 text-center">
           <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
             <h1 className="text-xl font-bold text-gray-900 mb-2">
@@ -134,7 +132,6 @@ export default function SoloPage() {
   if (portfolioLoadError && groupPortfolioData == null) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <main className="max-w-2xl mx-auto px-4 py-12 text-center">
           <p className="text-amber-600 mb-4">투자 현황을 불러오지 못했습니다.</p>
           <button
@@ -153,7 +150,6 @@ export default function SoloPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
 
       <main className="max-w-2xl mx-auto px-4 py-6 lg:py-8">
         <div className="mb-6">

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Header from "../../components/feature/Header";
 import StockSearchSection from "../../components/feature/StockSearchSection";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -137,7 +136,6 @@ export default function MockInvestmentPage() {
   if (user && !routeOk) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <main className="flex items-center justify-center min-h-[60vh]">
           <p className="text-gray-500">이동 중...</p>
         </main>
@@ -147,7 +145,6 @@ export default function MockInvestmentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
 
       <main className="pt-8 pb-12 px-8 max-w-7xl mx-auto">
         {/* 페이지 타이틀 */}

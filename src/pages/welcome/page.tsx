@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import Header from "../../components/feature/Header";
 import { useAuth } from "../../contexts/AuthContext";
 
 /**
@@ -13,7 +12,6 @@ export default function WelcomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
 
       <main className="max-w-3xl mx-auto px-6 py-16 text-center">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">

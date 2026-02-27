@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/feature/Header";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getChatMessages,
@@ -558,7 +557,6 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* 팀원 매칭 대기 중: "팀원을 매칭중입니다..." 표시 */}

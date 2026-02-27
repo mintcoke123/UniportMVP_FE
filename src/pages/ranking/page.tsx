@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/feature/Header";
 import { getAllGroupsRanking, getMyGroupRanking } from "../../services";
 import type { GroupRankingItem, MyGroupRankingResponse } from "../../types";
 
@@ -37,7 +36,6 @@ export default function Ranking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <Header />
 
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* 대회 타이틀 */}

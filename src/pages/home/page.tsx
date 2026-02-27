@@ -1,7 +1,6 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/feature/Header";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getMyInvestment,
@@ -196,7 +195,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
 
       <main className="pt-8 pb-12 px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-12 gap-6">
