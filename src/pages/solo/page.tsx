@@ -8,13 +8,12 @@ import { useNavigate } from "react-router-dom";
 import Header from "../../components/feature/Header";
 import {
   getGroupPortfolio,
-  getVotes,
   usePriceWebSocket,
   normalizeStockCodeForPrice,
 } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import { getPieSlicePathD } from "../../utils/portfolioPiePath";
-import type { GroupPortfolioResponse, VoteItem } from "../../types";
+import type { GroupPortfolioResponse } from "../../types";
 
 function teamIdToGroupId(teamId: string | null | undefined): number | null {
   if (!teamId || !teamId.startsWith("team-")) return null;
@@ -39,15 +38,6 @@ export default function SoloPage() {
   const [groupPortfolioData, setGroupPortfolioData] =
     useState<GroupPortfolioResponse | null>(null);
   const [portfolioLoadError, setPortfolioLoadError] = useState(false);
-  const [votes, setVotes] = useState<VoteItem[]>([]);
-
-  const currentUserId = user?.id != null ? Number(user.id) || 0 : 0;
-  const myPendingLimitOrders = votes.filter(
-    (v) =>
-      v.status === "pending" &&
-      v.orderStrategy === "LIMIT" &&
-      v.proposerId === currentUserId,
-  );
 
   const fetchPortfolio = (gid: number) => {
     getGroupPortfolio(gid)
@@ -62,13 +52,8 @@ export default function SoloPage() {
   };
 
   useEffect(() => {
-    if (groupId != null) {
-      fetchPortfolio(groupId);
-      getVotes(groupId).then(setVotes);
-    } else {
-      setGroupPortfolioData(null);
-      setVotes([]);
-    }
+    if (groupId != null) fetchPortfolio(groupId);
+    else setGroupPortfolioData(null);
   }, [groupId]);
 
   const subscribeCodes = useMemo(
@@ -164,54 +149,6 @@ export default function SoloPage() {
         </div>
 
         <div className="space-y-4">
-          {/* 내 지정가 주문 */}
-          {myPendingLimitOrders.length > 0 && (
-            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <i className="ri-price-tag-3-line text-amber-600" aria-hidden />
-                내 지정가 주문
-              </h3>
-              <ul className="space-y-2">
-                {myPendingLimitOrders.map((vote) => {
-                  const stockId = vote.stockCode
-                    ? parseInt(vote.stockCode, 10)
-                    : 0;
-                  return (
-                    <li key={vote.id}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          stockId > 0 &&
-                          navigate(`/stock-detail?id=${stockId}`)
-                        }
-                        className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="font-semibold text-gray-900 truncate">
-                            {vote.stockName || vote.stockCode || "—"}
-                          </span>
-                          <span
-                            className={`text-xs font-medium shrink-0 ${
-                              vote.type === "매수"
-                                ? "text-red-600"
-                                : "text-blue-600"
-                            }`}
-                          >
-                            {vote.type}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          희망가 {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원
-                          · {vote.quantity}주
-                        </p>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-
           {/* 거래 가능 현금 */}
           <div className="bg-white rounded-xl p-4 border border-gray-200">
             <div className="flex justify-between items-center gap-2 flex-wrap">
