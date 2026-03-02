@@ -11,7 +11,7 @@ export default function LoginPage() {
     | undefined;
   const from = state?.from;
   const requireAdmin = state?.requireAdmin ?? false;
-  const [email, setEmail] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    const result = await login(email, password);
+    const result = await login(studentId, password);
 
     setIsLoading(false);
 
@@ -64,13 +64,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                이메일
+                학번
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="이메일을 입력하세요"
+                type="text"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                placeholder="학번을 입력하세요"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 required
               />

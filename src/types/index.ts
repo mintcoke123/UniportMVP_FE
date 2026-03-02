@@ -6,7 +6,7 @@
 // ---- Auth / User ----
 export interface User {
   id: string;
-  email: string;
+  studentId: string;
   nickname: string;
   totalAssets: number;
   investmentAmount: number;

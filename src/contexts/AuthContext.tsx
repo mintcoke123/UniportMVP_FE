@@ -26,13 +26,14 @@ interface AuthContextType {
   /** 어드민 계정 여부(role === 'admin'). 어드민 페이지 접근 시 사용 */
   isAdmin: boolean;
   login: (
-    email: string,
+    studentId: string,
     password: string
   ) => Promise<{ success: boolean; message: string; isAdmin?: boolean }>;
   signup: (
-    email: string,
+    studentId: string,
     password: string,
-    nickname: string
+    nickname: string,
+    phoneNumber: string
   ) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateUserAssets: (
@@ -71,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data?.id) {
           const synced: User = {
             id: data.id,
-            email: data.email ?? "",
+            studentId: data.studentId ?? "",
             nickname: data.nickname ?? "",
             password: "",
             totalAssets: data.totalAssets ?? 0,
@@ -136,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (
-    email: string,
+    studentId: string,
     password: string
   ): Promise<{ success: boolean; message: string; isAdmin?: boolean }> => {
     try {
@@ -145,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         message: string;
         user?: {
           id: string;
-          email: string;
+          studentId: string;
           nickname: string;
           totalAssets: number;
           investmentAmount: number;
@@ -155,13 +156,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role?: "user" | "admin";
         };
         token?: string;
-      }>("/api/auth/login", { email, password }, { skipAuth: true });
+      }>("/api/auth/login", { studentId, password }, { skipAuth: true });
 
       if (res.success && res.user && res.token) {
         const u = res.user;
         const userToSet: User = {
           id: u.id,
-          email: u.email,
+          studentId: u.studentId,
           nickname: u.nickname,
           totalAssets: u.totalAssets ?? 0,
           investmentAmount: u.investmentAmount ?? 0,
@@ -210,19 +211,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         success: false,
         message:
-          err.message ?? "이메일 또는 비밀번호가 올바르지 않습니다.",
+          err.message ?? "학번 또는 비밀번호가 올바르지 않습니다.",
       };
     }
     return {
       success: false,
-      message: "이메일 또는 비밀번호가 올바르지 않습니다.",
+      message: "학번 또는 비밀번호가 올바르지 않습니다.",
     };
   };
 
   const signup = async (
-    email: string,
+    studentId: string,
     password: string,
-    nickname: string
+    nickname: string,
+    phoneNumber: string
   ): Promise<{ success: boolean; message: string }> => {
     try {
       const res = await apiPost<{
@@ -230,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         message: string;
         user?: {
           id: string;
-          email: string;
+          studentId: string;
           nickname: string;
           totalAssets?: number;
           investmentAmount?: number;
@@ -239,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           teamId?: string | null;
           role?: string;
         };
-      }>("/api/auth/signup", { email, password, nickname }, { skipAuth: true });
+      }>("/api/auth/signup", { studentId, password, nickname, phoneNumber }, { skipAuth: true });
 
       if (res.success) {
         // 회원가입만 완료. 로그인은 하지 않고 로그인 페이지로 보냄.

@@ -88,7 +88,7 @@ export async function deleteAdminMatchingRoomMember(
 export async function getAdminUsers(): Promise<
   {
     id: string;
-    email: string;
+    studentId: string;
     nickname: string;
     teamId: string | null;
     role: string;
@@ -97,7 +97,7 @@ export async function getAdminUsers(): Promise<
   return await apiGet<
     {
       id: string;
-      email: string;
+      studentId: string;
       nickname: string;
       teamId: string | null;
       role: string;

@@ -6,10 +6,11 @@ export default function SignupPage() {
   const { signup } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: "",
+    studentId: "",
     password: "",
     confirmPassword: "",
     nickname: "",
+    phoneNumber: "",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +25,17 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const sid = formData.studentId.trim();
+    if (!/^\d{8}$/.test(sid)) {
+      setError("학번은 숫자 8자리로 입력해 주세요.");
+      return;
+    }
+    const num = parseInt(sid, 10);
+    if (num < 15000000 || num > 25999999) {
+      setError("학번은 15000000~25999999 범위여야 합니다.");
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError("비밀번호가 일치하지 않습니다");
@@ -43,9 +55,10 @@ export default function SignupPage() {
     setIsLoading(true);
 
     const result = await signup(
-      formData.email,
+      formData.studentId.trim(),
       formData.password,
-      formData.nickname
+      formData.nickname,
+      formData.phoneNumber.trim()
     );
 
     setIsLoading(false);
@@ -79,16 +92,17 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                이메일
+                학번
               </label>
               <input
-                type="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                name="studentId"
+                value={formData.studentId}
                 onChange={handleChange}
-                placeholder="이메일을 입력하세요"
+                placeholder="학번 8자리 (15000000~25999999)"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 required
+                maxLength={8}
               />
             </div>
 
@@ -104,6 +118,20 @@ export default function SignupPage() {
                 placeholder="닉네임을 입력하세요"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                전화번호
+              </label>
+              <input
+                type="tel"
+                name="phoneNumber"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                placeholder="전화번호 (선택)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
               />
             </div>
 

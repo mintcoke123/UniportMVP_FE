@@ -189,6 +189,9 @@ export default function MatchingRoomsPage() {
   };
 
   const isFull = (room: MatchingRoom) => room.memberCount >= CAPACITY;
+  /** 팀방(capacity>1)은 2명 이상, 개인방은 1명일 때 모의투자 시작 가능 */
+  const canStartRoom = (room: MatchingRoom) =>
+    room.capacity === 1 ? room.memberCount >= 1 : room.memberCount >= 2;
   /** API의 isJoined 사용, 없으면 members에 내가 있는지로 판단 (mock 폴백) */
   const isInRoom = (room: MatchingRoom) =>
     room.isJoined === true ||
@@ -332,7 +335,7 @@ export default function MatchingRoomsPage() {
                         </h2>
                         <p className="text-sm text-gray-500 mt-1">
                           멤버 {room.memberCount}/{room.capacity}명
-                          {room.status !== "started" && room.memberCount >= 1 && (
+                          {room.status !== "started" && canStartRoom(room) && (
                             <span className="ml-2 text-teal-600 font-medium">
                               · 모의투자 시작 가능
                             </span>
@@ -396,7 +399,7 @@ export default function MatchingRoomsPage() {
                           >
                             진행 중
                           </button>
-                        ) : isInRoom(room) && room.memberCount >= 1 ? (
+                        ) : isInRoom(room) && canStartRoom(room) ? (
                           <>
                             <button
                               type="button"
@@ -570,7 +573,7 @@ export default function MatchingRoomsPage() {
                           onChange={() => setNewRoomType("team")}
                           className="text-teal-500"
                         />
-                        <span className="text-sm">팀 (최대 3인)</span>
+                        <span className="text-sm">팀 (2인 이상)</span>
                       </label>
                     </div>
                   </div>
@@ -611,7 +614,7 @@ export default function MatchingRoomsPage() {
                   <p className="text-xs text-gray-500 mb-4">
                     {newRoomType === "solo"
                       ? "개인방은 채팅 없이 모의투자만 가능합니다. 생성 후 시작하면 /solo 화면으로 이동합니다."
-                      : "비우면 자동으로 날짜 기반 이름이 붙습니다. 인원 모이면 시작 가능(최대 3명)."}
+                      : "비우면 자동으로 날짜 기반 이름이 붙습니다. 2명 이상 모이면 시작 가능(최대 3명)."}
                   </p>
                   <div className="flex gap-3">
                     <button

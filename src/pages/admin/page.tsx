@@ -52,7 +52,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<
     {
       id: string;
-      email: string;
+      studentId: string;
       nickname: string;
       teamId: string | null;
       role: string;
@@ -139,7 +139,7 @@ export default function AdminPage() {
 
   const handleDeleteUser = async (u: {
     id: string;
-    email: string;
+    studentId: string;
     role: string;
   }) => {
     if (u.role === "admin") {
@@ -150,7 +150,7 @@ export default function AdminPage() {
       setUserActionError("본인 계정은 삭제할 수 없습니다.");
       return;
     }
-    if (!window.confirm(`"${u.email}" 유저를 삭제할까요?`)) return;
+    if (!window.confirm(`"${u.studentId}" 유저를 삭제할까요?`)) return;
     setUserActionError(null);
     setDeletingUserId(u.id);
     try {
@@ -290,7 +290,7 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">
-              {user?.nickname ?? user?.email}
+              {user?.nickname ?? user?.studentId}
             </span>
             <button
               type="button"
@@ -556,7 +556,7 @@ export default function AdminPage() {
                   <table className="w-full text-left">
                     <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
                       <tr>
-                        <th className="px-6 py-3">이메일</th>
+                        <th className="px-6 py-3">학번</th>
                         <th className="px-6 py-3">닉네임</th>
                         <th className="px-6 py-3">팀</th>
                         <th className="px-6 py-3">역할</th>
@@ -571,7 +571,7 @@ export default function AdminPage() {
                         return (
                           <tr key={u.id} className="hover:bg-gray-50/50">
                             <td className="px-6 py-4 text-gray-900">
-                              {u.email}
+                              {u.studentId}
                             </td>
                             <td className="px-6 py-4 font-medium text-gray-900">
                               {u.nickname}

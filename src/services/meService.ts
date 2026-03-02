@@ -6,7 +6,7 @@ import { apiGet } from "./apiClient";
 
 export interface MeResponse {
   id?: string | null;
-  email?: string | null;
+  studentId?: string | null;
   nickname?: string | null;
   totalAssets?: number;
   investmentAmount?: number;
