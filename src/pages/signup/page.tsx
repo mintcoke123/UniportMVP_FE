@@ -12,6 +12,7 @@ export default function SignupPage() {
     nickname: "",
     phoneNumber: "",
   });
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,6 +50,11 @@ export default function SignupPage() {
 
     if (formData.nickname.length < 2) {
       setError("닉네임은 최소 2자 이상이어야 합니다");
+      return;
+    }
+
+    if (!agreePrivacy) {
+      setError("개인정보 수집 및 이용에 동의해 주세요.");
       return;
     }
 
@@ -99,7 +105,7 @@ export default function SignupPage() {
                 name="studentId"
                 value={formData.studentId}
                 onChange={handleChange}
-                placeholder="학번 8자리 (15000000~25999999)"
+                placeholder="8자리 학번"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 required
                 maxLength={8}
@@ -130,7 +136,7 @@ export default function SignupPage() {
                 name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleChange}
-                placeholder="전화번호 (선택)"
+                placeholder="010-XXXX-XXXX"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
               />
             </div>
@@ -164,6 +170,18 @@ export default function SignupPage() {
                 required
               />
             </div>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreePrivacy}
+                onChange={(e) => setAgreePrivacy(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700">
+                (필수) 개인정보 수집 및 이용에 동의합니다. (회원 식별 및 경품 발송 목적)
+              </span>
+            </label>
 
             {error && (
               <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
