@@ -50,13 +50,10 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
   );
   const tvSymbol = `KRX:${code6}`;
 
-  useEffect(() => {
-    console.log("tvSymbol:", tvSymbol);
-  }, [tvSymbol]);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const uid = useId().replaceAll(":", "_");
-  const containerId = `tradingview_chart_${uid}`;
+  /** symbol마다 다른 id → tv.js가 같은 container_id 재사용으로 이전 차트를 캐시하지 않도록 */
+  const containerId = `tradingview_chart_${uid}_${code6}`;
 
   useEffect(() => {
     let cancelled = false;
