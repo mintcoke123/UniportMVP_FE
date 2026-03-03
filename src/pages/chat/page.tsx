@@ -109,9 +109,10 @@ export default function ChatPage() {
     const t = String(c).trim();
     return t.length >= 6 ? t : t.padStart(6, "0");
   };
-  /** 투표 + 보유종목 종목코드 통합 (WebSocket 구독용) */
+  /** 투표 + 보유종목 종목코드 통합 (WebSocket 구독용). 이미 체결된 종목은 구독 제외. */
   const subscribeStockCodes = useMemo(() => {
     const fromVotes = votes
+      .filter((v) => v.status !== "executed")
       .map((v) => normalizeStockCode(v.stockCode))
       .filter((c) => c.length === 6);
     const fromHoldings = (groupPortfolioData?.holdings ?? [])
@@ -746,9 +747,6 @@ export default function ChatPage() {
                             const stockId = vote.stockCode
                               ? parseInt(vote.stockCode, 10)
                               : 0;
-                            const code = normalizeStockCode(vote.stockCode);
-                            const rt = code ? realtimePrices[code] : undefined;
-                            const currentPrice = rt?.currentPrice;
                             return (
                               <li key={vote.id}>
                                 <button
@@ -779,14 +777,6 @@ export default function ChatPage() {
                                       "—"}
                                     원 · {vote.quantity}주 (가격 도달 시 자동 체결)
                                   </p>
-                                  {currentPrice != null && (
-                                    <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
-                                      <span>현재가 {formatCurrency(currentPrice)}</span>
-                                      {rt && (
-                                        <span className="text-teal-500">실시간</span>
-                                      )}
-                                    </p>
-                                  )}
                                 </button>
                               </li>
                             );
@@ -1799,27 +1789,6 @@ export default function ChatPage() {
                                       유효기간: {vote.executionExpiresAt}
                                     </p>
                                   ) : null}
-                                  {(() => {
-                                    const code = normalizeStockCode(
-                                      vote.stockCode,
-                                    );
-                                    const rt = code
-                                      ? realtimePrices[code]
-                                      : undefined;
-                                    if (!rt) return null;
-                                    const ch = rt.change ?? 0;
-                                    const cr = rt.changeRate ?? 0;
-                                    const isUp = ch >= 0;
-                                    return (
-                                      <p
-                                        className={`text-xs mt-1 font-medium ${isUp ? "text-red-600" : "text-blue-600"}`}
-                                      >
-                                        현재가 {formatCurrency(rt.currentPrice)}{" "}
-                                        ({isUp ? "+" : ""}
-                                        {Number(cr).toFixed(2)}%)
-                                      </p>
-                                    );
-                                  })()}
                                   <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                                     {vote.reason}
                                   </p>
@@ -2228,9 +2197,6 @@ export default function ChatPage() {
                   const stockId = vote.stockCode
                     ? parseInt(vote.stockCode, 10)
                     : 0;
-                  const code = normalizeStockCode(vote.stockCode);
-                  const rt = code ? realtimePrices[code] : undefined;
-                  const currentPrice = rt?.currentPrice;
                   return (
                     <li key={vote.id}>
                       <button
@@ -2259,14 +2225,6 @@ export default function ChatPage() {
                           {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원 ·{" "}
                           {vote.quantity}주 (가격 도달 시 자동 체결)
                         </p>
-                        {currentPrice != null && (
-                          <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
-                            <span>현재가 {formatCurrency(currentPrice)}</span>
-                            {rt && (
-                              <span className="text-teal-500">실시간</span>
-                            )}
-                          </p>
-                        )}
                       </button>
                     </li>
                   );
