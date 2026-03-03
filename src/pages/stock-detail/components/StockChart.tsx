@@ -14,6 +14,13 @@ declare global {
 
 const TV_SCRIPT_SRC = "https://s3.tradingview.com/tv.js";
 
+/**
+ * 종목 변경 시 차트가 안 바뀌는 이유 (리서치 요약):
+ * 1. 같은 container_id 재사용 시 tv.js가 이전 위젯 인스턴스를 캐시/재활용해 새 symbol이 반영되지 않음.
+ * 2. innerHTML만 비우고 새 위젯을 만들면, 이전 인스턴스가 remove()되지 않아 메모리/전역 상태에 남고 새 위젯과 충돌할 수 있음.
+ * 대응: container_id에 code6 포함(심볼별 유일 id), 위젯 생성 시 반환값을 ref에 저장하고 cleanup에서 remove() 호출.
+ */
+
 function loadTvScriptOnce() {
   return new Promise<void>((resolve, reject) => {
     if (window.TradingView) return resolve();
@@ -51,6 +58,7 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
   const tvSymbol = `KRX:${code6}`;
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const widgetRef = useRef<{ remove?: () => void } | null>(null);
   const uid = useId().replaceAll(":", "_");
   /** symbol마다 다른 id → tv.js가 같은 container_id 재사용으로 이전 차트를 캐시하지 않도록 */
   const containerId = `tradingview_chart_${uid}_${code6}`;
@@ -70,7 +78,7 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
 
       el.innerHTML = "";
 
-      new window.TradingView.widget({
+      const widget = new window.TradingView.widget({
         autosize: true,
         symbol: tvSymbol,
         interval: "D",
@@ -88,10 +96,19 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
         save_image: false,
         studies: [],
       });
+      if (!cancelled) widgetRef.current = widget ?? null;
     })();
 
     return () => {
       cancelled = true;
+      try {
+        if (widgetRef.current && typeof widgetRef.current.remove === "function") {
+          widgetRef.current.remove();
+        }
+      } catch {
+        /* ignore */
+      }
+      widgetRef.current = null;
       const el = document.getElementById(containerId);
       if (el) el.innerHTML = "";
     };
