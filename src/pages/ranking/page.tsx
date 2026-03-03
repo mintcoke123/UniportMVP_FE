@@ -1,7 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllGroupsRanking, getMyGroupRanking } from "../../services";
-import type { GroupRankingItem, MyGroupRankingResponse } from "../../types";
+import {
+  getAllGroupsRanking,
+  getMyGroupRanking,
+  getGroupPortfolio,
+  getGroupMembers,
+} from "../../services";
+import type {
+  GroupRankingItem,
+  MyGroupRankingResponse,
+  GroupPortfolioResponse,
+  GroupMemberItem,
+} from "../../types";
 
 export default function Ranking() {
   const navigate = useNavigate();
@@ -10,6 +20,14 @@ export default function Ranking() {
   );
   const [myGroupRanking, setMyGroupRanking] =
     useState<MyGroupRankingResponse | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<{
+    id: number;
+    groupName: string;
+  } | null>(null);
+  const [teamDetailLoading, setTeamDetailLoading] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<GroupMemberItem[]>([]);
+  const [teamPortfolio, setTeamPortfolio] =
+    useState<GroupPortfolioResponse | null>(null);
 
   useEffect(() => {
     getAllGroupsRanking().then(setAllGroupsRanking).catch(() => {});
@@ -17,6 +35,30 @@ export default function Ranking() {
       .then(setMyGroupRanking)
       .catch(() => setMyGroupRanking(null));
   }, []);
+
+  useEffect(() => {
+    if (!selectedTeam) {
+      setTeamMembers([]);
+      setTeamPortfolio(null);
+      return;
+    }
+    setTeamDetailLoading(true);
+    setTeamMembers([]);
+    setTeamPortfolio(null);
+    Promise.all([
+      getGroupMembers(selectedTeam.id),
+      getGroupPortfolio(selectedTeam.id),
+    ])
+      .then(([members, portfolio]) => {
+        setTeamMembers(members ?? []);
+        setTeamPortfolio(portfolio ?? null);
+      })
+      .catch(() => {
+        setTeamMembers([]);
+        setTeamPortfolio(null);
+      })
+      .finally(() => setTeamDetailLoading(false));
+  }, [selectedTeam?.id]);
 
   const formatNumber = (num: number) => {
     return Math.floor(num).toLocaleString("ko-KR");
@@ -73,7 +115,16 @@ export default function Ranking() {
             <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4">
               실시간 순위
             </h2>
-            <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-2xl p-4 sm:p-5 border-2 border-yellow-300 min-w-0">
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedTeam({
+                  id: myGroupRanking.id,
+                  groupName: myGroupRanking.groupName,
+                })
+              }
+              className="w-full text-left bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-2xl p-4 sm:p-5 border-2 border-yellow-300 min-w-0 cursor-pointer hover:from-yellow-100 hover:to-yellow-200 transition-colors"
+            >
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="flex-shrink-0 text-center">
                   <div className="w-9 h-9 sm:w-10 sm:h-10 bg-yellow-400 rounded-full flex items-center justify-center">
@@ -108,7 +159,7 @@ export default function Ranking() {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
           </section>
         )}
 
@@ -120,9 +171,16 @@ export default function Ranking() {
               const isMyGroup = group.id === myGroupRanking?.id;
 
               return (
-                <div
+                <button
+                  type="button"
                   key={group.id}
-                  className={`rounded-2xl p-4 sm:p-5 min-w-0 ${
+                  onClick={() =>
+                    setSelectedTeam({
+                      id: group.id,
+                      groupName: group.groupName,
+                    })
+                  }
+                  className={`w-full text-left rounded-2xl p-4 sm:p-5 min-w-0 cursor-pointer hover:bg-gray-50 transition-colors ${
                     isMyGroup
                       ? "bg-white border-2 border-blue-300"
                       : "bg-white border border-gray-200"
@@ -164,7 +222,7 @@ export default function Ranking() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -187,6 +245,102 @@ export default function Ranking() {
             채팅
           </button>
         </div>
+
+        {/* 팀 상세 모달: 멤버 + 보유 종목 */}
+        {selectedTeam && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setSelectedTeam(null)}
+              aria-hidden
+            />
+            <div className="relative bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
+                <h3 className="text-lg font-bold text-gray-900 truncate pr-2">
+                  {selectedTeam.groupName}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeam(null)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 cursor-pointer shrink-0"
+                  aria-label="닫기"
+                >
+                  <i className="ri-close-line text-xl" aria-hidden />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+                {teamDetailLoading ? (
+                  <div className="py-8 text-center text-gray-500">
+                    <i className="ri-loader-4-line animate-spin text-2xl inline-block mb-2" aria-hidden />
+                    <p>불러오는 중...</p>
+                  </div>
+                ) : (
+                  <>
+                    <section>
+                      <h4 className="text-sm font-bold text-gray-700 mb-2">
+                        팀 멤버
+                      </h4>
+                      {teamMembers.length === 0 ? (
+                        <p className="text-sm text-gray-500">멤버 정보가 없습니다.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {teamMembers.map((m) => (
+                            <li
+                              key={m.id}
+                              className="flex items-center gap-2 py-2 px-3 rounded-lg bg-gray-50"
+                            >
+                              <span className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                                {m.nickname?.charAt(0) ?? "?"}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">
+                                {m.nickname ?? "-"}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+                    <section>
+                      <h4 className="text-sm font-bold text-gray-700 mb-2">
+                        보유 종목
+                      </h4>
+                      {!teamPortfolio?.holdings?.length ? (
+                        <p className="text-sm text-gray-500">보유 종목이 없습니다.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {teamPortfolio.holdings.map((h) => (
+                            <li
+                              key={h.id}
+                              className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                  {h.stockName ?? h.stockCode}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {h.quantity?.toLocaleString("ko-KR")}주 · 평단{" "}
+                                  {h.averagePrice?.toLocaleString("ko-KR")}원
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0 ml-2">
+                                <p className="text-sm font-bold text-gray-900 tabular-nums">
+                                  {h.currentValue?.toLocaleString("ko-KR")}원
+                                </p>
+                                <p className="text-xs text-gray-500 tabular-nums">
+                                  현재가 {h.currentPrice?.toLocaleString("ko-KR")}원
+                                </p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
