@@ -9,7 +9,8 @@ interface StockChartProps {
 type ChartPeriod = "1D" | "1W" | "3M" | "6M" | "1Y";
 
 const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
-  const tvSymbol = `KRX:${String(stockCode ?? "").trim() || "005930"}`;
+  const code6 = String(stockCode ?? "005930").trim().padStart(6, "0");
+  const tvSymbol = `KRX:${code6}`;
   const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>("1D");
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +87,7 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
 
       {/* TradingView Chart */}
       <div
+        key={`${tvSymbol}-${selectedPeriod}`}
         ref={containerRef}
         className="w-full h-80 rounded-lg overflow-hidden border border-gray-200"
       >
