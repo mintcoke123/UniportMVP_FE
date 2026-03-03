@@ -105,6 +105,12 @@ export async function getAdminUsers(): Promise<
   >("/api/admin/users");
 }
 
+/** 팀별 피드백 전송: 선택한 방들의 채팅에 피드백 메시지 표시 및 해당 방 채팅 비활성화 */
+export async function sendAdminFeedback(deliveries: { roomId: number | string; content: string }[]): Promise<{ success: boolean; message: string }> {
+  const res = await apiPost<{ success: boolean; message: string }>("/api/admin/chat/feedback", { deliveries });
+  return res;
+}
+
 /** 유저 삭제 (관리자 전용). 본인·다른 관리자 계정은 삭제 불가. */
 export async function deleteAdminUser(
   userId: string

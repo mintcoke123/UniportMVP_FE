@@ -11,12 +11,13 @@ import {
   deleteAdminMatchingRoomMember,
   getAdminUsers,
   deleteAdminUser,
+  sendAdminFeedback,
 } from "../../services";
 import type { AdminCompetition } from "../../types";
 import type { CompetingTeamItem } from "../../types";
 import type { MatchingRoom } from "../../types";
 
-type AdminTab = "competition" | "teams" | "users";
+type AdminTab = "competition" | "teams" | "users" | "feedback";
 
 /** 배포용주석**/
 const STATUS_LABEL: Record<AdminCompetition["status"], string> = {
@@ -76,6 +77,9 @@ export default function AdminPage() {
   const [roomActionError, setRoomActionError] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState<string | null>(null);
+  const [feedbackByRoomId, setFeedbackByRoomId] = useState<Record<string, string>>({});
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const loadCompetitions = () => {
     getAdminCompetitions().then(setCompetitions);
@@ -268,9 +272,42 @@ export default function AdminPage() {
     }
   };
 
+  const handleSendFeedback = async () => {
+    const deliveries = rooms
+      .filter((r) => (feedbackByRoomId[r.id] ?? "").trim())
+      .map((r) => ({ roomId: r.id, content: (feedbackByRoomId[r.id] ?? "").trim() }));
+    if (deliveries.length === 0) {
+      setFeedbackError("내용을 입력한 방을 하나 이상 선택해 주세요.");
+      return;
+    }
+    setFeedbackError(null);
+    setFeedbackSending(true);
+    try {
+      const res = await sendAdminFeedback(deliveries);
+      if (res.success) {
+        setFeedbackByRoomId((prev) => {
+          const next = { ...prev };
+          deliveries.forEach((d) => {
+            const key = typeof d.roomId === "string" ? d.roomId : `room-${d.roomId}`;
+            delete next[key];
+            delete next[String(d.roomId)];
+          });
+          return next;
+        });
+      } else {
+        setFeedbackError(res.message ?? "전송에 실패했습니다.");
+      }
+    } catch (e) {
+      setFeedbackError((e as { message?: string })?.message ?? "전송에 실패했습니다.");
+    } finally {
+      setFeedbackSending(false);
+    }
+  };
+
   const tabs: { key: AdminTab; label: string }[] = [
     { key: "competition", label: "대회 관리" },
     { key: "teams", label: "팀 확인" },
+    { key: "feedback", label: "팀 피드백" },
     { key: "users", label: "유저 관리" },
   ];
 
@@ -538,6 +575,71 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {tab === "feedback" && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-900">팀별 피드백 전송</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    방마다 피드백 내용을 입력한 뒤 전송하면, 해당 채팅방에 피드백 리포트 형식으로 표시되고 채팅이 비활성화됩니다.
+                  </p>
+                  {feedbackError && (
+                    <p className="mt-2 text-sm text-red-600">{feedbackError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSendFeedback}
+                    disabled={feedbackSending}
+                    className="mt-4 px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {feedbackSending ? "전송 중..." : "내용 입력한 방에 피드백 전송"}
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
+                      <tr>
+                        <th className="px-6 py-3">방 이름</th>
+                        <th className="px-6 py-3">멤버</th>
+                        <th className="px-6 py-3">상태</th>
+                        <th className="px-6 py-3 min-w-[280px]">피드백 내용</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {rooms.map((r) => (
+                        <tr key={r.id} className="hover:bg-gray-50/50">
+                          <td className="px-6 py-4 font-medium text-gray-900">
+                            {r.name}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">
+                            {r.memberCount}/{r.capacity}명
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-gray-600">
+                              {r.status === "started" ? "진행 중" : r.status === "full" ? "참가 완료" : "대기"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <textarea
+                              value={feedbackByRoomId[r.id] ?? ""}
+                              onChange={(e) =>
+                                setFeedbackByRoomId((prev) => ({
+                                  ...prev,
+                                  [r.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="이 방에 보낼 피드백 내용 (비우면 전송 제외)"
+                              rows={3}
+                              className="w-full min-w-[260px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

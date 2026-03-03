@@ -87,4 +87,5 @@ export {
   deleteAdminMatchingRoomMember,
   getAdminUsers,
   deleteAdminUser,
+  sendAdminFeedback,
 } from "./adminService";

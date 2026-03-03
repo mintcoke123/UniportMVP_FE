@@ -54,6 +54,8 @@ export default function ChatPage() {
   const [actionRoomId, setActionRoomId] = useState<string | null>(null);
   /** GET 채팅 목록 403 시 표시 (해당 그룹 멤버 아님) */
   const [chatError, setChatError] = useState<string | null>(null);
+  /** 어드민 피드백 수신 시 해당 방 채팅 입력 비활성화 */
+  const [chatInputDisabled, setChatInputDisabled] = useState(false);
   /** WebSocket 연결 여부. false면 메시지 전송 시 REST로 fallback */
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -259,13 +261,17 @@ export default function ChatPage() {
     }
 
     setChatError(null);
+    setChatInputDisabled(false);
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
       setWsConnected(true);
       getChatMessages(groupId)
-        .then((msgs) => setMessages(msgs))
+        .then((msgs) => {
+          setMessages(msgs);
+          setChatInputDisabled(msgs.some((m) => m.type === "feedback"));
+        })
         .catch((e) => {
           setMessages([]);
           setChatError(e?.message ?? "이 그룹의 멤버가 아닙니다.");
@@ -296,6 +302,8 @@ export default function ChatPage() {
           typeof data.timestamp === "string" ? data.timestamp : "";
         const tradeData = data.tradeData ?? null;
         const executionData = data.executionData ?? null;
+        const feedbackContent = typeof data.feedbackContent === "string" ? data.feedbackContent : "";
+        const chatDisabled = data.chatDisabled === true;
         const item: ChatMessageItem = {
           id,
           type:
@@ -303,18 +311,25 @@ export default function ChatPage() {
               ? "trade"
               : type === "execution"
                 ? "execution"
-                : "user",
+                : type === "feedback"
+                  ? "feedback"
+                  : "user",
           userId,
           userNickname,
           message: message ?? null,
           timestamp,
           tradeData: tradeData as ChatMessageItem["tradeData"],
           executionData: executionData as ChatMessageItem["executionData"],
+          feedbackContent: type === "feedback" ? feedbackContent : undefined,
+          chatDisabled: type === "feedback" ? chatDisabled : undefined,
         };
         setMessages((prev) => {
           if (prev.some((m) => m.id === item.id)) return prev;
           return [...prev, item];
         });
+        if (type === "feedback" && chatDisabled) {
+          setChatInputDisabled(true);
+        }
         if (type === "trade" && groupId != null)
           getVotes(groupId).then(setVotes);
         if (type === "execution" && groupId != null) {
@@ -1578,6 +1593,36 @@ export default function ChatPage() {
                                     </div>
                                   </div>
                                 )}
+
+                              {msg.type === "feedback" && (
+                                <div className="flex gap-2 sm:gap-3 items-start">
+                                  <span
+                                    className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
+                                    aria-hidden
+                                  >
+                                    <i className="ri-file-chart-line text-lg" aria-hidden />
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-sm font-semibold text-gray-900">
+                                        {msg.userNickname || "관리자"}
+                                      </span>
+                                      <span className="text-xs text-gray-400">
+                                        {msg.timestamp}
+                                      </span>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-tl-sm p-5 shadow-sm max-w-full overflow-hidden break-words">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <i className="ri-trophy-line text-xl" aria-hidden />
+                                        <h3 className="text-base font-bold">피드백 리포트</h3>
+                                      </div>
+                                      <p className="text-sm text-white/95 whitespace-pre-wrap leading-relaxed">
+                                        {msg.feedbackContent ?? ""}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                           <div ref={messagesEndRef} />
@@ -1628,14 +1673,16 @@ export default function ChatPage() {
                                     e.key === "Enter" && handleSendMessage()
                                   }
                                   placeholder={
-                                    groupId == null
-                                      ? myRooms.length === 0 && !myRoomsLoading
-                                        ? "참가 중인 채팅방이 없습니다. 매칭방에서 팀에 참가해 주세요."
-                                        : "채팅방 정보를 불러오는 중..."
-                                      : "메시지 입력..."
+                                    chatInputDisabled
+                                      ? "채팅이 비활성화되었습니다."
+                                      : groupId == null
+                                        ? myRooms.length === 0 && !myRoomsLoading
+                                          ? "참가 중인 채팅방이 없습니다. 매칭방에서 팀에 참가해 주세요."
+                                          : "채팅방 정보를 불러오는 중..."
+                                        : "메시지 입력..."
                                   }
                                   disabled={
-                                    groupId == null || sending || !!chatError
+                                    groupId == null || sending || !!chatError || chatInputDisabled
                                   }
                                   className="flex-1 min-w-0 min-h-[44px] px-3 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
                                 />
@@ -1643,7 +1690,7 @@ export default function ChatPage() {
                                   type="button"
                                   onClick={handleSendMessage}
                                   disabled={
-                                    groupId == null || sending || !!chatError
+                                    groupId == null || sending || !!chatError || chatInputDisabled
                                   }
                                   className="w-11 h-11 min-h-[44px] min-w-[44px] bg-teal-500 rounded-xl flex items-center justify-center hover:bg-teal-600 cursor-pointer transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                                   aria-label="보내기"

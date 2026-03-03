@@ -239,13 +239,15 @@ export interface ChatExecutionData {
 
 export interface ChatMessageItem {
   id: number;
-  type: "user" | "trade" | "execution";
+  type: "user" | "trade" | "execution" | "feedback";
   userId: number;
   userNickname: string;
   message?: string | null;
   timestamp: string;
   tradeData?: ChatTradeData | null;
   executionData?: ChatExecutionData | null;
+  feedbackContent?: string | null;
+  chatDisabled?: boolean;
 }
 
 // ---- Vote ----
