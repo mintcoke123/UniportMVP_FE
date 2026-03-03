@@ -62,6 +62,9 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
       await loadTvScriptOnce();
       if (cancelled || !window.TradingView) return;
 
+      await new Promise((r) => requestAnimationFrame(r));
+      if (cancelled) return;
+
       const el = document.getElementById(containerId);
       if (!el) return;
 

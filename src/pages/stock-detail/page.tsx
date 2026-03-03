@@ -600,8 +600,12 @@ const StockDetailPage = () => {
         </div>
       </div>
 
-      {/* Chart */}
-      <StockChart stockName={displayName} stockCode={stock.code} />
+      {/* Chart: key로 종목 변경 시 전체 재마운트 → tv.js 캐시 회피 */}
+      <StockChart
+        key={stock.code ?? ""}
+        stockName={displayName}
+        stockCode={stock.code}
+      />
 
       {/* 팀 보유 수량 표기 */}
       <div className="bg-white mt-2 px-5 py-4 border-b border-gray-100">
