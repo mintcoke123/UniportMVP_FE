@@ -71,12 +71,12 @@ export default function SoloPage() {
   }, [groupId]);
 
   const subscribeCodes = useMemo(() => {
-    const fromHoldings = (groupPortfolioData?.holdings ?? []).map((h) =>
-      normalizeStockCodeForPrice(h.stockCode),
-    ).filter(Boolean);
-    const fromLimitOrders = myPendingLimitOrders.map((v) =>
-      normalizeStockCodeForPrice(v.stockCode),
-    ).filter(Boolean);
+    const fromHoldings = (groupPortfolioData?.holdings ?? [])
+      .map((h) => normalizeStockCodeForPrice(h.stockCode))
+      .filter(Boolean);
+    const fromLimitOrders = myPendingLimitOrders
+      .map((v) => normalizeStockCodeForPrice(v.stockCode))
+      .filter(Boolean);
     return [...new Set([...fromHoldings, ...fromLimitOrders])];
   }, [groupPortfolioData?.holdings, myPendingLimitOrders]);
   const realtimePrices = usePriceWebSocket(subscribeCodes);
@@ -108,7 +108,8 @@ export default function SoloPage() {
               방에 참여하지 않으면 모의투자를 시작할 수 없습니다.
             </p>
             <p className="text-sm text-gray-500 mb-6">
-              개인방을 만들고 모의투자를 시작한 후, 여기서 주식을 관리할 수 있습니다.
+              개인방을 만들고 모의투자를 시작한 후, 여기서 주식을 관리할 수
+              있습니다.
             </p>
             <button
               type="button"
@@ -135,7 +136,9 @@ export default function SoloPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <main className="max-w-2xl mx-auto px-4 py-12 text-center">
-          <p className="text-amber-600 mb-4">투자 현황을 불러오지 못했습니다.</p>
+          <p className="text-amber-600 mb-4">
+            투자 현황을 불러오지 못했습니다.
+          </p>
           <button
             type="button"
             onClick={() => groupId != null && fetchPortfolio(groupId)}
@@ -152,7 +155,6 @@ export default function SoloPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <main className="max-w-2xl mx-auto px-4 py-6 lg:py-8">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-gray-900">내 투자 현황</h1>
@@ -182,8 +184,7 @@ export default function SoloPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          stockId > 0 &&
-                          navigate(`/stock-detail?id=${stockId}`)
+                          stockId > 0 && navigate(`/stock-detail?id=${stockId}`)
                         }
                         className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
                       >
@@ -202,13 +203,16 @@ export default function SoloPage() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          희망가 {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원
-                          · {vote.quantity}주 (가격 도달 시 자동 체결)
+                          희망가{" "}
+                          {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원 ·{" "}
+                          {vote.quantity}주 (가격 도달 시 자동 체결)
                         </p>
                         {currentPrice != null && (
                           <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
                             <span>현재가 {formatCurrency(currentPrice)}</span>
-                            {rt && <span className="text-teal-500">실시간</span>}
+                            {rt && (
+                              <span className="text-teal-500">실시간</span>
+                            )}
                           </p>
                         )}
                       </button>
@@ -236,9 +240,7 @@ export default function SoloPage() {
             role="button"
             tabIndex={0}
             onClick={() => navigate("/group-portfolio")}
-            onKeyDown={(e) =>
-              e.key === "Enter" && navigate("/group-portfolio")
-            }
+            onKeyDown={(e) => e.key === "Enter" && navigate("/group-portfolio")}
             className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white cursor-pointer hover:from-teal-600 hover:to-teal-700 transition-all"
           >
             <div className="flex items-center gap-2 mb-3">
@@ -253,9 +255,7 @@ export default function SoloPage() {
               <div className="flex justify-between">
                 <span className="text-teal-100">투자 원금</span>
                 <span className="font-bold">
-                  {formatCurrency(
-                    groupPortfolioData?.investmentAmount ?? 0,
-                  )}
+                  {formatCurrency(groupPortfolioData?.investmentAmount ?? 0)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -268,7 +268,9 @@ export default function SoloPage() {
                 <span className="text-teal-100">총 손익</span>
                 <span
                   className={
-                    isProfit ? "text-yellow-200 font-bold" : "text-red-200 font-bold"
+                    isProfit
+                      ? "text-yellow-200 font-bold"
+                      : "text-red-200 font-bold"
                   }
                 >
                   {isProfit ? "+" : ""}
@@ -296,18 +298,32 @@ export default function SoloPage() {
                     const value = price * (holding.quantity ?? 0);
                     const total = holdings.reduce((sum, h) => {
                       const c = normalizeStockCodeForPrice(h.stockCode);
-                      const p = c ? realtimePrices[c]?.currentPrice ?? h.currentPrice : h.currentPrice;
+                      const p = c
+                        ? (realtimePrices[c]?.currentPrice ?? h.currentPrice)
+                        : h.currentPrice;
                       return sum + p * (h.quantity ?? 0);
                     }, 0);
                     if (total <= 0) return null;
                     let startAngle = 0;
                     for (let i = 0; i < index; i++) {
-                      const c = normalizeStockCodeForPrice(holdings[i].stockCode);
-                      const p = c ? realtimePrices[c]?.currentPrice ?? holdings[i].currentPrice : holdings[i].currentPrice;
-                      startAngle += (p * (holdings[i].quantity ?? 0) / total) * 360;
+                      const c = normalizeStockCodeForPrice(
+                        holdings[i].stockCode,
+                      );
+                      const p = c
+                        ? (realtimePrices[c]?.currentPrice ??
+                          holdings[i].currentPrice)
+                        : holdings[i].currentPrice;
+                      startAngle +=
+                        ((p * (holdings[i].quantity ?? 0)) / total) * 360;
                     }
                     const angle = (value / total) * 360;
-                    const pathD = getPieSlicePathD(100, 100, 80, startAngle, angle);
+                    const pathD = getPieSlicePathD(
+                      100,
+                      100,
+                      80,
+                      startAngle,
+                      angle,
+                    );
                     const colors = [
                       "#14B8A6",
                       "#06B6D4",
@@ -336,7 +352,7 @@ export default function SoloPage() {
                   );
                   const pct =
                     total > 0
-                      ? ((holding.currentValue ?? 0) / total * 100).toFixed(1)
+                      ? (((holding.currentValue ?? 0) / total) * 100).toFixed(1)
                       : "0";
                   const colors = [
                     "bg-teal-500",
@@ -347,10 +363,7 @@ export default function SoloPage() {
                     "bg-green-500",
                   ];
                   return (
-                    <div
-                      key={holding.id}
-                      className="flex items-center gap-1.5"
-                    >
+                    <div key={holding.id} className="flex items-center gap-1.5">
                       <div
                         className={`w-2.5 h-2.5 rounded-full ${
                           colors[index % colors.length]

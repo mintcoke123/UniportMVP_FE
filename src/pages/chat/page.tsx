@@ -731,6 +731,70 @@ export default function ChatPage() {
                     </h2>
                   </div>
                   <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
+                    {/* 내 지정가 주문 (가격 도달 시 체결) — /solo와 동일 순서·표기 */}
+                    {myPendingLimitOrders.length > 0 && (
+                      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                          <i
+                            className="ri-price-tag-3-line text-amber-600"
+                            aria-hidden
+                          />
+                          내 지정가 주문 (가격 도달 시 체결)
+                        </h3>
+                        <ul className="space-y-2">
+                          {myPendingLimitOrders.map((vote) => {
+                            const stockId = vote.stockCode
+                              ? parseInt(vote.stockCode, 10)
+                              : 0;
+                            const code = normalizeStockCode(vote.stockCode);
+                            const rt = code ? realtimePrices[code] : undefined;
+                            const currentPrice = rt?.currentPrice;
+                            return (
+                              <li key={vote.id}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    stockId > 0 &&
+                                    navigate(`/stock-detail?id=${stockId}`)
+                                  }
+                                  className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
+                                >
+                                  <div className="flex justify-between items-start gap-2">
+                                    <span className="font-semibold text-gray-900 truncate">
+                                      {vote.stockName || vote.stockCode || "—"}
+                                    </span>
+                                    <span
+                                      className={`text-xs font-medium shrink-0 ${
+                                        vote.type === "매수"
+                                          ? "text-red-600"
+                                          : "text-blue-600"
+                                      }`}
+                                    >
+                                      {vote.type}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    희망가{" "}
+                                    {vote.limitPrice?.toLocaleString("ko-KR") ??
+                                      "—"}
+                                    원 · {vote.quantity}주 (가격 도달 시 자동 체결)
+                                  </p>
+                                  {currentPrice != null && (
+                                    <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                                      <span>현재가 {formatCurrency(currentPrice)}</span>
+                                      {rt && (
+                                        <span className="text-teal-500">실시간</span>
+                                      )}
+                                    </p>
+                                  )}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+
                     {/* 거래 가능 현금 (항상 표시) */}
                     <div className="bg-white rounded-xl p-4 border border-gray-200">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -827,59 +891,6 @@ export default function ChatPage() {
                         </div>
                       </div>
                     </div>
-
-                    {/* 내 지정가 주문 */}
-                    {myPendingLimitOrders.length > 0 && (
-                      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                          <i
-                            className="ri-price-tag-3-line text-amber-600"
-                            aria-hidden
-                          />
-                          내 지정가 주문
-                        </h3>
-                        <ul className="space-y-2">
-                          {myPendingLimitOrders.map((vote) => {
-                            const stockId = vote.stockCode
-                              ? parseInt(vote.stockCode, 10)
-                              : 0;
-                            return (
-                              <li key={vote.id}>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    stockId > 0 &&
-                                    navigate(`/stock-detail?id=${stockId}`)
-                                  }
-                                  className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
-                                >
-                                  <div className="flex justify-between items-start gap-2">
-                                    <span className="font-semibold text-gray-900 truncate">
-                                      {vote.stockName || vote.stockCode || "—"}
-                                    </span>
-                                    <span
-                                      className={`text-xs font-medium shrink-0 ${
-                                        vote.type === "매수"
-                                          ? "text-red-600"
-                                          : "text-blue-600"
-                                      }`}
-                                    >
-                                      {vote.type}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    희망가{" "}
-                                    {vote.limitPrice?.toLocaleString("ko-KR") ??
-                                      "—"}
-                                    원 · {vote.quantity}주
-                                  </p>
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    )}
 
                     {/* 파이 차트 */}
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -2205,6 +2216,64 @@ export default function ChatPage() {
         title="팀 투자 현황"
       >
         <div className="p-4 space-y-4">
+          {/* 내 지정가 주문 (가격 도달 시 체결) — /solo와 동일 순서·표기 */}
+          {myPendingLimitOrders.length > 0 && (
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <i className="ri-price-tag-3-line text-amber-600" aria-hidden />
+                내 지정가 주문 (가격 도달 시 체결)
+              </h3>
+              <ul className="space-y-2">
+                {myPendingLimitOrders.map((vote) => {
+                  const stockId = vote.stockCode
+                    ? parseInt(vote.stockCode, 10)
+                    : 0;
+                  const code = normalizeStockCode(vote.stockCode);
+                  const rt = code ? realtimePrices[code] : undefined;
+                  const currentPrice = rt?.currentPrice;
+                  return (
+                    <li key={vote.id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          stockId > 0 && navigate(`/stock-detail?id=${stockId}`)
+                        }
+                        className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer min-h-[44px]"
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-semibold text-gray-900 truncate">
+                            {vote.stockName || vote.stockCode || "—"}
+                          </span>
+                          <span
+                            className={`text-xs font-medium shrink-0 ${
+                              vote.type === "매수"
+                                ? "text-red-600"
+                                : "text-blue-600"
+                            }`}
+                          >
+                            {vote.type}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          희망가{" "}
+                          {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원 ·{" "}
+                          {vote.quantity}주 (가격 도달 시 자동 체결)
+                        </p>
+                        {currentPrice != null && (
+                          <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                            <span>현재가 {formatCurrency(currentPrice)}</span>
+                            {rt && (
+                              <span className="text-teal-500">실시간</span>
+                            )}
+                          </p>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           {/* 거래 가능 현금 */}
           <div className="bg-white rounded-xl p-4 border border-gray-200">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -2290,53 +2359,6 @@ export default function ChatPage() {
               </div>
             </div>
           </button>
-          {/* 내 지정가 주문 */}
-          {myPendingLimitOrders.length > 0 && (
-            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <i className="ri-price-tag-3-line text-amber-600" aria-hidden />
-                내 지정가 주문
-              </h3>
-              <ul className="space-y-2">
-                {myPendingLimitOrders.map((vote) => {
-                  const stockId = vote.stockCode
-                    ? parseInt(vote.stockCode, 10)
-                    : 0;
-                  return (
-                    <li key={vote.id}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          stockId > 0 && navigate(`/stock-detail?id=${stockId}`)
-                        }
-                        className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer min-h-[44px]"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="font-semibold text-gray-900 truncate">
-                            {vote.stockName || vote.stockCode || "—"}
-                          </span>
-                          <span
-                            className={`text-xs font-medium shrink-0 ${
-                              vote.type === "매수"
-                                ? "text-red-600"
-                                : "text-blue-600"
-                            }`}
-                          >
-                            {vote.type}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          희망가{" "}
-                          {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원 ·{" "}
-                          {vote.quantity}주
-                        </p>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
           {/* 파이 차트 */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <h3 className="text-sm font-bold text-gray-900 mb-3">

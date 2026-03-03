@@ -33,7 +33,9 @@ export default function MockInvestmentPage() {
   const [routeOk, setRouteOk] = useState(false);
 
   /** 현재 팀에 해당하는 매칭방(초대코드 표시용). 팀방(capacity>1)만 해당. */
-  const [currentTeamRoom, setCurrentTeamRoom] = useState<MatchingRoom | null>(null);
+  const [currentTeamRoom, setCurrentTeamRoom] = useState<MatchingRoom | null>(
+    null,
+  );
 
   /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)도 이 페이지에서 종목 선택·매수/매도 가능(헤더 모의투자 클릭 시 이동). */
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function MockInvestmentPage() {
       .then((rooms) => {
         setRouteOk(true);
         const myRoom = rooms.find(
-          (r) => String(r.id) === teamNum || String(r.id) === `room-${teamNum}`
+          (r) => String(r.id) === teamNum || String(r.id) === `room-${teamNum}`,
         );
         if (myRoom && myRoom.capacity > 1) setCurrentTeamRoom(myRoom);
         else setCurrentTeamRoom(null);
@@ -166,7 +168,9 @@ export default function MockInvestmentPage() {
       <main className="pt-4 lg:pt-8 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full box-border">
         {/* 페이지 타이틀 */}
         <div className="mb-6 lg:mb-8">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">모의투자</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+            모의투자
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             종목을 선택해 매수·매도 체험을 해보세요
           </p>
@@ -176,11 +180,16 @@ export default function MockInvestmentPage() {
         {currentTeamRoom?.inviteCode && currentTeamRoom.capacity > 1 && (
           <div className="mb-4 lg:mb-6 p-4 bg-teal-50 border border-teal-200 rounded-2xl flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <span className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shrink-0" aria-hidden>
+              <span
+                className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shrink-0"
+                aria-hidden
+              >
                 <i className="ri-team-fill text-lg" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{currentTeamRoom.name}</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {currentTeamRoom.name}
+                </p>
                 <p className="text-xs text-gray-600">팀원 초대코드</p>
               </div>
             </div>
@@ -331,7 +340,9 @@ export default function MockInvestmentPage() {
                     onClick={() => handleStockClick(stock)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => e.key === "Enter" && handleStockClick(stock)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleStockClick(stock)
+                    }
                     className="grid grid-cols-12 gap-2 lg:gap-4 px-4 lg:px-6 py-2.5 lg:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
                   >
                     <span className="hidden lg:block text-sm font-medium text-gray-500 col-span-1">
