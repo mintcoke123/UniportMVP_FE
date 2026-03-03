@@ -600,11 +600,11 @@ const StockDetailPage = () => {
         </div>
       </div>
 
-      {/* Chart: key로 종목 변경 시 전체 재마운트 → tv.js 캐시 회피 */}
+      {/* Chart: 심볼은 URL id에서 직접 사용(API 응답 대기/캐시 없음). key=stockId로 종목 변경 시 재마운트 */}
       <StockChart
-        key={stock.code ?? ""}
+        key={stockId}
         stockName={displayName}
-        stockCode={stock.code}
+        stockCode={String(stockId).padStart(6, "0")}
       />
 
       {/* 팀 보유 수량 표기 */}

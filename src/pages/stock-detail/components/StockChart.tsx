@@ -19,7 +19,7 @@ const StockChart = ({ stockCode = "005930" }: StockChartProps) => {
     [stockCode],
   );
   const tvSymbol = `KRX:${code6}`;
-  const iframeSrc = `/tv-chart.html?symbol=${encodeURIComponent(tvSymbol)}`;
+  const iframeSrc = `/tv-chart.html?symbol=${encodeURIComponent(tvSymbol)}&_=${encodeURIComponent(code6)}`;
 
   return (
     <div className="bg-white mt-2 px-5 py-5">
