@@ -235,21 +235,11 @@ export default function SoloPage() {
             </div>
           </div>
 
-          {/* 투자 요약 — 클릭 시 상세 포트폴리오 */}
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate("/group-portfolio")}
-            onKeyDown={(e) => e.key === "Enter" && navigate("/group-portfolio")}
-            className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white cursor-pointer hover:from-teal-600 hover:to-teal-700 transition-all"
-          >
+          {/* 투자 요약 */}
+          <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white transition-all">
             <div className="flex items-center gap-2 mb-3">
               <i className="ri-wallet-3-line text-xl" aria-hidden />
               <h2 className="text-sm font-bold">투자 요약</h2>
-              <i
-                className="ri-arrow-right-s-line text-teal-200 ml-auto text-xl"
-                aria-hidden
-              />
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">

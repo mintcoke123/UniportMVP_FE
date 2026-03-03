@@ -303,7 +303,8 @@ export default function ChatPage() {
           typeof data.timestamp === "string" ? data.timestamp : "";
         const tradeData = data.tradeData ?? null;
         const executionData = data.executionData ?? null;
-        const feedbackContent = typeof data.feedbackContent === "string" ? data.feedbackContent : "";
+        const feedbackContent =
+          typeof data.feedbackContent === "string" ? data.feedbackContent : "";
         const chatDisabled = data.chatDisabled === true;
         const item: ChatMessageItem = {
           id,
@@ -631,7 +632,7 @@ export default function ChatPage() {
                 </span>{" "}
                 방에서 팀원이 모일 때까지 잠시만 기다려 주세요.
               </p>
-              <p className="text-sm text-gray-500 mb-8">
+              <p className="text-sm text-gray-500 mb-6">
                 현재 {myWaitingRoom.memberCount}명 / {myWaitingRoom.capacity}명
                 {myWaitingRoom.memberCount >=
                   Math.min(2, myWaitingRoom.capacity ?? 3) && (
@@ -642,6 +643,43 @@ export default function ChatPage() {
                   </span>
                 )}
               </p>
+              {myWaitingRoom.inviteCode && myWaitingRoom.capacity > 1 && (
+                <div className="w-full max-w-md mx-auto mb-8 p-4 bg-white border border-teal-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shrink-0"
+                      aria-hidden
+                    >
+                      <i className="ri-team-fill text-lg" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {myWaitingRoom.name}
+                      </p>
+                      <p className="text-xs text-gray-600">팀원 초대코드</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <code className="px-3 py-2 bg-gray-50 border border-teal-200 rounded-xl text-sm font-mono font-bold tracking-wider text-teal-800">
+                      {myWaitingRoom.inviteCode}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard
+                          .writeText(myWaitingRoom.inviteCode!)
+                          .then(() => alert("초대코드가 복사되었습니다."))
+                          .catch(() => alert("복사에 실패했습니다."));
+                      }}
+                      className="py-2 px-4 rounded-xl text-sm font-medium bg-teal-500 text-white hover:bg-teal-600 cursor-pointer transition-colors flex items-center gap-2"
+                      title="초대코드 복사"
+                    >
+                      <i className="ri-file-copy-line" aria-hidden />
+                      복사
+                    </button>
+                  </div>
+                </div>
+              )}
               <ul className="flex flex-wrap justify-center gap-4 mb-8">
                 {myWaitingRoom.members.map((member) => (
                   <li
@@ -725,32 +763,11 @@ export default function ChatPage() {
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-0 lg:gap-6 flex-1 min-h-0 overflow-hidden">
                 {/* 왼쪽: 포트폴리오 — 모바일에서는 숨기고 바텀시트로 노출 */}
                 <div className="hidden lg:flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-0 order-2 lg:order-1">
-                  <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
                     <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                       <i className="ri-pie-chart-line text-teal-500"></i>팀 투자
                       현황
                     </h2>
-                    {selectedRoom?.inviteCode && selectedRoom.capacity > 1 && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <code className="px-2.5 py-1.5 bg-teal-50 border border-teal-200 rounded-lg text-xs font-mono font-bold tracking-wider text-teal-800">
-                          {selectedRoom.inviteCode}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard
-                              .writeText(selectedRoom.inviteCode!)
-                              .then(() => alert("초대코드가 복사되었습니다."))
-                              .catch(() => alert("복사에 실패했습니다."));
-                          }}
-                          className="py-1.5 px-3 rounded-lg text-xs font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors flex items-center gap-1"
-                          title="초대코드 복사"
-                        >
-                          <i className="ri-file-copy-line" aria-hidden />
-                          복사
-                        </button>
-                      </div>
-                    )}
                   </div>
                   <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
                     {/* 내 지정가 주문 (가격 도달 시 체결) — /solo와 동일 순서·표기 */}
@@ -799,13 +816,18 @@ export default function ChatPage() {
                                     희망가{" "}
                                     {vote.limitPrice?.toLocaleString("ko-KR") ??
                                       "—"}
-                                    원 · {vote.quantity}주 (가격 도달 시 자동 체결)
+                                    원 · {vote.quantity}주 (가격 도달 시 자동
+                                    체결)
                                   </p>
                                   {currentPrice != null && (
                                     <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
-                                      <span>현재가 {formatCurrency(currentPrice)}</span>
+                                      <span>
+                                        현재가 {formatCurrency(currentPrice)}
+                                      </span>
                                       {rt && (
-                                        <span className="text-teal-500">실시간</span>
+                                        <span className="text-teal-500">
+                                          실시간
+                                        </span>
                                       )}
                                     </p>
                                   )}
@@ -852,23 +874,11 @@ export default function ChatPage() {
                       </div>
                     </div>
 
-                    {/* 투자 원금 및 손익 — 클릭 시 포트폴리오 화면으로 */}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate("/group-portfolio")}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && navigate("/group-portfolio")
-                      }
-                      className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white cursor-pointer hover:from-teal-600 hover:to-teal-700 transition-all"
-                    >
+                    {/* 투자 요약 */}
+                    <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white transition-all">
                       <div className="flex items-center gap-2 mb-3">
                         <i className="ri-wallet-3-line text-xl"></i>
                         <h3 className="text-sm font-bold">투자 요약</h3>
-                        <i
-                          className="ri-arrow-right-s-line text-teal-200 ml-auto"
-                          aria-hidden
-                        />
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center text-sm">
@@ -1633,7 +1643,10 @@ export default function ChatPage() {
                                     className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
                                     aria-hidden
                                   >
-                                    <i className="ri-file-chart-line text-lg" aria-hidden />
+                                    <i
+                                      className="ri-file-chart-line text-lg"
+                                      aria-hidden
+                                    />
                                   </span>
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 mb-1">
@@ -1646,8 +1659,13 @@ export default function ChatPage() {
                                     </div>
                                     <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-tl-sm p-5 shadow-sm max-w-full overflow-hidden break-words">
                                       <div className="flex items-center gap-2 mb-3">
-                                        <i className="ri-trophy-line text-xl" aria-hidden />
-                                        <h3 className="text-base font-bold">피드백 리포트</h3>
+                                        <i
+                                          className="ri-trophy-line text-xl"
+                                          aria-hidden
+                                        />
+                                        <h3 className="text-base font-bold">
+                                          피드백 리포트
+                                        </h3>
                                       </div>
                                       <p className="text-sm text-white/95 whitespace-pre-wrap leading-relaxed">
                                         {msg.feedbackContent ?? ""}
@@ -1709,13 +1727,17 @@ export default function ChatPage() {
                                     chatInputDisabled
                                       ? "채팅이 비활성화되었습니다."
                                       : groupId == null
-                                        ? myRooms.length === 0 && !myRoomsLoading
+                                        ? myRooms.length === 0 &&
+                                          !myRoomsLoading
                                           ? "참가 중인 채팅방이 없습니다. 매칭방에서 팀에 참가해 주세요."
                                           : "채팅방 정보를 불러오는 중..."
                                         : "메시지 입력..."
                                   }
                                   disabled={
-                                    groupId == null || sending || !!chatError || chatInputDisabled
+                                    groupId == null ||
+                                    sending ||
+                                    !!chatError ||
+                                    chatInputDisabled
                                   }
                                   className="flex-1 min-w-0 min-h-[44px] px-3 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
                                 />
@@ -1723,7 +1745,10 @@ export default function ChatPage() {
                                   type="button"
                                   onClick={handleSendMessage}
                                   disabled={
-                                    groupId == null || sending || !!chatError || chatInputDisabled
+                                    groupId == null ||
+                                    sending ||
+                                    !!chatError ||
+                                    chatInputDisabled
                                   }
                                   className="w-11 h-11 min-h-[44px] min-w-[44px] bg-teal-500 rounded-xl flex items-center justify-center hover:bg-teal-600 cursor-pointer transition-colors flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                                   aria-label="보내기"
@@ -2140,34 +2165,11 @@ export default function ChatPage() {
 
               {/* 투자 정보 */}
               <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <i className="ri-wallet-3-line text-teal-600 text-lg"></i>
-                    <span className="text-sm font-semibold text-gray-700">
-                      팀 투자 현황
-                    </span>
-                  </div>
-                  {selectedRoom?.inviteCode && selectedRoom.capacity > 1 && (
-                    <div className="flex items-center gap-2">
-                      <code className="px-2 py-1 bg-white/80 border border-teal-200 rounded-lg text-xs font-mono font-bold text-teal-800">
-                        {selectedRoom.inviteCode}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard
-                            .writeText(selectedRoom.inviteCode!)
-                            .then(() => alert("초대코드가 복사되었습니다."))
-                            .catch(() => alert("복사에 실패했습니다."));
-                        }}
-                        className="py-1 px-2.5 rounded-lg text-xs font-medium bg-teal-500 text-white hover:bg-teal-600 flex items-center gap-1"
-                        title="초대코드 복사"
-                      >
-                        <i className="ri-file-copy-line" aria-hidden />
-                        복사
-                      </button>
-                    </div>
-                  )}
+                <div className="flex items-center gap-2 mb-2">
+                  <i className="ri-wallet-3-line text-teal-600 text-lg"></i>
+                  <span className="text-sm font-semibold text-gray-700">
+                    팀 투자 현황
+                  </span>
                 </div>
 
                 <div className="space-y-2">
@@ -2240,33 +2242,6 @@ export default function ChatPage() {
         title="팀 투자 현황"
       >
         <div className="p-4 space-y-4">
-          {/* 팀원 초대코드 (팀방만) — 헤더 오른쪽과 동일하게 상단 배치 */}
-          {selectedRoom?.inviteCode && selectedRoom.capacity > 1 && (
-            <div className="flex items-center justify-between gap-2 p-3 bg-teal-50 border border-teal-200 rounded-xl">
-              <span className="text-xs font-medium text-gray-600">
-                팀원 초대코드
-              </span>
-              <div className="flex items-center gap-2">
-                <code className="px-2.5 py-1.5 bg-white border border-teal-200 rounded-lg text-sm font-mono font-bold tracking-wider text-teal-800">
-                  {selectedRoom.inviteCode}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard
-                      .writeText(selectedRoom.inviteCode!)
-                      .then(() => alert("초대코드가 복사되었습니다."))
-                      .catch(() => alert("복사에 실패했습니다."));
-                  }}
-                  className="py-1.5 px-3 rounded-lg text-xs font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors flex items-center gap-1"
-                  title="초대코드 복사"
-                >
-                  <i className="ri-file-copy-line" aria-hidden />
-                  복사
-                </button>
-              </div>
-            </div>
-          )}
           {/* 내 지정가 주문 (가격 도달 시 체결) — /solo와 동일 순서·표기 */}
           {myPendingLimitOrders.length > 0 && (
             <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
@@ -2359,19 +2334,11 @@ export default function ChatPage() {
               )}
             </div>
           </div>
-          {/* 투자 요약 — 그룹 포트폴리오로 이동 */}
-          <button
-            type="button"
-            onClick={() => navigate("/group-portfolio")}
-            className="w-full text-left bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white cursor-pointer hover:from-teal-600 hover:to-teal-700 transition-all min-h-[44px]"
-          >
+          {/* 투자 요약 */}
+          <div className="w-full bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white transition-all min-h-[44px]">
             <div className="flex items-center gap-2 mb-3">
               <i className="ri-wallet-3-line text-xl" aria-hidden />
               <h3 className="text-sm font-bold">투자 요약</h3>
-              <i
-                className="ri-arrow-right-s-line text-teal-200 ml-auto"
-                aria-hidden
-              />
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
@@ -2409,7 +2376,7 @@ export default function ChatPage() {
                 </div>
               </div>
             </div>
-          </button>
+          </div>
           {/* 파이 차트 */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <h3 className="text-sm font-bold text-gray-900 mb-3">
