@@ -29,13 +29,12 @@ export default function Header() {
     <header className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 md:py-4">
         {/* 로고: asset/logo */}
-        <Link to="/" className="flex items-center gap-2 md:gap-3 shrink-0">
+        <Link to="/" className="flex items-center shrink-0">
           <img
             src="/asset/logo.png"
             alt="Uniport Logo"
             className="h-8 md:h-10 w-auto"
           />
-          <span className="text-xl md:text-2xl font-bold text-gray-900">Uniport</span>
         </Link>
 
         {/* 데스크톱: 중앙 네비 */}

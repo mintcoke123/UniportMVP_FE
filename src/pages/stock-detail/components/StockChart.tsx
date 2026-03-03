@@ -50,6 +50,10 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
   );
   const tvSymbol = `KRX:${code6}`;
 
+  useEffect(() => {
+    console.log("tvSymbol:", tvSymbol);
+  }, [tvSymbol]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const uid = useId().replaceAll(":", "_");
   const containerId = `tradingview_chart_${uid}`;
