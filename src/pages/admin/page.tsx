@@ -7,6 +7,7 @@ import {
   updateAdminCompetition,
   getAdminTeamsByCompetition,
   getAdminMatchingRooms,
+  getAdminRoomVotes,
   deleteAdminMatchingRoom,
   deleteAdminMatchingRoomMember,
   getAdminUsers,
@@ -15,7 +16,7 @@ import {
 } from "../../services";
 import type { AdminCompetition } from "../../types";
 import type { CompetingTeamItem } from "../../types";
-import type { MatchingRoom } from "../../types";
+import type { MatchingRoom, VoteItem } from "../../types";
 
 type AdminTab = "competition" | "teams" | "users" | "feedback";
 
@@ -80,6 +81,12 @@ export default function AdminPage() {
   const [feedbackByRoomId, setFeedbackByRoomId] = useState<Record<string, string>>({});
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  /** 팀별 피드백 탭에서 방 클릭 시 해당 방 거래내역 로그 모달 */
+  const [roomLogRoomId, setRoomLogRoomId] = useState<string | null>(null);
+  const [roomLogRoomName, setRoomLogRoomName] = useState<string>("");
+  const [roomLogVotes, setRoomLogVotes] = useState<VoteItem[]>([]);
+  const [roomLogLoading, setRoomLogLoading] = useState(false);
+  const [roomLogError, setRoomLogError] = useState<string | null>(null);
 
   const loadCompetitions = () => {
     getAdminCompetitions().then(setCompetitions);
@@ -200,6 +207,24 @@ export default function AdminPage() {
       getAdminTeamsByCompetition(selectedCompetitionId).then(setTeams);
     }
   }, [selectedCompetitionId]);
+
+  /** 방 거래내역 로그 모달: roomLogRoomId 변경 시 해당 방 투표 목록 로드 */
+  useEffect(() => {
+    if (!roomLogRoomId) {
+      setRoomLogVotes([]);
+      setRoomLogError(null);
+      return;
+    }
+    setRoomLogLoading(true);
+    setRoomLogError(null);
+    getAdminRoomVotes(roomLogRoomId)
+      .then(setRoomLogVotes)
+      .catch((e: unknown) => {
+        setRoomLogVotes([]);
+        setRoomLogError((e as { message?: string })?.message ?? "거래내역을 불러오지 못했습니다.");
+      })
+      .finally(() => setRoomLogLoading(false));
+  }, [roomLogRoomId]);
 
   const handleLogout = () => {
     logout();
@@ -612,7 +637,16 @@ export default function AdminPage() {
                       {rooms.map((r) => (
                         <tr key={r.id} className="hover:bg-gray-50/50">
                           <td className="px-6 py-4 font-medium text-gray-900">
-                            {r.name}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRoomLogRoomId(r.id);
+                                setRoomLogRoomName(r.name);
+                              }}
+                              className="text-left text-teal-600 hover:text-teal-800 hover:underline"
+                            >
+                              {r.name}
+                            </button>
                           </td>
                           <td className="px-6 py-4 text-gray-600">
                             {r.memberCount}/{r.capacity}명
@@ -780,6 +814,119 @@ export default function AdminPage() {
               >
                 {saving ? "저장 중..." : editingCompetition ? "수정" : "추가"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 팀별 거래내역 로그 모달 (팀별 피드백 탭에서 방 이름 클릭 시) */}
+      {roomLogRoomId != null && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+              <h3 className="text-lg font-bold text-gray-900">
+                팀별 거래내역 로그 — {roomLogRoomName}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setRoomLogRoomId(null);
+                  setRoomLogRoomName("");
+                }}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 p-6">
+              {roomLogLoading ? (
+                <p className="text-gray-500 text-sm">불러오는 중…</p>
+              ) : roomLogError ? (
+                <p className="text-red-600 text-sm">{roomLogError}</p>
+              ) : roomLogVotes.length === 0 ? (
+                <p className="text-gray-500 text-sm">거래내역이 없습니다.</p>
+              ) : (
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-gray-600 font-medium">
+                    <tr>
+                      <th className="px-3 py-2 rounded-tl">일시</th>
+                      <th className="px-3 py-2">유형</th>
+                      <th className="px-3 py-2">종목</th>
+                      <th className="px-3 py-2">수량</th>
+                      <th className="px-3 py-2">가격</th>
+                      <th className="px-3 py-2 rounded-tr">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {roomLogVotes.map((v) => (
+                      <tr key={v.id} className="hover:bg-gray-50/50">
+                        <td className="px-3 py-2 text-gray-600">
+                          {v.executedAt
+                            ? new Date(v.executedAt).toLocaleString("ko-KR", {
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : new Date(v.createdAt).toLocaleString("ko-KR", {
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={
+                              v.type === "매수"
+                                ? "text-red-600 font-medium"
+                                : "text-blue-600 font-medium"
+                            }
+                          >
+                            {v.type}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-medium text-gray-900">
+                          {v.stockName ?? v.stockCode ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">
+                          {v.quantity}주
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">
+                          {(v.executionPrice ?? v.proposedPrice)?.toLocaleString(
+                            "ko-KR"
+                          ) ?? "—"}
+                          원
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                              v.status === "executed"
+                                ? "bg-teal-100 text-teal-700"
+                                : v.status === "pending"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {v.status === "executed"
+                              ? "체결"
+                              : v.status === "pending"
+                                ? "대기"
+                                : v.status === "executing"
+                                  ? "주문중"
+                                  : v.status === "cancelled"
+                                    ? "취소"
+                                    : v.status === "expired"
+                                      ? "만료"
+                                      : v.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

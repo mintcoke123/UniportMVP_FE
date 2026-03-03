@@ -83,6 +83,7 @@ export {
   updateAdminCompetition,
   getAdminTeamsByCompetition,
   getAdminMatchingRooms,
+  getAdminRoomVotes,
   deleteAdminMatchingRoom,
   deleteAdminMatchingRoomMember,
   getAdminUsers,

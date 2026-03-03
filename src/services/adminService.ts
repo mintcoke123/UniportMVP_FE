@@ -6,7 +6,7 @@
 import type { AdminCompetition } from "../types";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./apiClient";
 import type { CompetingTeamItem } from "../types";
-import type { MatchingRoom } from "../types";
+import type { MatchingRoom, VoteItem } from "../types";
 
 /** 대회 목록 (관리자용: 시작일·종료일 포함) */
 export async function getAdminCompetitions(): Promise<AdminCompetition[]> {
@@ -61,6 +61,13 @@ export async function getAdminTeamsByCompetition(
 /** 매칭방(팀 대기/구성) 목록 (관리자용) */
 export async function getAdminMatchingRooms(): Promise<MatchingRoom[]> {
   return await apiGet<MatchingRoom[]>("/api/admin/matching-rooms");
+}
+
+/** 팀(방)별 거래내역 로그: 해당 방의 투표(체결 포함) 목록. roomId: "room-1" 또는 "1" */
+export async function getAdminRoomVotes(roomId: string): Promise<VoteItem[]> {
+  return await apiGet<VoteItem[]>(
+    `/api/admin/matching-rooms/${encodeURIComponent(roomId)}/votes`
+  );
 }
 
 /** 팀(매칭방) 삭제. DELETE /api/admin/matching-rooms/{roomId} — roomId: room-1 또는 1 */
