@@ -514,6 +514,9 @@ export default function ChatPage() {
   };
 
   const handleTradeShare = () => {
+    if (chatInputDisabled) {
+      return;
+    }
     navigate("/stock");
   };
 
@@ -1708,7 +1711,13 @@ export default function ChatPage() {
                               <button
                                 type="button"
                                 onClick={handleTradeShare}
-                                className="w-full min-h-[44px] py-2.5 mb-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-xl hover:from-red-600 hover:to-pink-600 cursor-pointer flex items-center justify-center gap-2"
+                                disabled={chatInputDisabled}
+                                title={
+                                  chatInputDisabled
+                                    ? "채팅이 비활성화되어 모의투자로 이동할 수 없습니다."
+                                    : undefined
+                                }
+                                className="w-full min-h-[44px] py-2.5 mb-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-xl hover:from-red-600 hover:to-pink-600 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:from-red-500 disabled:hover:to-pink-500"
                               >
                                 <i className="ri-stock-line" aria-hidden />
                                 매수/매도 계획 공유
@@ -2056,9 +2065,10 @@ export default function ChatPage() {
               <button
                 onClick={() => {
                   setShowTradeModal(false);
-                  navigate("/stock");
+                  if (!chatInputDisabled) navigate("/stock");
                 }}
-                className="flex-1 py-3 bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 cursor-pointer whitespace-nowrap transition-colors"
+                disabled={chatInputDisabled}
+                className="flex-1 py-3 bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 모의투자로 이동
               </button>
