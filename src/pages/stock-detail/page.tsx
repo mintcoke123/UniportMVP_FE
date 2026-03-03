@@ -14,7 +14,7 @@ import {
   normalizeStockCodeForPrice,
 } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
-import StockChart from "./components/StockChart";
+import StockCandleChart from "./components/StockCandleChart";
 import MyHolding from "./components/MyHolding";
 import type { StockDetailResponse, VoteItem } from "../../types";
 import { computeMaxBuyQuantity } from "../../utils/orderLimit";
@@ -600,11 +600,11 @@ const StockDetailPage = () => {
         </div>
       </div>
 
-      {/* Chart: 심볼은 URL id에서 직접 사용(API 응답 대기/캐시 없음). key=stockId로 종목 변경 시 재마운트 */}
-      <StockChart
+      {/* Chart: OHLCV REST + lightweight-charts. key=stockId로 종목 변경 시 재마운트 */}
+      <StockCandleChart
         key={stockId}
-        stockName={displayName}
         stockCode={String(stockId).padStart(6, "0")}
+        height={320}
       />
 
       {/* 팀 보유 수량 표기 */}

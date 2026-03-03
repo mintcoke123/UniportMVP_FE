@@ -24,6 +24,8 @@ export {
 } from "./marketService";
 
 export { getStockDetail } from "./stockService";
+export { getOhlcv } from "./ohlcvService";
+export type { OhlcvCandlestick, OhlcvTime } from "./ohlcvService";
 
 export { placeTrade } from "./tradeService";
 export type { PlaceTradeRequest, PlaceTradeResponse } from "./tradeService";
