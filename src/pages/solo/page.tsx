@@ -70,13 +70,15 @@ export default function SoloPage() {
     }
   }, [groupId]);
 
-  const subscribeCodes = useMemo(
-    () =>
-      (groupPortfolioData?.holdings ?? []).map((h) =>
-        normalizeStockCodeForPrice(h.stockCode),
-      ).filter(Boolean),
-    [groupPortfolioData?.holdings],
-  );
+  const subscribeCodes = useMemo(() => {
+    const fromHoldings = (groupPortfolioData?.holdings ?? []).map((h) =>
+      normalizeStockCodeForPrice(h.stockCode),
+    ).filter(Boolean);
+    const fromLimitOrders = myPendingLimitOrders.map((v) =>
+      normalizeStockCodeForPrice(v.stockCode),
+    ).filter(Boolean);
+    return [...new Set([...fromHoldings, ...fromLimitOrders])];
+  }, [groupPortfolioData?.holdings, myPendingLimitOrders]);
   const realtimePrices = usePriceWebSocket(subscribeCodes);
 
   const isProfit = (groupPortfolioData?.profitLoss ?? 0) >= 0;
@@ -172,6 +174,9 @@ export default function SoloPage() {
                   const stockId = vote.stockCode
                     ? parseInt(vote.stockCode, 10)
                     : 0;
+                  const code = normalizeStockCodeForPrice(vote.stockCode);
+                  const rt = code ? realtimePrices[code] : undefined;
+                  const currentPrice = rt?.currentPrice;
                   return (
                     <li key={vote.id}>
                       <button
@@ -200,6 +205,12 @@ export default function SoloPage() {
                           희망가 {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원
                           · {vote.quantity}주 (가격 도달 시 자동 체결)
                         </p>
+                        {currentPrice != null && (
+                          <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                            <span>현재가 {formatCurrency(currentPrice)}</span>
+                            {rt && <span className="text-teal-500">실시간</span>}
+                          </p>
+                        )}
                       </button>
                     </li>
                   );
