@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useId } from "react";
 
 interface StockChartProps {
   stockName: string;
@@ -6,65 +6,103 @@ interface StockChartProps {
   stockCode?: string;
 }
 
-const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
-  const code6 = String(stockCode ?? "005930").trim().padStart(6, "0");
-  const tvSymbol = `KRX:${code6}`;
-  const containerRef = useRef<HTMLDivElement>(null);
+declare global {
+  interface Window {
+    TradingView?: any;
+  }
+}
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+const TV_SCRIPT_SRC = "https://s3.tradingview.com/tv.js";
 
-    const chartEl = document.getElementById("tradingview_chart");
-    if (chartEl) chartEl.innerHTML = "";
+function loadTvScriptOnce() {
+  return new Promise<void>((resolve, reject) => {
+    if (window.TradingView) return resolve();
+
+    const existing = document.querySelector(`script[src="${TV_SCRIPT_SRC}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("tv.js load failed")),
+        {
+          once: true,
+        },
+      );
+      return;
+    }
 
     const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/tv.js";
+    script.src = TV_SCRIPT_SRC;
     script.async = true;
-    script.onload = () => {
-      if (containerRef.current && (window as any).TradingView) {
-        new (window as any).TradingView.widget({
-          autosize: true,
-          symbol: tvSymbol,
-          interval: "D",
-          timezone: "Asia/Seoul",
-          theme: "light",
-          style: "1",
-          locale: "kr",
-          toolbar_bg: "#f1f3f6",
-          enable_publishing: false,
-          hide_side_toolbar: true,
-          allow_symbol_change: false,
-          container_id: "tradingview_chart",
-          hide_top_toolbar: false,
-          hide_legend: true,
-          save_image: false,
-          studies: [],
-        });
-      }
-    };
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("tv.js load failed"));
     document.head.appendChild(script);
+  });
+}
+
+const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
+  const code6 = useMemo(
+    () =>
+      String(stockCode ?? "005930")
+        .trim()
+        .padStart(6, "0"),
+    [stockCode],
+  );
+  const tvSymbol = `KRX:${code6}`;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const uid = useId().replaceAll(":", "_");
+  const containerId = `tradingview_chart_${uid}`;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      await loadTvScriptOnce();
+      if (cancelled || !window.TradingView) return;
+
+      const el = document.getElementById(containerId);
+      if (!el) return;
+
+      el.innerHTML = "";
+
+      new window.TradingView.widget({
+        autosize: true,
+        symbol: tvSymbol,
+        interval: "D",
+        timezone: "Asia/Seoul",
+        theme: "light",
+        style: "1",
+        locale: "kr",
+        toolbar_bg: "#f1f3f6",
+        enable_publishing: false,
+        hide_side_toolbar: true,
+        allow_symbol_change: false,
+        container_id: containerId,
+        hide_top_toolbar: false,
+        hide_legend: true,
+        save_image: false,
+        studies: [],
+      });
+    })();
 
     return () => {
-      const el = document.getElementById("tradingview_chart");
+      cancelled = true;
+      const el = document.getElementById(containerId);
       if (el) el.innerHTML = "";
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
     };
-  }, [tvSymbol]);
+  }, [tvSymbol, containerId]);
 
   return (
     <div className="bg-white mt-2 px-5 py-5">
       <h3 className="text-base font-bold mb-4">차트</h3>
 
-      {/* TradingView Chart */}
       <div
         key={tvSymbol}
         ref={containerRef}
         className="w-full h-80 rounded-lg overflow-hidden border border-gray-200"
       >
-        <div id="tradingview_chart" className="w-full h-full"></div>
+        <div id={containerId} className="w-full h-full" />
       </div>
     </div>
   );

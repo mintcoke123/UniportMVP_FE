@@ -1338,7 +1338,7 @@ export default function ChatPage() {
 
                 {/* 오른쪽: 채팅 — 카톡형 레이아웃, 모바일 평면화(카드 스타일 제거) */}
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden order-1 lg:order-2 min-w-0">
-                  {/* Row 1: 헤더 — 방 선택 + 채팅방 정보 */}
+                  {/* Row 1: 헤더 — 방 선택 */}
                   <header className="shrink-0 -mx-4 px-4 lg:mx-0 lg:px-4 py-2 flex items-center justify-between gap-2 bg-teal-50 border-0 rounded-none shadow-none lg:border lg:border-gray-200 lg:border-b-0 lg:rounded-t-2xl lg:rounded-b-none lg:shadow-sm min-w-0">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="text-sm font-bold text-gray-800 shrink-0">
@@ -1378,17 +1378,6 @@ export default function ChatPage() {
                         </select>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowGroupInfoModal(true);
-                        setMobilePortfolioSheetOpen(true);
-                      }}
-                      className="text-sm text-teal-600 hover:text-teal-700 font-semibold whitespace-nowrap py-2 px-3 min-h-[44px] flex items-center cursor-pointer shrink-0"
-                      aria-label="채팅방 정보"
-                    >
-                      채팅방 정보
-                    </button>
                   </header>
 
                   {/* Row 2: 채팅/투표 전환 — 정중앙 배치 */}
