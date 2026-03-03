@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 interface StockChartProps {
   stockName: string;
@@ -6,15 +6,10 @@ interface StockChartProps {
   stockCode?: string;
 }
 
-type ChartPeriod = "1D" | "1W" | "3M" | "6M" | "1Y";
-
 const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
   const code6 = String(stockCode ?? "005930").trim().padStart(6, "0");
   const tvSymbol = `KRX:${code6}`;
-  const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>("1D");
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const periods: ChartPeriod[] = ["1D", "1W", "3M", "6M", "1Y"];
 
   useEffect(() => {
     const container = containerRef.current;
@@ -31,12 +26,7 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
         new (window as any).TradingView.widget({
           autosize: true,
           symbol: tvSymbol,
-          interval:
-            selectedPeriod === "1D"
-              ? "5"
-              : selectedPeriod === "1W"
-              ? "60"
-              : "D",
+          interval: "D",
           timezone: "Asia/Seoul",
           theme: "light",
           style: "1",
@@ -62,32 +52,15 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
         document.head.removeChild(script);
       }
     };
-  }, [tvSymbol, selectedPeriod]);
+  }, [tvSymbol]);
 
   return (
     <div className="bg-white mt-2 px-5 py-5">
       <h3 className="text-base font-bold mb-4">차트</h3>
 
-      {/* Period Tabs */}
-      <div className="flex gap-2 mb-4">
-        {periods.map((period) => (
-          <button
-            key={period}
-            onClick={() => setSelectedPeriod(period)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
-              selectedPeriod === period
-                ? "bg-black text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {period}
-          </button>
-        ))}
-      </div>
-
       {/* TradingView Chart */}
       <div
-        key={`${tvSymbol}-${selectedPeriod}`}
+        key={tvSymbol}
         ref={containerRef}
         className="w-full h-80 rounded-lg overflow-hidden border border-gray-200"
       >
