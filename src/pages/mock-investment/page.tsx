@@ -187,7 +187,8 @@ export default function MockInvestmentPage() {
                       }`}
                     >
                       {index.change >= 0 ? "+" : ""}
-                      {formatNumber(index.change)} ({index.change >= 0 ? "+" : ""}
+                      {formatNumber(index.change)} (
+                      {index.change >= 0 ? "+" : ""}
                       {index.changeRate}%)
                     </p>
                   </div>

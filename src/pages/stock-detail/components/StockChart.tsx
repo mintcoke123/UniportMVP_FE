@@ -9,14 +9,18 @@ interface StockChartProps {
 type ChartPeriod = "1D" | "1W" | "3M" | "6M" | "1Y";
 
 const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
-  const tvSymbol = `KRX:${stockCode}`;
+  const tvSymbol = `KRX:${String(stockCode ?? "").trim() || "005930"}`;
   const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>("1D");
   const containerRef = useRef<HTMLDivElement>(null);
 
   const periods: ChartPeriod[] = ["1D", "1W", "3M", "6M", "1Y"];
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const chartEl = document.getElementById("tradingview_chart");
+    if (chartEl) chartEl.innerHTML = "";
 
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/tv.js";
@@ -51,11 +55,13 @@ const StockChart = ({ stockName, stockCode = "005930" }: StockChartProps) => {
     document.head.appendChild(script);
 
     return () => {
+      const el = document.getElementById("tradingview_chart");
+      if (el) el.innerHTML = "";
       if (document.head.contains(script)) {
         document.head.removeChild(script);
       }
     };
-  }, [selectedPeriod]);
+  }, [tvSymbol, selectedPeriod]);
 
   return (
     <div className="bg-white mt-2 px-5 py-5">
