@@ -747,6 +747,9 @@ export default function ChatPage() {
                             const stockId = vote.stockCode
                               ? parseInt(vote.stockCode, 10)
                               : 0;
+                            const code = normalizeStockCode(vote.stockCode);
+                            const rt = code ? realtimePrices[code] : undefined;
+                            const currentPrice = rt?.currentPrice;
                             return (
                               <li key={vote.id}>
                                 <button
@@ -777,6 +780,14 @@ export default function ChatPage() {
                                       "—"}
                                     원 · {vote.quantity}주 (가격 도달 시 자동 체결)
                                   </p>
+                                  {currentPrice != null && (
+                                    <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                                      <span>현재가 {formatCurrency(currentPrice)}</span>
+                                      {rt && (
+                                        <span className="text-teal-500">실시간</span>
+                                      )}
+                                    </p>
+                                  )}
                                 </button>
                               </li>
                             );
@@ -2197,6 +2208,9 @@ export default function ChatPage() {
                   const stockId = vote.stockCode
                     ? parseInt(vote.stockCode, 10)
                     : 0;
+                  const code = normalizeStockCode(vote.stockCode);
+                  const rt = code ? realtimePrices[code] : undefined;
+                  const currentPrice = rt?.currentPrice;
                   return (
                     <li key={vote.id}>
                       <button
@@ -2225,6 +2239,14 @@ export default function ChatPage() {
                           {vote.limitPrice?.toLocaleString("ko-KR") ?? "—"}원 ·{" "}
                           {vote.quantity}주 (가격 도달 시 자동 체결)
                         </p>
+                        {currentPrice != null && (
+                          <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                            <span>현재가 {formatCurrency(currentPrice)}</span>
+                            {rt && (
+                              <span className="text-teal-500">실시간</span>
+                            )}
+                          </p>
+                        )}
                       </button>
                     </li>
                   );
