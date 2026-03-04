@@ -124,13 +124,20 @@ export default function AdminPage() {
   };
 
   const handleRemoveMember = async (roomId: string, userId: string) => {
+    const uid = userId != null && String(userId).trim() !== "" && String(userId) !== "undefined"
+      ? String(userId).trim()
+      : null;
+    if (uid == null) {
+      setRoomActionError("멤버 정보를 확인할 수 없습니다.");
+      return;
+    }
     if (!window.confirm("이 멤버를 팀에서 강제 제거합니다. 계속할까요?"))
       return;
     setRoomActionError(null);
-    const key = `${roomId}-${userId}`;
+    const key = `${roomId}-${uid}`;
     setMemberActionKey(key);
     try {
-      const res = await deleteAdminMatchingRoomMember(roomId, userId);
+      const res = await deleteAdminMatchingRoomMember(roomId, uid);
       if (res.success) {
         setRoomActionError(null);
         loadRooms();
@@ -541,29 +548,32 @@ export default function AdminPage() {
                             </td>
                             <td className="px-6 py-4 text-gray-600">
                               {r.memberCount}/{r.capacity}명 (
-                              {r.members.map((m) => (
+                              {r.members.map((m) => {
+                                const memberId = (m as { userId?: string; id?: string }).userId ?? (m as { userId?: string; id?: string }).id ?? "";
+                                return (
                                 <span
-                                  key={m.userId}
+                                  key={memberId || m.nickname}
                                   className="inline-flex items-center gap-1 mr-1"
                                 >
                                   {m.nickname}
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleRemoveMember(r.id, m.userId)
+                                      handleRemoveMember(r.id, memberId)
                                     }
                                     disabled={
-                                      memberActionKey === `${r.id}-${m.userId}`
+                                      !memberId || memberActionKey === `${r.id}-${memberId}`
                                     }
                                     className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
                                     title="멤버 강제 제거"
                                   >
-                                    {memberActionKey === `${r.id}-${m.userId}`
+                                    {memberActionKey === `${r.id}-${memberId}`
                                       ? "제거 중..."
                                       : "제거"}
                                   </button>
                                 </span>
-                              ))}
+                                );
+                              })}
                               )
                             </td>
                             <td className="px-6 py-4">
