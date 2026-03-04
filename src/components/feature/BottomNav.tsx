@@ -63,7 +63,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-40 md:hidden bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]"
       role="navigation"
       aria-label="하단 메뉴"
     >

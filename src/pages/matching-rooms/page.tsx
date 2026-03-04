@@ -471,7 +471,7 @@ export default function MatchingRoomsPage() {
 
         {/* 방 나가기 확인 모달 */}
         {leaveConfirmRoomId && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
               <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
                 <i
@@ -511,7 +511,7 @@ export default function MatchingRoomsPage() {
 
         {/* 모의투자방 만들기 모달 */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
               {createSuccessRoom ? (
                 <>
@@ -646,7 +646,7 @@ export default function MatchingRoomsPage() {
 
         {/* 초대코드로 입장 모달 */}
         {showJoinByCodeModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 초대코드로 입장

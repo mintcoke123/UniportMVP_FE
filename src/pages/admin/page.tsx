@@ -776,7 +776,7 @@ export default function AdminPage() {
 
       {/* 대회 추가/수정 모달 */}
       {showCompetitionModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               {editingCompetition ? "대회 수정" : "대회 추가"}
@@ -841,7 +841,7 @@ export default function AdminPage() {
 
       {/* 팀별 거래내역 로그 모달 (팀별 피드백 탭에서 방 이름 클릭 시) */}
       {roomLogRoomId != null && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-bold text-gray-900">

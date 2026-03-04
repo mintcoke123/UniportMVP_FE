@@ -42,7 +42,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-safe"
       onClick={handleBackdropClick}
     >
       <div className="bg-white rounded-2xl w-full max-w-md p-8 mx-4 shadow-2xl">

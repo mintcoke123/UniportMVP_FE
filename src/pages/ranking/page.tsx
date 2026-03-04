@@ -266,7 +266,7 @@ export default function Ranking() {
 
         {/* 팀 상세 모달: 멤버 + 보유 종목 */}
         {selectedTeam && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-safe">
             <div
               className="absolute inset-0 bg-black/50"
               onClick={() => setSelectedTeam(null)}

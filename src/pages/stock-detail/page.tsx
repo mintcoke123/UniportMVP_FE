@@ -647,7 +647,7 @@ const StockDetailPage = () => {
       )}
 
       {/* Buy/Sell Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-4 z-50">
+      <div className="fixed inset-x-0 bottom-0 bg-white border-t border-gray-200 px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] z-50">
         {!tradingHoursAllowed && (
           <p className="text-sm text-amber-600 mb-2 text-center">
             {TRADING_HOURS_MESSAGE}
@@ -705,7 +705,7 @@ const StockDetailPage = () => {
 
       {/* Order Modal */}
       {orderType && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center pb-[env(safe-area-inset-bottom,0px)]">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={handleCloseModal}
@@ -1025,7 +1025,7 @@ const StockDetailPage = () => {
 
       {/* Confirm Dialog */}
       {showConfirmDialog && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center px-5">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-safe">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={handleCancelConfirm}
@@ -1153,7 +1153,7 @@ const StockDetailPage = () => {
 
       {/* Success Message */}
       {showSuccessMessage && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center px-5">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-safe">
           <div className="absolute inset-0 bg-black/50"></div>
           <div className="relative bg-white rounded-2xl px-8 py-6 shadow-xl animate-scale-up">
             <div className="flex flex-col items-center gap-3">

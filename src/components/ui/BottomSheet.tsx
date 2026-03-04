@@ -60,7 +60,7 @@ export default function BottomSheet({
       />
       {/* Sheet: slide up */}
       <div
-        className={`absolute inset-x-0 bottom-0 z-10 flex h-[90vh] flex-col rounded-t-2xl bg-white shadow-xl transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 bottom-0 z-10 flex h-[90vh] flex-col rounded-t-2xl bg-white shadow-xl transition-transform duration-300 ease-out pb-[env(safe-area-inset-bottom,0px)] ${
           visible ? "translate-y-0" : "translate-y-full"
         }`}
       >

@@ -2110,7 +2110,7 @@ export default function ChatPage() {
 
       {/* 방 나가기 확인 모달 (팀원 매칭 대기 중일 때) */}
       {leaveConfirmRoomId && myWaitingRoom && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
               <i
@@ -2147,7 +2147,7 @@ export default function ChatPage() {
 
       {/* 매수/매도 계획 공유 모달 */}
       {showTradeModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-5">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               매수/매도 계획 공유
@@ -2179,7 +2179,7 @@ export default function ChatPage() {
 
       {/* 투표 통과 모달 */}
       {showVoteSuccessModal && passedVote && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-5">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <i className="ri-checkbox-circle-fill text-4xl text-green-500"></i>
@@ -2239,7 +2239,7 @@ export default function ChatPage() {
 
       {/* 그룹 정보 모달 — 데스크톱(>=lg)에서만 표시 */}
       {showGroupInfoModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 hidden lg:flex items-center justify-center p-5">
+        <div className="fixed inset-0 bg-black/50 z-50 hidden lg:flex items-center justify-center p-safe">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-gray-900">채팅방 정보</h3>
