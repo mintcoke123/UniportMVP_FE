@@ -239,7 +239,12 @@ export default function MatchingRoomsPage() {
         ) : (
           <>
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              <h1 className="text-xl font-bold text-gray-900">매칭방 목록</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold text-gray-900">매칭방 목록</h1>
+                <span className="text-sm text-gray-500 font-medium tabular-nums">
+                  방 {rooms.length}개 · 참가자 {rooms.reduce((sum, r) => sum + (r.memberCount ?? 0), 0)}명
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
