@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -87,6 +87,10 @@ export default function AdminPage() {
   const [roomLogVotes, setRoomLogVotes] = useState<VoteItem[]>([]);
   const [roomLogLoading, setRoomLogLoading] = useState(false);
   const [roomLogError, setRoomLogError] = useState<string | null>(null);
+
+  /** 멱등성: 저장/전송 중복 클릭 방지 (setState는 비동기이므로 ref로 동기 가드) */
+  const savingRef = useRef(false);
+  const feedbackSendingRef = useRef(false);
 
   const loadCompetitions = () => {
     getAdminCompetitions().then(setCompetitions);
@@ -267,11 +271,13 @@ export default function AdminPage() {
   };
 
   const handleSaveCompetition = async () => {
+    if (savingRef.current) return;
     setFormError("");
     if (!formName.trim()) {
       setFormError("대회 이름을 입력하세요.");
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       if (editingCompetition) {
@@ -300,11 +306,13 @@ export default function AdminPage() {
         }
       }
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleSendFeedback = async () => {
+    if (feedbackSendingRef.current) return;
     const deliveries = rooms
       .filter((r) => (feedbackByRoomId[r.id] ?? "").trim())
       .map((r) => ({ roomId: r.id, content: (feedbackByRoomId[r.id] ?? "").trim() }));
@@ -313,6 +321,7 @@ export default function AdminPage() {
       return;
     }
     setFeedbackError(null);
+    feedbackSendingRef.current = true;
     setFeedbackSending(true);
     try {
       const res = await sendAdminFeedback(deliveries);
@@ -332,6 +341,7 @@ export default function AdminPage() {
     } catch (e) {
       setFeedbackError((e as { message?: string })?.message ?? "전송에 실패했습니다.");
     } finally {
+      feedbackSendingRef.current = false;
       setFeedbackSending(false);
     }
   };
