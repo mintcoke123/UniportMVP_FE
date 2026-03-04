@@ -33,8 +33,8 @@ export default function SignupPage() {
       return;
     }
     const num = parseInt(sid, 10);
-    if (num < 15000000 || num > 25999999) {
-      setError("학번은 15000000~25999999 범위여야 합니다.");
+    if (num < 15000000 || num > 26999999) {
+      setError("학번은 15000000~26999999 범위여야 합니다.");
       return;
     }
 
