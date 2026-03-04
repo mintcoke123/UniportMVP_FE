@@ -5,7 +5,6 @@ import {
   getMyGroupRanking,
   getGroupPortfolio,
   getGroupMembers,
-  getMatchingRooms,
 } from "../../services";
 import type {
   GroupRankingItem,
@@ -29,24 +28,12 @@ export default function Ranking() {
   const [teamMembers, setTeamMembers] = useState<GroupMemberItem[]>([]);
   const [teamPortfolio, setTeamPortfolio] =
     useState<GroupPortfolioResponse | null>(null);
-  /** 매칭방 목록(우측 상단 방/참가자 수 표시용). 랭킹과 별도로 1회 로드 */
-  const [roomCount, setRoomCount] = useState<number | null>(null);
-  const [participantCount, setParticipantCount] = useState<number | null>(null);
 
   useEffect(() => {
     getAllGroupsRanking().then(setAllGroupsRanking).catch(() => {});
     getMyGroupRanking()
       .then(setMyGroupRanking)
       .catch(() => setMyGroupRanking(null));
-    getMatchingRooms()
-      .then((rooms) => {
-        setRoomCount(rooms.length);
-        setParticipantCount(rooms.reduce((sum, r) => sum + (r.memberCount ?? 0), 0));
-      })
-      .catch(() => {
-        setRoomCount(null);
-        setParticipantCount(null);
-      });
   }, []);
 
   useEffect(() => {
@@ -92,13 +79,8 @@ export default function Ranking() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white min-w-0 overflow-x-hidden">
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 box-border">
-        {/* 대회 타이틀 + 우측 상단 매칭방/참가자 수 */}
-        <div className="relative text-center mb-6 sm:mb-8">
-          <div className="absolute top-0 right-0 text-sm text-gray-500 tabular-nums">
-            {roomCount !== null && participantCount !== null ? (
-              <>방 {roomCount}개 · 참가자 {participantCount}명</>
-            ) : null}
-          </div>
+        {/* 대회 타이틀 */}
+        <div className="text-center mb-6 sm:mb-8">
           <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl sm:rounded-3xl flex items-center justify-center">
             <i className="ri-trophy-fill text-3xl sm:text-4xl text-white" aria-hidden />
           </div>
