@@ -22,7 +22,7 @@ export default function MatchingRoomsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomType, setNewRoomType] = useState<"solo" | "team">("team");
-  const [newRoomVisibility, setNewRoomVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
+  const [newRoomVisibility, setNewRoomVisibility] = useState<"PUBLIC" | "PRIVATE">("PRIVATE");
   const [creating, setCreating] = useState(false);
   /** 생성 성공 후 초대코드 표시용. 설정되면 만들기 모달 안에서 성공 UI 표시. capacity 1이면 초대코드 블록 생략 */
   const [createSuccessRoom, setCreateSuccessRoom] = useState<{ inviteCode: string; visibility: string; capacity?: number } | null>(null);
@@ -147,7 +147,7 @@ export default function MatchingRoomsPage() {
     setShowCreateModal(false);
     setNewRoomName("");
     setNewRoomType("team");
-    setNewRoomVisibility("PUBLIC");
+    setNewRoomVisibility("PRIVATE");
     setCreateSuccessRoom(null);
     getMatchingRooms().then(setRooms).catch(() => {});
   };
