@@ -7,10 +7,11 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as
-    | { from?: string; requireAdmin?: boolean }
+    | { from?: string; requireAdmin?: boolean; requireSisuAdmin?: boolean }
     | undefined;
   const from = state?.from;
   const requireAdmin = state?.requireAdmin ?? false;
+  const requireSisuAdmin = state?.requireSisuAdmin ?? false;
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,8 +31,16 @@ export default function LoginPage() {
         navigate("/admin", { replace: true });
         return;
       }
+      if (result.isSisuAdmin) {
+        navigate("/SISU-admin", { replace: true });
+        return;
+      }
       if (from === "/admin" && requireAdmin) {
         setError("관리자만 접근할 수 있습니다.");
+        return;
+      }
+      if (from === "/SISU-admin" && requireSisuAdmin) {
+        setError("SISU-admin(준관리자) 계정으로 로그인해 주세요.");
         return;
       }
       navigate(from || "/", { replace: true });
@@ -56,7 +65,9 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mt-2">
             {requireAdmin
               ? "관리자 계정으로 로그인해 주세요."
-              : "계정에 로그인하여 투자를 시작하세요"}
+              : requireSisuAdmin
+                ? "SISU-admin(준관리자) 계정으로 로그인해 주세요."
+                : "계정에 로그인하여 투자를 시작하세요"}
           </p>
         </div>
 

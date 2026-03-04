@@ -14,8 +14,8 @@ export interface User {
   profitLossRate: number;
   /** 팀 소속 여부. null이면 팀 미소속(백엔드에서 제공) */
   teamId?: string | null;
-  /** 역할. 'admin'이면 어드민 페이지 접근 가능(백엔드에서 제공) */
-  role?: "user" | "admin";
+  /** 역할. 'admin' 전체관리자, 'sisu_admin' 준관리자(SISU-admin 페이지만), 'user' 일반 */
+  role?: "user" | "admin" | "sisu_admin";
 }
 
 export interface LoginResponse {

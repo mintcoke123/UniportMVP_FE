@@ -6,6 +6,7 @@ import Competition from "../pages/competition/page";
 import Ranking from "../pages/ranking/page";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminProtectedRoute from "./AdminProtectedRoute";
+import SisuAdminProtectedRoute from "./SisuAdminProtectedRoute";
 import Layout from "../components/layout/Layout";
 
 const GroupPortfolioPage = lazy(() => import("../pages/group-portfolio/page"));
@@ -78,6 +79,14 @@ const routes: RouteObject[] = [
       <AdminProtectedRoute>
         <AdminPage />
       </AdminProtectedRoute>
+    ),
+  },
+  {
+    path: "SISU-admin",
+    element: (
+      <SisuAdminProtectedRoute>
+        <AdminPage mode="sisu" />
+      </SisuAdminProtectedRoute>
     ),
   },
   {

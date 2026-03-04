@@ -23,12 +23,16 @@ interface AuthContextType {
   isLoggedIn: boolean;
   /** 새로고침 후 /me 검증이 끝났는지. false면 ProtectedRoute에서 로그인 리다이렉트 보류 */
   authInitialized: boolean;
-  /** 어드민 계정 여부(role === 'admin'). 어드민 페이지 접근 시 사용 */
+  /** 어드민 계정 여부(role === 'admin'). /admin 접근 시 사용 */
   isAdmin: boolean;
+  /** SISU-admin(준관리자) 여부. /SISU-admin 전용. */
+  isSisuAdmin: boolean;
+  /** /SISU-admin 페이지 접근 가능 (admin 또는 sisu_admin) */
+  canAccessSisuAdmin: boolean;
   login: (
     studentId: string,
     password: string
-  ) => Promise<{ success: boolean; message: string; isAdmin?: boolean }>;
+  ) => Promise<{ success: boolean; message: string; isAdmin?: boolean; isSisuAdmin?: boolean }>;
   signup: (
     studentId: string,
     password: string,
@@ -55,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authInitialized, setAuthInitialized] = useState(false);
   const isLoggedIn = user !== null;
   const isAdmin = user?.role === "admin";
+  const isSisuAdmin = user?.role === "sisu_admin";
+  const canAccessSisuAdmin = isAdmin || isSisuAdmin;
 
   // 새로고침 시: 캐시를 믿지 않고 반드시 /me로 검증. 실패/빈 응답이면 로그아웃 처리해 엉뚱한 유저 표시 방지.
   useEffect(() => {
@@ -74,13 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: data.id,
             studentId: data.studentId ?? "",
             nickname: data.nickname ?? "",
-            password: "",
             totalAssets: data.totalAssets ?? 0,
             investmentAmount: data.investmentAmount ?? 0,
             profitLoss: data.profitLoss ?? 0,
             profitLossRate: data.profitLossRate ?? 0,
             teamId: data.teamId ?? null,
-            role: (data.role as "user" | "admin") ?? "user",
+            role: (data.role as "user" | "admin" | "sisu_admin") ?? "user",
           };
           setUser(synced);
           localStorage.setItem(storageKey, JSON.stringify(synced));
@@ -139,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     studentId: string,
     password: string
-  ): Promise<{ success: boolean; message: string; isAdmin?: boolean }> => {
+  ): Promise<{ success: boolean; message: string; isAdmin?: boolean; isSisuAdmin?: boolean }> => {
     try {
       const res = await apiPost<{
         success: boolean;
@@ -153,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profitLoss: number;
           profitLossRate: number;
           teamId?: string | null;
-          role?: "user" | "admin";
+          role?: "user" | "admin" | "sisu_admin";
         };
         token?: string;
       }>("/api/auth/login", { studentId, password }, { skipAuth: true });
@@ -199,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           success: true,
           message: res.message ?? "로그인 성공!",
           isAdmin: userToSet.role === "admin",
+          isSisuAdmin: userToSet.role === "sisu_admin",
         };
       }
       return {
@@ -313,6 +319,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoggedIn,
         authInitialized,
         isAdmin,
+        isSisuAdmin,
+        canAccessSisuAdmin,
         login,
         signup,
         logout,

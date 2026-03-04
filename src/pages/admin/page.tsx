@@ -20,6 +20,11 @@ import type { MatchingRoom, VoteItem } from "../../types";
 
 type AdminTab = "competition" | "teams" | "teamRanking" | "feedback" | "users";
 
+interface AdminPageProps {
+  /** SISU-admin(준관리자) 모드: 대회 관리·팀 피드백 탭 숨김 */
+  mode?: "sisu";
+}
+
 /** 배포용주석**/
 const STATUS_LABEL: Record<AdminCompetition["status"], string> = {
   upcoming: "예정",
@@ -43,10 +48,10 @@ function formatDateOnly(iso: string) {
   }
 }
 
-export default function AdminPage() {
+export default function AdminPage({ mode }: AdminPageProps = {}) {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const [tab, setTab] = useState<AdminTab>("competition");
+  const { user, logout, isAdmin } = useAuth();
+  const [tab, setTab] = useState<AdminTab>(mode === "sisu" ? "teams" : "competition");
 
   const [competitions, setCompetitions] = useState<AdminCompetition[]>([]);
   const [teams, setTeams] = useState<CompetingTeamItem[]>([]);
@@ -360,13 +365,16 @@ export default function AdminPage() {
     }
   };
 
-  const tabs: { key: AdminTab; label: string }[] = [
+  const allTabs: { key: AdminTab; label: string }[] = [
     { key: "competition", label: "대회 관리" },
     { key: "teams", label: "팀 관리" },
     { key: "teamRanking", label: "팀 순위" },
     { key: "feedback", label: "팀 피드백" },
     { key: "users", label: "유저 관리" },
   ];
+  const tabs = mode === "sisu"
+    ? allTabs.filter((t) => t.key !== "competition" && t.key !== "feedback")
+    : allTabs;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -380,7 +388,27 @@ export default function AdminPage() {
             >
               ← 서비스 홈
             </button>
-            <h1 className="text-xl font-bold text-gray-900">관리자</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              {mode === "sisu" ? "SISU 관리자" : "관리자"}
+            </h1>
+            {mode === "sisu" && isAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate("/admin")}
+                className="text-sm font-medium text-teal-600 hover:text-teal-700"
+              >
+                전체 관리자
+              </button>
+            )}
+            {mode !== "sisu" && isAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate("/SISU-admin")}
+                className="text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                SISU 관리자
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">
@@ -761,7 +789,9 @@ export default function AdminPage() {
                         <th className="px-6 py-3">닉네임</th>
                         <th className="px-6 py-3">팀</th>
                         <th className="px-6 py-3">역할</th>
-                        <th className="px-6 py-3 w-24">삭제</th>
+                        {mode !== "sisu" && (
+                          <th className="px-6 py-3 w-24">삭제</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -785,28 +815,36 @@ export default function AdminPage() {
                                 className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
                                   u.role === "admin"
                                     ? "bg-purple-100 text-purple-700"
-                                    : "bg-gray-100 text-gray-600"
+                                    : u.role === "sisu_admin"
+                                      ? "bg-teal-100 text-teal-700"
+                                      : "bg-gray-100 text-gray-600"
                                 }`}
                               >
-                                {u.role === "admin" ? "관리자" : "일반"}
+                                {u.role === "admin"
+                                  ? "관리자"
+                                  : u.role === "sisu_admin"
+                                    ? "준관리자"
+                                    : "일반"}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
-                              {cannotDelete ? (
-                                <span className="text-gray-400 text-sm">—</span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={deletingUserId === u.id}
-                                  onClick={() => handleDeleteUser(u)}
-                                  className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                                >
-                                  {deletingUserId === u.id
-                                    ? "삭제 중..."
-                                    : "삭제"}
-                                </button>
-                              )}
-                            </td>
+                            {mode !== "sisu" && (
+                              <td className="px-6 py-4">
+                                {cannotDelete ? (
+                                  <span className="text-gray-400 text-sm">—</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={deletingUserId === u.id}
+                                    onClick={() => handleDeleteUser(u)}
+                                    className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                                  >
+                                    {deletingUserId === u.id
+                                      ? "삭제 중..."
+                                      : "삭제"}
+                                  </button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
