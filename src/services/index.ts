@@ -27,8 +27,16 @@ export { getStockDetail } from "./stockService";
 export { getOhlcv } from "./ohlcvService";
 export type { OhlcvCandlestick, OhlcvTime } from "./ohlcvService";
 
-export { placeTrade } from "./tradeService";
-export type { PlaceTradeRequest, PlaceTradeResponse } from "./tradeService";
+export {
+  placeTrade,
+  getOrders,
+  cancelOrder,
+} from "./tradeService";
+export type {
+  PlaceTradeRequest,
+  PlaceTradeResponse,
+  OrderItem,
+} from "./tradeService";
 
 export {
   getPriceWebSocketUrl,
@@ -63,7 +71,12 @@ export {
   getChatWebSocketUrl,
 } from "./chatService";
 
-export { getVotes, createVote, submitVote, cancelPendingVote } from "./voteService";
+export {
+  getVotes,
+  createVote,
+  submitVote,
+  cancelPendingVote,
+} from "./voteService";
 export type { CreateVotePayload } from "./voteService";
 
 export {

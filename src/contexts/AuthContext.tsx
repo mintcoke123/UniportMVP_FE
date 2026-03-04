@@ -220,6 +220,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   };
 
+  /** 네트워크/영문 기술 메시지를 사용자용 한글 메시지로 치환 (회원가입 시 '포스틱' 등 오표기 방지) */
+  const normalizeSignupErrorMessage = (msg: string | undefined): string => {
+    if (!msg || !msg.trim()) return "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+    const lower = msg.toLowerCase();
+    if (
+      lower.startsWith("request failed") ||
+      lower.startsWith("failed to fetch") ||
+      lower === "network error" ||
+      lower.includes("network request failed") ||
+      /^\s*error\s*:\s*/i.test(msg.trim())
+    ) {
+      return "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    return msg.trim();
+  };
+
   const signup = async (
     studentId: string,
     password: string,
@@ -244,28 +260,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }>("/api/auth/signup", { studentId, password, nickname, phoneNumber }, { skipAuth: true });
 
       if (res.success) {
-        // 회원가입만 완료. 로그인은 하지 않고 로그인 페이지로 보냄.
         return {
           success: true,
           message: res.message ?? "회원가입이 완료되었습니다. 로그인해 주세요.",
         };
       }
+      const rawMessage = (res as { message?: string }).message ?? "회원가입에 실패했습니다.";
       return {
         success: false,
-        message:
-          (res as { message?: string }).message ?? "회원가입에 실패했습니다.",
+        message: normalizeSignupErrorMessage(rawMessage),
       };
     } catch (e) {
       const err = e as ApiError;
       return {
         success: false,
-        message: err.message ?? "가입 정보를 확인해 주세요.",
+        message: normalizeSignupErrorMessage(err?.message),
       };
     }
-    return {
-      success: false,
-      message: "회원가입에 실패했습니다.",
-    };
   };
 
   const logout = () => {

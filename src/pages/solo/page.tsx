@@ -8,9 +8,12 @@ import { useNavigate } from "react-router-dom";
 import {
   getGroupPortfolio,
   getVotes,
+  getOrders,
+  cancelOrder,
   usePriceWebSocket,
   normalizeStockCodeForPrice,
 } from "../../services";
+import type { OrderItem } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import { getPieSlicePathD } from "../../utils/portfolioPiePath";
 import type { GroupPortfolioResponse, VoteItem } from "../../types";
@@ -39,6 +42,8 @@ export default function SoloPage() {
     useState<GroupPortfolioResponse | null>(null);
   const [portfolioLoadError, setPortfolioLoadError] = useState(false);
   const [votes, setVotes] = useState<VoteItem[]>([]);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
 
   const currentUserId = user?.id != null ? Number(user.id) || 0 : 0;
   const myPendingLimitOrders = votes.filter(
@@ -69,6 +74,18 @@ export default function SoloPage() {
       setVotes([]);
     }
   }, [groupId]);
+
+  useEffect(() => {
+    if (user) {
+      getOrders()
+        .then(setOrders)
+        .catch(() => setOrders([]));
+    } else {
+      setOrders([]);
+    }
+  }, [user]);
+
+  const pendingOrders = orders.filter((o) => o.status === "PENDING");
 
   const subscribeCodes = useMemo(() => {
     const fromHoldings = (groupPortfolioData?.holdings ?? [])
@@ -219,6 +236,58 @@ export default function SoloPage() {
                     </li>
                   );
                 })}
+              </ul>
+            </div>
+          )}
+
+          {/* 미체결 주문 (거래) — 지정가 취소 가능 */}
+          {pendingOrders.length > 0 && (
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <i className="ri-time-line text-gray-600" aria-hidden />
+                미체결 주문 (지정가 취소)
+              </h3>
+              <ul className="space-y-2">
+                {pendingOrders.map((order) => (
+                  <li
+                    key={order.orderId}
+                    className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg p-3 border border-gray-100"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {order.stockCode} · {order.quantity}주
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        희망가 {Number(order.price).toLocaleString("ko-KR")}원 (
+                        {order.orderType === "LIMIT" ? "지정가" : "시장가"})
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={cancellingOrderId === order.orderId}
+                      onClick={async () => {
+                        setCancellingOrderId(order.orderId);
+                        try {
+                          await cancelOrder(order.orderId);
+                          setOrders((prev) =>
+                            prev.filter((o) => o.orderId !== order.orderId),
+                          );
+                        } catch (e) {
+                          alert(
+                            e instanceof Error
+                              ? e.message
+                              : "주문 취소에 실패했습니다.",
+                          );
+                        } finally {
+                          setCancellingOrderId(null);
+                        }
+                      }}
+                      className="shrink-0 py-1.5 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cancellingOrderId === order.orderId ? "취소 중…" : "취소"}
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
           )}

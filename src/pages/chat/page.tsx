@@ -16,7 +16,10 @@ import {
   leaveMatchingRoom,
   startMatchingRoom,
   usePriceWebSocket,
+  getOrders,
+  cancelOrder,
 } from "../../services";
+import type { OrderItem } from "../../services";
 import type {
   ChatMessageItem,
   VoteItem,
@@ -61,6 +64,9 @@ export default function ChatPage() {
   const wsRef = useRef<WebSocket | null>(null);
   /** 폴링 시 getGroupPortfolio 과호출 방지: 이미 알고 있는 executed vote id 집합 */
   const executedIdsRef = useRef<Set<number>>(new Set());
+  /** 미체결 주문 (거래 API) — 솔로/팀 공통, 지정가 취소용 */
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
 
   const isInRoom = (room: MatchingRoom) =>
     room.isJoined === true ||
@@ -456,6 +462,20 @@ export default function ChatPage() {
     [votes, currentUserId],
   );
 
+  useEffect(() => {
+    if (user) {
+      getOrders()
+        .then(setOrders)
+        .catch(() => setOrders([]));
+    } else {
+      setOrders([]);
+    }
+  }, [user]);
+  const pendingOrders = useMemo(
+    () => orders.filter((o) => o.status === "PENDING"),
+    [orders],
+  );
+
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
@@ -838,6 +858,67 @@ export default function ChatPage() {
                               </li>
                             );
                           })}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 미체결 주문 (거래) — 지정가 취소 — 솔로/팀 공통 */}
+                    {pendingOrders.length > 0 && (
+                      <div className="bg-white rounded-xl p-4 border border-gray-200">
+                        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                          <i className="ri-time-line text-gray-600" aria-hidden />
+                          미체결 주문 (지정가 취소)
+                        </h3>
+                        <ul className="space-y-2">
+                          {pendingOrders.map((order) => (
+                            <li
+                              key={order.orderId}
+                              className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg p-3 border border-gray-100"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {order.stockCode} · {order.quantity}주
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  희망가{" "}
+                                  {Number(order.price).toLocaleString("ko-KR")}
+                                  원 (
+                                  {order.orderType === "LIMIT"
+                                    ? "지정가"
+                                    : "시장가"}
+                                  )
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={cancellingOrderId === order.orderId}
+                                onClick={async () => {
+                                  setCancellingOrderId(order.orderId);
+                                  try {
+                                    await cancelOrder(order.orderId);
+                                    setOrders((prev) =>
+                                      prev.filter(
+                                        (o) => o.orderId !== order.orderId,
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    alert(
+                                      e instanceof Error
+                                        ? e.message
+                                        : "주문 취소에 실패했습니다.",
+                                    );
+                                  } finally {
+                                    setCancellingOrderId(null);
+                                  }
+                                }}
+                                className="shrink-0 py-1.5 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {cancellingOrderId === order.orderId
+                                  ? "취소 중…"
+                                  : "취소"}
+                              </button>
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     )}
@@ -2296,6 +2377,59 @@ export default function ChatPage() {
                     </li>
                   );
                 })}
+              </ul>
+            </div>
+          )}
+          {/* 미체결 주문 (거래) — 지정가 취소 — 솔로/팀 공통 */}
+          {pendingOrders.length > 0 && (
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <i className="ri-time-line text-gray-600" aria-hidden />
+                미체결 주문 (지정가 취소)
+              </h3>
+              <ul className="space-y-2">
+                {pendingOrders.map((order) => (
+                  <li
+                    key={order.orderId}
+                    className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg p-3 border border-gray-100 min-h-[44px]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {order.stockCode} · {order.quantity}주
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        희망가 {Number(order.price).toLocaleString("ko-KR")}원 (
+                        {order.orderType === "LIMIT" ? "지정가" : "시장가"})
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={cancellingOrderId === order.orderId}
+                      onClick={async () => {
+                        setCancellingOrderId(order.orderId);
+                        try {
+                          await cancelOrder(order.orderId);
+                          setOrders((prev) =>
+                            prev.filter((o) => o.orderId !== order.orderId),
+                          );
+                        } catch (e) {
+                          alert(
+                            e instanceof Error
+                              ? e.message
+                              : "주문 취소에 실패했습니다.",
+                          );
+                        } finally {
+                          setCancellingOrderId(null);
+                        }
+                      }}
+                      className="shrink-0 py-1.5 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cancellingOrderId === order.orderId
+                        ? "취소 중…"
+                        : "취소"}
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
