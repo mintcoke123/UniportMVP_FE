@@ -174,7 +174,7 @@ export default function SoloPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-2xl mx-auto px-4 py-6 lg:py-8">
+      <main className="max-w-2xl mx-auto px-4 py-6 lg:py-8 pb-24 md:pb-8">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-gray-900">내 투자 현황</h1>
           <p className="text-sm text-gray-500 mt-0.5">
