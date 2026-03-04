@@ -789,9 +789,7 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                         <th className="px-6 py-3">닉네임</th>
                         <th className="px-6 py-3">팀</th>
                         <th className="px-6 py-3">역할</th>
-                        {mode !== "sisu" && (
-                          <th className="px-6 py-3 w-24">삭제</th>
-                        )}
+                        <th className="px-6 py-3 w-24">삭제</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -827,24 +825,22 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                                     : "일반"}
                               </span>
                             </td>
-                            {mode !== "sisu" && (
-                              <td className="px-6 py-4">
-                                {cannotDelete ? (
-                                  <span className="text-gray-400 text-sm">—</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={deletingUserId === u.id}
-                                    onClick={() => handleDeleteUser(u)}
-                                    className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                                  >
-                                    {deletingUserId === u.id
-                                      ? "삭제 중..."
-                                      : "삭제"}
-                                  </button>
-                                )}
-                              </td>
-                            )}
+                            <td className="px-6 py-4">
+                              {cannotDelete ? (
+                                <span className="text-gray-400 text-sm">—</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={deletingUserId === u.id}
+                                  onClick={() => handleDeleteUser(u)}
+                                  className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                                >
+                                  {deletingUserId === u.id
+                                    ? "삭제 중..."
+                                    : "삭제"}
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
