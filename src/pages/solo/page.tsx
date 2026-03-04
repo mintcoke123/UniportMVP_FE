@@ -11,13 +11,15 @@ import {
   cancelPendingVote,
   getOrders,
   cancelOrder,
+  placeTrade,
   usePriceWebSocket,
   normalizeStockCodeForPrice,
 } from "../../services";
 import type { OrderItem } from "../../services";
 import { useAuth } from "../../contexts/AuthContext";
 import { getPieSlicePathD } from "../../utils/portfolioPiePath";
-import type { GroupPortfolioResponse, VoteItem } from "../../types";
+import { isWithinTradingHours, TRADING_HOURS_MESSAGE } from "../../utils/tradingHours";
+import type { GroupPortfolioResponse, GroupHoldingItem, VoteItem } from "../../types";
 
 function teamIdToGroupId(teamId: string | null | undefined): number | null {
   if (!teamId || !teamId.startsWith("team-")) return null;
@@ -46,6 +48,18 @@ export default function SoloPage() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
   const [cancellingVoteId, setCancellingVoteId] = useState<number | null>(null);
+  /** 매도 모달: 선택한 보유 종목. 설정 시 모달 표시 */
+  const [sellModalHolding, setSellModalHolding] = useState<GroupHoldingItem | null>(null);
+  const [sellQuantityInput, setSellQuantityInput] = useState("1");
+  const [sellSubmitting, setSellSubmitting] = useState(false);
+  const [tradingHoursAllowed, setTradingHoursAllowed] = useState(() => isWithinTradingHours());
+
+  useEffect(() => {
+    const tick = () => setTradingHoursAllowed(isWithinTradingHours());
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const currentUserId = user?.id != null ? Number(user.id) || 0 : 0;
   const myPendingLimitOrders = votes.filter(
@@ -486,13 +500,14 @@ export default function SoloPage() {
                 const profitLoss = cost > 0 ? currentValue - cost : 0;
                 const profitLossPct = cost > 0 ? (profitLoss / cost) * 100 : 0;
                 const isProfit = profitLoss >= 0;
+                const maxQty = holding.quantity ?? 0;
                 return (
                   <div
                     key={holding.id}
                     className="bg-white rounded-xl p-3 border border-gray-200"
                   >
                     <div className="flex justify-between items-start gap-2">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-gray-900 truncate">
                           {holding.stockName}
                         </p>
@@ -505,13 +520,33 @@ export default function SoloPage() {
                           )}
                         </p>
                       </div>
-                      <p
-                        className={`text-xs font-semibold shrink-0 ${
-                          isProfit ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        매수대비 {formatPercentage(profitLossPct)}
-                      </p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <p
+                          className={`text-xs font-semibold ${
+                            isProfit ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          매수대비 {formatPercentage(profitLossPct)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSellModalHolding(holding);
+                            setSellQuantityInput("1");
+                          }}
+                          disabled={!tradingHoursAllowed || maxQty < 1}
+                          title={
+                            !tradingHoursAllowed
+                              ? TRADING_HOURS_MESSAGE
+                              : maxQty < 1
+                                ? "보유 수량이 없습니다"
+                                : "매도"
+                          }
+                          className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                        >
+                          매도
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -535,6 +570,119 @@ export default function SoloPage() {
           </div>
         </div>
       </main>
+
+      {/* 매도 확인 모달 */}
+      {sellModalHolding && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
+          <div className="bg-white rounded-2xl w-full max-w-sm mx-4 shadow-xl overflow-hidden">
+            <div className="px-5 pt-6 pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">매도</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {sellModalHolding.stockName}
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {!tradingHoursAllowed && (
+                <p className="text-sm text-amber-600 p-2 rounded-lg bg-amber-50 text-center">
+                  {TRADING_HOURS_MESSAGE}
+                </p>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  매도 수량 (보유: {sellModalHolding.quantity}주)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={sellModalHolding.quantity}
+                  value={sellQuantityInput}
+                  onChange={(e) => setSellQuantityInput(e.target.value.replace(/\D/g, ""))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              {(() => {
+                const code = normalizeStockCodeForPrice(sellModalHolding.stockCode);
+                const rt = code ? realtimePrices[code] : undefined;
+                const currentPrice = rt?.currentPrice ?? sellModalHolding.currentPrice;
+                const qty = Math.min(
+                  Math.max(1, parseInt(sellQuantityInput, 10) || 0),
+                  sellModalHolding.quantity,
+                );
+                const total = currentPrice * qty;
+                return (
+                  <div className="bg-gray-50 rounded-xl p-3 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">1주 가격</span>
+                      <span className="font-semibold">{formatCurrency(currentPrice)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">매도 금액</span>
+                      <span className="font-semibold">{formatCurrency(total)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="flex border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setSellModalHolding(null)}
+                disabled={sellSubmitting}
+                className="flex-1 py-4 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <div className="w-px bg-gray-100" />
+              <button
+                type="button"
+                disabled={
+                  sellSubmitting ||
+                  !tradingHoursAllowed ||
+                  (() => {
+                    const q = parseInt(sellQuantityInput, 10);
+                    return !Number.isFinite(q) || q < 1 || q > (sellModalHolding.quantity ?? 0);
+                  })()
+                }
+                onClick={async () => {
+                  if (groupId == null) return;
+                  const qty = Math.min(
+                    Math.max(1, parseInt(sellQuantityInput, 10) || 0),
+                    sellModalHolding.quantity,
+                  );
+                  const code = normalizeStockCodeForPrice(sellModalHolding.stockCode);
+                  const rt = code ? realtimePrices[code] : undefined;
+                  const currentPrice = rt?.currentPrice ?? sellModalHolding.currentPrice;
+                  const stockId = parseInt(sellModalHolding.stockCode, 10);
+                  if (!Number.isFinite(stockId) || stockId < 1) {
+                    alert("종목 정보가 올바르지 않습니다.");
+                    return;
+                  }
+                  setSellSubmitting(true);
+                  try {
+                    await placeTrade({
+                      stockId,
+                      side: "sell",
+                      quantity: qty,
+                      pricePerShare: currentPrice,
+                      reason: `${sellModalHolding.stockName} 매도`,
+                    });
+                    setSellModalHolding(null);
+                    fetchPortfolio(groupId);
+                    if (groupId != null) getVotes(groupId).then(setVotes);
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "매도에 실패했습니다.");
+                  } finally {
+                    setSellSubmitting(false);
+                  }
+                }}
+                className="flex-1 py-4 text-blue-600 font-semibold hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sellSubmitting ? "처리 중..." : "매도"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
