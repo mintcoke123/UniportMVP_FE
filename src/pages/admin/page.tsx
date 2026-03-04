@@ -78,7 +78,9 @@ export default function AdminPage() {
   const [roomActionError, setRoomActionError] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState<string | null>(null);
-  const [feedbackByRoomId, setFeedbackByRoomId] = useState<Record<string, string>>({});
+  const [feedbackByRoomId, setFeedbackByRoomId] = useState<
+    Record<string, string>
+  >({});
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   /** 팀별 피드백 탭에서 방 클릭 시 해당 방 거래내역 로그 모달 */
@@ -128,9 +130,12 @@ export default function AdminPage() {
   };
 
   const handleRemoveMember = async (roomId: string, userId: string) => {
-    const uid = userId != null && String(userId).trim() !== "" && String(userId) !== "undefined"
-      ? String(userId).trim()
-      : null;
+    const uid =
+      userId != null &&
+      String(userId).trim() !== "" &&
+      String(userId) !== "undefined"
+        ? String(userId).trim()
+        : null;
     if (uid == null) {
       setRoomActionError("멤버 정보를 확인할 수 없습니다.");
       return;
@@ -232,7 +237,10 @@ export default function AdminPage() {
       .then(setRoomLogVotes)
       .catch((e: unknown) => {
         setRoomLogVotes([]);
-        setRoomLogError((e as { message?: string })?.message ?? "거래내역을 불러오지 못했습니다.");
+        setRoomLogError(
+          (e as { message?: string })?.message ??
+            "거래내역을 불러오지 못했습니다.",
+        );
       })
       .finally(() => setRoomLogLoading(false));
   }, [roomLogRoomId]);
@@ -315,7 +323,10 @@ export default function AdminPage() {
     if (feedbackSendingRef.current) return;
     const deliveries = rooms
       .filter((r) => (feedbackByRoomId[r.id] ?? "").trim())
-      .map((r) => ({ roomId: r.id, content: (feedbackByRoomId[r.id] ?? "").trim() }));
+      .map((r) => ({
+        roomId: r.id,
+        content: (feedbackByRoomId[r.id] ?? "").trim(),
+      }));
     if (deliveries.length === 0) {
       setFeedbackError("내용을 입력한 방을 하나 이상 선택해 주세요.");
       return;
@@ -329,7 +340,8 @@ export default function AdminPage() {
         setFeedbackByRoomId((prev) => {
           const next = { ...prev };
           deliveries.forEach((d) => {
-            const key = typeof d.roomId === "string" ? d.roomId : `room-${d.roomId}`;
+            const key =
+              typeof d.roomId === "string" ? d.roomId : `room-${d.roomId}`;
             delete next[key];
             delete next[String(d.roomId)];
           });
@@ -339,7 +351,9 @@ export default function AdminPage() {
         setFeedbackError(res.message ?? "전송에 실패했습니다.");
       }
     } catch (e) {
-      setFeedbackError((e as { message?: string })?.message ?? "전송에 실패했습니다.");
+      setFeedbackError(
+        (e as { message?: string })?.message ?? "전송에 실패했습니다.",
+      );
     } finally {
       feedbackSendingRef.current = false;
       setFeedbackSending(false);
@@ -559,29 +573,35 @@ export default function AdminPage() {
                             <td className="px-6 py-4 text-gray-600">
                               {r.memberCount}/{r.capacity}명 (
                               {r.members.map((m) => {
-                                const memberId = (m as { userId?: string; id?: string }).userId ?? (m as { userId?: string; id?: string }).id ?? "";
+                                const memberId =
+                                  (m as { userId?: string; id?: string })
+                                    .userId ??
+                                  (m as { userId?: string; id?: string }).id ??
+                                  "";
                                 return (
-                                <span
-                                  key={memberId || m.nickname}
-                                  className="inline-flex items-center gap-1 mr-1"
-                                >
-                                  {m.nickname}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleRemoveMember(r.id, memberId)
-                                    }
-                                    disabled={
-                                      !memberId || memberActionKey === `${r.id}-${memberId}`
-                                    }
-                                    className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
-                                    title="멤버 강제 제거"
+                                  <span
+                                    key={memberId || m.nickname}
+                                    className="inline-flex items-center gap-1 mr-1"
                                   >
-                                    {memberActionKey === `${r.id}-${memberId}`
-                                      ? "제거 중..."
-                                      : "제거"}
-                                  </button>
-                                </span>
+                                    {m.nickname}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleRemoveMember(r.id, memberId)
+                                      }
+                                      disabled={
+                                        !memberId ||
+                                        memberActionKey ===
+                                          `${r.id}-${memberId}`
+                                      }
+                                      className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
+                                      title="멤버 강제 제거"
+                                    >
+                                      {memberActionKey === `${r.id}-${memberId}`
+                                        ? "제거 중..."
+                                        : "제거"}
+                                    </button>
+                                  </span>
                                 );
                               })}
                               )
@@ -627,9 +647,12 @@ export default function AdminPage() {
             {tab === "feedback" && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">팀별 피드백 전송</h2>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    팀별 피드백 전송
+                  </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    방마다 피드백 내용을 입력한 뒤 전송하면, 해당 채팅방에 피드백 리포트 형식으로 표시되고 채팅이 비활성화됩니다.
+                    방마다 피드백 내용을 입력한 뒤 전송하면, 해당 채팅방에
+                    피드백 리포트 형식으로 표시되고 채팅이 비활성화됩니다.
                   </p>
                   {feedbackError && (
                     <p className="mt-2 text-sm text-red-600">{feedbackError}</p>
@@ -640,7 +663,9 @@ export default function AdminPage() {
                     disabled={feedbackSending}
                     className="mt-4 px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {feedbackSending ? "전송 중..." : "내용 입력한 방에 피드백 전송"}
+                    {feedbackSending
+                      ? "전송 중..."
+                      : "내용 입력한 방에 피드백 전송"}
                   </button>
                 </div>
                 <div className="overflow-x-auto">
@@ -673,7 +698,11 @@ export default function AdminPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm text-gray-600">
-                              {r.status === "started" ? "진행 중" : r.status === "full" ? "참가 완료" : "대기"}
+                              {r.status === "started"
+                                ? "진행 중"
+                                : r.status === "full"
+                                  ? "참가 완료"
+                                  : "대기"}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -914,9 +943,9 @@ export default function AdminPage() {
                           {v.quantity}주
                         </td>
                         <td className="px-3 py-2 text-gray-600">
-                          {(v.executionPrice ?? v.proposedPrice)?.toLocaleString(
-                            "ko-KR"
-                          ) ?? "—"}
+                          {(
+                            v.executionPrice ?? v.proposedPrice
+                          )?.toLocaleString("ko-KR") ?? "—"}
                           원
                         </td>
                         <td className="px-3 py-2">
