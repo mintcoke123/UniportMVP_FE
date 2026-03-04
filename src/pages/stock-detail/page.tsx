@@ -18,6 +18,10 @@ import StockCandleChart from "./components/StockCandleChart";
 import MyHolding from "./components/MyHolding";
 import type { StockDetailResponse, VoteItem } from "../../types";
 import { computeMaxBuyQuantity } from "../../utils/orderLimit";
+import {
+  isWithinTradingHours,
+  TRADING_HOURS_MESSAGE,
+} from "../../utils/tradingHours";
 
 type OrderType = "buy" | "sell" | null;
 
@@ -48,6 +52,15 @@ const StockDetailPage = () => {
   const nameFromList = (location.state as { nameFromList?: string } | null)
     ?.nameFromList;
   const [shareError, setShareError] = useState<string | null>(null);
+  const [tradingHoursAllowed, setTradingHoursAllowed] = useState(() =>
+    isWithinTradingHours(),
+  );
+  useEffect(() => {
+    const tick = () => setTradingHoursAllowed(isWithinTradingHours());
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -317,6 +330,11 @@ const StockDetailPage = () => {
       return;
     }
     setShareError(null);
+    if (!isWithinTradingHours()) {
+      setShareError(TRADING_HOURS_MESSAGE);
+      submittingRef.current = false;
+      return;
+    }
     if (quantity <= 0) {
       setShareError("1주 이상만 매수/매도할 수 있습니다.");
       submittingRef.current = false;
@@ -630,39 +648,54 @@ const StockDetailPage = () => {
 
       {/* Buy/Sell Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-4 z-50">
+        {!tradingHoursAllowed && (
+          <p className="text-sm text-amber-600 mb-2 text-center">
+            {TRADING_HOURS_MESSAGE}
+          </p>
+        )}
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => handleOpenModal("sell")}
+            onClick={() =>
+              tradingHoursAllowed ? handleOpenModal("sell") : undefined
+            }
             disabled={
-              maxQuantityByHolding <= 0 || hasOngoingVoteForStock("매도")
+              !tradingHoursAllowed ||
+              maxQuantityByHolding <= 0 ||
+              hasOngoingVoteForStock("매도")
             }
             className="flex-1 py-3.5 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             title={
-              maxQuantityByHolding <= 0
-                ? "팀 보유 수량이 없어 매도할 수 없습니다."
-                : hasOngoingVoteForStock("매도")
-                  ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
-                  : undefined
+              !tradingHoursAllowed
+                ? TRADING_HOURS_MESSAGE
+                : maxQuantityByHolding <= 0
+                  ? "팀 보유 수량이 없어 매도할 수 없습니다."
+                  : hasOngoingVoteForStock("매도")
+                    ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
+                    : undefined
             }
           >
             매도
           </button>
           <button
             type="button"
-            onClick={() => handleOpenModal("buy")}
-            disabled={hasOngoingVoteForStock("매수")}
+            onClick={() =>
+              tradingHoursAllowed ? handleOpenModal("buy") : undefined
+            }
+            disabled={!tradingHoursAllowed || hasOngoingVoteForStock("매수")}
             className="flex-1 py-3.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             title={
-              hasOngoingVoteForStock("매수")
-                ? "이미 해당 종목에 대한 매수 투표가 진행 중입니다."
-                : undefined
+              !tradingHoursAllowed
+                ? TRADING_HOURS_MESSAGE
+                : hasOngoingVoteForStock("매수")
+                  ? "이미 해당 종목에 대한 매수 투표가 진행 중입니다."
+                  : undefined
             }
           >
             매수
           </button>
         </div>
-        {hasOngoingVoteForStock("매수") && (
+        {hasOngoingVoteForStock("매수") && tradingHoursAllowed && (
           <p className="text-xs text-amber-600 mt-2 text-center">
             이 종목에 대한 매수 투표가 진행 중이라 매수할 수 없습니다. 채팅방
             투표에서 찬성/반대 후 진행해 주세요.
@@ -693,6 +726,11 @@ const StockDetailPage = () => {
 
             {/* Modal Content */}
             <div className="px-5 py-5 max-h-[70vh] overflow-y-auto">
+              {!tradingHoursAllowed && (
+                <p className="text-sm text-amber-600 mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                  {TRADING_HOURS_MESSAGE}
+                </p>
+              )}
               {/* 매수 시: 주문 가능 현금 */}
               {orderType === "buy" && (
                 <div className="mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100">
@@ -967,7 +1005,8 @@ const StockDetailPage = () => {
               {/* Share / Execute Button */}
               <button
                 onClick={handleSharePlan}
-                className={`w-full py-4 rounded-xl font-semibold text-white transition-colors cursor-pointer whitespace-nowrap ${
+                disabled={!tradingHoursAllowed}
+                className={`w-full py-4 rounded-xl font-semibold text-white transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                   orderType === "buy"
                     ? "bg-red-500 hover:bg-red-600"
                     : "bg-blue-500 hover:bg-blue-600"
@@ -1006,6 +1045,11 @@ const StockDetailPage = () => {
 
             {/* Dialog Content */}
             <div className="px-5 pb-5">
+              {!tradingHoursAllowed && (
+                <p className="text-sm text-amber-600 mb-3 p-2 rounded-lg bg-amber-50 text-center">
+                  {TRADING_HOURS_MESSAGE}
+                </p>
+              )}
               {shareError && (
                 <p className="text-sm text-red-600 mb-3">{shareError}</p>
               )}
@@ -1085,7 +1129,9 @@ const StockDetailPage = () => {
               <button
                 type="button"
                 onClick={handleConfirm}
-                disabled={isConfirming || quantity <= 0}
+                disabled={
+                  isConfirming || quantity <= 0 || !tradingHoursAllowed
+                }
                 className={`flex-1 py-4 font-semibold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                   orderType === "buy"
                     ? "text-red-500 hover:bg-red-50"
