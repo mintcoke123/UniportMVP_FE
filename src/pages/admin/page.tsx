@@ -362,7 +362,7 @@ export default function AdminPage() {
 
   const tabs: { key: AdminTab; label: string }[] = [
     { key: "competition", label: "대회 관리" },
-    { key: "teams", label: "팀 확인" },
+    { key: "teams", label: "팀 관리" },
     { key: "feedback", label: "팀 피드백" },
     { key: "users", label: "유저 관리" },
   ];
@@ -488,10 +488,11 @@ export default function AdminPage() {
 
             {tab === "teams" && (
               <div className="space-y-6">
+                {/* 팀 순위: 별도 칸 */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-100">
                     <h2 className="text-lg font-bold text-gray-900 mb-3">
-                      대회별 팀 (랭킹)
+                      팀 순위
                     </h2>
                     <select
                       value={selectedCompetitionId ?? ""}
@@ -518,31 +519,46 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {teams.map((t) => (
-                          <tr key={t.teamId} className="hover:bg-gray-50/50">
-                            <td className="px-6 py-4 font-medium text-gray-900">
-                              {t.rank}위
-                            </td>
-                            <td className="px-6 py-4">{t.groupName}</td>
-                            <td className="px-6 py-4 text-gray-600">
-                              {t.totalValue.toLocaleString("ko-KR")}원
-                            </td>
-                            <td
-                              className={`px-6 py-4 font-medium ${
-                                t.profitLossPercentage >= 0
-                                  ? "text-red-500"
-                                  : "text-blue-500"
-                              }`}
-                            >
-                              {t.profitLossPercentage >= 0 ? "+" : ""}
-                              {t.profitLossPercentage}%
-                            </td>
-                          </tr>
-                        ))}
+                        {teams.map((t) => {
+                          const roomIdFromTeam = t.teamId.startsWith("team-") ? t.teamId.slice(5) : t.teamId;
+                          return (
+                            <tr key={t.teamId} className="hover:bg-gray-50/50">
+                              <td className="px-6 py-4 font-medium text-gray-900">
+                                {t.rank}위
+                              </td>
+                              <td className="px-6 py-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRoomLogRoomId(roomIdFromTeam);
+                                    setRoomLogRoomName(t.groupName);
+                                  }}
+                                  className="text-left text-teal-600 hover:text-teal-700 hover:underline font-medium"
+                                >
+                                  {t.groupName}
+                                </button>
+                              </td>
+                              <td className="px-6 py-4 text-gray-600">
+                                {t.totalValue.toLocaleString("ko-KR")}원
+                              </td>
+                              <td
+                                className={`px-6 py-4 font-medium ${
+                                  t.profitLossPercentage >= 0
+                                    ? "text-red-500"
+                                    : "text-blue-500"
+                                }`}
+                              >
+                                {t.profitLossPercentage >= 0 ? "+" : ""}
+                                {t.profitLossPercentage}%
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
+                {/* 매칭방: 별도 칸 */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-100">
                     <h2 className="text-lg font-bold text-gray-900">
