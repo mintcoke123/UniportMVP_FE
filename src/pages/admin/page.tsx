@@ -18,7 +18,7 @@ import type { AdminCompetition } from "../../types";
 import type { CompetingTeamItem } from "../../types";
 import type { MatchingRoom, VoteItem } from "../../types";
 
-type AdminTab = "competition" | "teams" | "users" | "feedback";
+type AdminTab = "competition" | "teams" | "teamRanking" | "feedback" | "users";
 
 /** 배포용주석**/
 const STATUS_LABEL: Record<AdminCompetition["status"], string> = {
@@ -363,6 +363,7 @@ export default function AdminPage() {
   const tabs: { key: AdminTab; label: string }[] = [
     { key: "competition", label: "대회 관리" },
     { key: "teams", label: "팀 관리" },
+    { key: "teamRanking", label: "팀 순위" },
     { key: "feedback", label: "팀 피드백" },
     { key: "users", label: "유저 관리" },
   ];
@@ -487,79 +488,7 @@ export default function AdminPage() {
             )}
 
             {tab === "teams" && (
-              <div className="space-y-6">
-                {/* 팀 순위: 별도 칸 */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-900 mb-3">
-                      팀 순위
-                    </h2>
-                    <select
-                      value={selectedCompetitionId ?? ""}
-                      onChange={(e) =>
-                        setSelectedCompetitionId(Number(e.target.value) || null)
-                      }
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    >
-                      {competitions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({STATUS_LABEL[c.status]})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                        <tr>
-                          <th className="px-6 py-3">순위</th>
-                          <th className="px-6 py-3">팀명</th>
-                          <th className="px-6 py-3">총 평가액</th>
-                          <th className="px-6 py-3">수익률</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {teams.map((t) => {
-                          const roomIdFromTeam = t.teamId.startsWith("team-") ? t.teamId.slice(5) : t.teamId;
-                          return (
-                            <tr key={t.teamId} className="hover:bg-gray-50/50">
-                              <td className="px-6 py-4 font-medium text-gray-900">
-                                {t.rank}위
-                              </td>
-                              <td className="px-6 py-4">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRoomLogRoomId(roomIdFromTeam);
-                                    setRoomLogRoomName(t.groupName);
-                                  }}
-                                  className="text-left text-teal-600 hover:text-teal-700 hover:underline font-medium"
-                                >
-                                  {t.groupName}
-                                </button>
-                              </td>
-                              <td className="px-6 py-4 text-gray-600">
-                                {t.totalValue.toLocaleString("ko-KR")}원
-                              </td>
-                              <td
-                                className={`px-6 py-4 font-medium ${
-                                  t.profitLossPercentage >= 0
-                                    ? "text-red-500"
-                                    : "text-blue-500"
-                                }`}
-                              >
-                                {t.profitLossPercentage >= 0 ? "+" : ""}
-                                {t.profitLossPercentage}%
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                {/* 매칭방: 별도 칸 */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-100">
                     <h2 className="text-lg font-bold text-gray-900">
                       매칭방 (팀 구성 대기)
@@ -656,6 +585,77 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+            )}
+
+            {tab === "teamRanking" && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-900 mb-3">
+                    팀 순위
+                  </h2>
+                  <select
+                    value={selectedCompetitionId ?? ""}
+                    onChange={(e) =>
+                      setSelectedCompetitionId(Number(e.target.value) || null)
+                    }
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {competitions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({STATUS_LABEL[c.status]})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
+                      <tr>
+                        <th className="px-6 py-3">순위</th>
+                        <th className="px-6 py-3">팀명</th>
+                        <th className="px-6 py-3">총 평가액</th>
+                        <th className="px-6 py-3">수익률</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {teams.map((t) => {
+                        const roomIdFromTeam = t.teamId.startsWith("team-") ? t.teamId.slice(5) : t.teamId;
+                        return (
+                          <tr key={t.teamId} className="hover:bg-gray-50/50">
+                            <td className="px-6 py-4 font-medium text-gray-900">
+                              {t.rank}위
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRoomLogRoomId(roomIdFromTeam);
+                                  setRoomLogRoomName(t.groupName);
+                                }}
+                                className="text-left text-teal-600 hover:text-teal-700 hover:underline font-medium"
+                              >
+                                {t.groupName}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 text-gray-600">
+                              {t.totalValue.toLocaleString("ko-KR")}원
+                            </td>
+                            <td
+                              className={`px-6 py-4 font-medium ${
+                                t.profitLossPercentage >= 0
+                                  ? "text-red-500"
+                                  : "text-blue-500"
+                              }`}
+                            >
+                              {t.profitLossPercentage >= 0 ? "+" : ""}
+                              {t.profitLossPercentage}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
