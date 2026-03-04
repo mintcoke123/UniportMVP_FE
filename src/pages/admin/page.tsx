@@ -8,7 +8,6 @@ import {
   getAdminTeamsByCompetition,
   getAdminMatchingRooms,
   getAdminRoomVotes,
-  deleteAdminMatchingRoom,
   deleteAdminMatchingRoomMember,
   getAdminUsers,
   deleteAdminUser,
@@ -78,7 +77,6 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   const [formEndDate, setFormEndDate] = useState("");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [roomActionId, setRoomActionId] = useState<string | null>(null);
   const [memberActionKey, setMemberActionKey] = useState<string | null>(null);
   const [roomActionError, setRoomActionError] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -107,31 +105,6 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   };
   const loadRooms = () => {
     getAdminMatchingRooms().then(setRooms);
-  };
-
-  const handleDeleteRoom = async (roomId: string) => {
-    if (
-      !window.confirm(
-        "이 매칭방을 삭제하면 모든 멤버가 제거됩니다. 계속할까요?",
-      )
-    )
-      return;
-    setRoomActionError(null);
-    setRoomActionId(roomId);
-    try {
-      const res = await deleteAdminMatchingRoom(roomId);
-      if (res.success) {
-        setRoomActionError(null);
-        loadRooms();
-      } else {
-        setRoomActionError(res.message);
-      }
-    } catch (e: unknown) {
-      const err = e as { message?: string };
-      setRoomActionError(err?.message ?? "삭제에 실패했습니다.");
-    } finally {
-      setRoomActionId(null);
-    }
   };
 
   const handleRemoveMember = async (roomId: string, userId: string) => {
@@ -534,7 +507,6 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                           <th className="px-6 py-3">방 이름</th>
                           <th className="px-6 py-3">멤버</th>
                           <th className="px-6 py-3">상태</th>
-                          <th className="px-6 py-3 w-40">관리</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -595,18 +567,6 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                                     ? "정원 참"
                                     : "시작됨"}
                               </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRoom(r.id)}
-                                disabled={roomActionId !== null}
-                                className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
-                              >
-                                {roomActionId === r.id
-                                  ? "삭제 중..."
-                                  : "방 삭제"}
-                              </button>
                             </td>
                           </tr>
                         ))}
