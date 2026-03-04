@@ -812,14 +812,17 @@ export default function ChatPage() {
                             const rt = code ? realtimePrices[code] : undefined;
                             const currentPrice = rt?.currentPrice;
                             return (
-                              <li key={vote.id}>
+                              <li
+                                key={vote.id}
+                                className="flex gap-2 items-stretch"
+                              >
                                 <button
                                   type="button"
                                   onClick={() =>
                                     stockId > 0 &&
                                     navigate(`/stock-detail?id=${stockId}`)
                                   }
-                                  className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
+                                  className="flex-1 min-w-0 text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
                                 >
                                   <div className="flex justify-between items-start gap-2">
                                     <span className="font-semibold text-gray-900 truncate">
@@ -854,6 +857,33 @@ export default function ChatPage() {
                                       )}
                                     </p>
                                   )}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={cancellingVoteId === vote.id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (groupId == null) return;
+                                    setCancellingVoteId(vote.id);
+                                    try {
+                                      await cancelPendingVote(groupId, vote.id);
+                                      getVotes(groupId).then(setVotes);
+                                    } catch (err) {
+                                      alert(
+                                        err instanceof Error
+                                          ? err.message
+                                          : "대기 취소에 실패했습니다.",
+                                      );
+                                    } finally {
+                                      setCancellingVoteId(null);
+                                    }
+                                  }}
+                                  className="shrink-0 py-2 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="지정가 대기 취소"
+                                >
+                                  {cancellingVoteId === vote.id
+                                    ? "취소 중…"
+                                    : "취소"}
                                 </button>
                               </li>
                             );
@@ -2338,13 +2368,16 @@ export default function ChatPage() {
                   const rt = code ? realtimePrices[code] : undefined;
                   const currentPrice = rt?.currentPrice;
                   return (
-                    <li key={vote.id}>
+                    <li
+                      key={vote.id}
+                      className="flex gap-2 items-stretch min-h-[44px]"
+                    >
                       <button
                         type="button"
                         onClick={() =>
                           stockId > 0 && navigate(`/stock-detail?id=${stockId}`)
                         }
-                        className="w-full text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer min-h-[44px]"
+                        className="flex-1 min-w-0 text-left bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-sm transition-all cursor-pointer"
                       >
                         <div className="flex justify-between items-start gap-2">
                           <span className="font-semibold text-gray-900 truncate">
@@ -2373,6 +2406,31 @@ export default function ChatPage() {
                             )}
                           </p>
                         )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={cancellingVoteId === vote.id}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (groupId == null) return;
+                          setCancellingVoteId(vote.id);
+                          try {
+                            await cancelPendingVote(groupId, vote.id);
+                            getVotes(groupId).then(setVotes);
+                          } catch (err) {
+                            alert(
+                              err instanceof Error
+                                ? err.message
+                                : "대기 취소에 실패했습니다.",
+                            );
+                          } finally {
+                            setCancellingVoteId(null);
+                          }
+                        }}
+                        className="shrink-0 py-2 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="지정가 대기 취소"
+                      >
+                        {cancellingVoteId === vote.id ? "취소 중…" : "취소"}
                       </button>
                     </li>
                   );
