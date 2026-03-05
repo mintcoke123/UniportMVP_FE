@@ -85,6 +85,7 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   const [roomActionError, setRoomActionError] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState<string | null>(null);
+  const [userSearchStudentId, setUserSearchStudentId] = useState("");
   const [feedbackByRoomId, setFeedbackByRoomId] = useState<
     Record<string, string>
   >({});
@@ -775,7 +776,26 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
             {tab === "users" && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">유저 목록</h2>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      유저 목록
+                    </h2>
+                    <span className="text-sm text-gray-600">
+                      총 {users.length}명
+                    </span>
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      학번 검색
+                      <input
+                        type="text"
+                        value={userSearchStudentId}
+                        onChange={(e) =>
+                          setUserSearchStudentId(e.target.value)
+                        }
+                        placeholder="학번 일부 입력"
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-40"
+                      />
+                    </label>
+                  </div>
                   {userActionError && (
                     <p className="mt-2 text-sm text-red-600">
                       {userActionError}
@@ -794,7 +814,15 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {users.map((u) => {
+                      {users
+                        .filter((u) => {
+                          const q = userSearchStudentId.trim();
+                          return (
+                            !q ||
+                            (u.studentId && u.studentId.includes(q))
+                          );
+                        })
+                        .map((u) => {
                         const isSelf =
                           user?.id != null && String(user.id) === u.id;
                         const cannotDelete = u.role === "admin" || isSelf;
