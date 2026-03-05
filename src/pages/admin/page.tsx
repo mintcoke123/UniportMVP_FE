@@ -8,6 +8,7 @@ import {
   getAdminTeamsByCompetition,
   getAdminMatchingRooms,
   getAdminRoomVotes,
+  deleteAdminMatchingRoom,
   deleteAdminMatchingRoomMember,
   getAdminUsers,
   deleteAdminUser,
@@ -50,7 +51,9 @@ function formatDateOnly(iso: string) {
 export default function AdminPage({ mode }: AdminPageProps = {}) {
   const navigate = useNavigate();
   const { user, logout, isAdmin } = useAuth();
-  const [tab, setTab] = useState<AdminTab>(mode === "sisu" ? "teams" : "competition");
+  const [tab, setTab] = useState<AdminTab>(
+    mode === "sisu" ? "teams" : "competition",
+  );
 
   const [competitions, setCompetitions] = useState<AdminCompetition[]>([]);
   const [teams, setTeams] = useState<CompetingTeamItem[]>([]);
@@ -78,6 +81,7 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [memberActionKey, setMemberActionKey] = useState<string | null>(null);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [roomActionError, setRoomActionError] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState<string | null>(null);
@@ -138,6 +142,27 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
       setMemberActionKey(null);
     }
   };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!window.confirm(`매칭방 "${roomId}"을(를) 삭제합니다. 계속할까요?`))
+      return;
+    setRoomActionError(null);
+    setDeletingRoomId(roomId);
+    try {
+      const res = await deleteAdminMatchingRoom(roomId);
+      if (res.success) {
+        await loadRooms();
+      } else {
+        setRoomActionError(res.message ?? "삭제에 실패했습니다.");
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      setRoomActionError(err?.response?.data?.message ?? err?.message ?? "삭제에 실패했습니다.");
+    } finally {
+      setDeletingRoomId(null);
+    }
+  };
+
   const loadUsers = () => {
     getAdminUsers().then(setUsers);
   };
@@ -345,9 +370,12 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
     { key: "feedback", label: "팀 피드백" },
     { key: "users", label: "유저 관리" },
   ];
-  const tabs = mode === "sisu"
-    ? allTabs.filter((t) => t.key !== "competition" && t.key !== "feedback")
-    : allTabs;
+  /** 팀 피드백 탭 비활성화: 탭 목록에서 제외 */
+  const tabs = (
+    mode === "sisu"
+      ? allTabs.filter((t) => t.key !== "competition" && t.key !== "feedback")
+      : allTabs
+  ).filter((t) => t.key !== "feedback");
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -490,90 +518,101 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
 
             {tab === "teams" && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-lg font-bold text-gray-900">
-                      매칭방 (팀 구성 대기)
-                    </h2>
-                    {roomActionError && (
-                      <p className="mt-2 text-sm text-red-600">
-                        {roomActionError}
-                      </p>
-                    )}
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                        <tr>
-                          <th className="px-6 py-3">방 이름</th>
-                          <th className="px-6 py-3">멤버</th>
-                          <th className="px-6 py-3">상태</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {rooms.map((r) => (
-                          <tr key={r.id} className="hover:bg-gray-50/50">
-                            <td className="px-6 py-4 font-medium text-gray-900">
-                              {r.name}
-                            </td>
-                            <td className="px-6 py-4 text-gray-600">
-                              {r.memberCount}/{r.capacity}명 (
-                              {r.members.map((m) => {
-                                const memberId =
-                                  (m as { userId?: string; id?: string })
-                                    .userId ??
-                                  (m as { userId?: string; id?: string }).id ??
-                                  "";
-                                return (
-                                  <span
-                                    key={memberId || m.nickname}
-                                    className="inline-flex items-center gap-1 mr-1"
-                                  >
-                                    {m.nickname}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleRemoveMember(r.id, memberId)
-                                      }
-                                      disabled={
-                                        !memberId ||
-                                        memberActionKey ===
-                                          `${r.id}-${memberId}`
-                                      }
-                                      className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
-                                      title="멤버 강제 제거"
-                                    >
-                                      {memberActionKey === `${r.id}-${memberId}`
-                                        ? "제거 중..."
-                                        : "제거"}
-                                    </button>
-                                  </span>
-                                );
-                              })}
-                              )
-                            </td>
-                            <td className="px-6 py-4">
-                              <span
-                                className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
-                                  r.status === "full"
-                                    ? "bg-teal-100 text-teal-700"
-                                    : r.status === "started"
-                                      ? "bg-gray-100 text-gray-600"
-                                      : "bg-amber-100 text-amber-700"
-                                }`}
-                              >
-                                {r.status === "waiting"
-                                  ? "대기 중"
-                                  : r.status === "full"
-                                    ? "정원 참"
-                                    : "시작됨"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="px-6 py-4 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    매칭방 (팀 구성 대기)
+                  </h2>
+                  {roomActionError && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {roomActionError}
+                    </p>
+                  )}
                 </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
+                      <tr>
+                        <th className="px-6 py-3">방 이름</th>
+                        <th className="px-6 py-3">멤버</th>
+                        <th className="px-6 py-3">상태</th>
+                        <th className="px-6 py-3 w-24">삭제</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {rooms.map((r) => (
+                        <tr key={r.id} className="hover:bg-gray-50/50">
+                          <td className="px-6 py-4 font-medium text-gray-900">
+                            {r.name}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">
+                            {r.memberCount}/{r.capacity}명 (
+                            {r.members.map((m) => {
+                              const memberId =
+                                (m as { userId?: string; id?: string })
+                                  .userId ??
+                                (m as { userId?: string; id?: string }).id ??
+                                "";
+                              return (
+                                <span
+                                  key={memberId || m.nickname}
+                                  className="inline-flex items-center gap-1 mr-1"
+                                >
+                                  {m.nickname}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveMember(r.id, memberId)
+                                    }
+                                    disabled={
+                                      !memberId ||
+                                      memberActionKey === `${r.id}-${memberId}`
+                                    }
+                                    className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
+                                    title="멤버 강제 제거"
+                                  >
+                                    {memberActionKey === `${r.id}-${memberId}`
+                                      ? "제거 중..."
+                                      : "제거"}
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            )
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
+                                r.status === "full"
+                                  ? "bg-teal-100 text-teal-700"
+                                  : r.status === "started"
+                                    ? "bg-gray-100 text-gray-600"
+                                    : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {r.status === "waiting"
+                                ? "대기 중"
+                                : r.status === "full"
+                                  ? "정원 참"
+                                  : "시작됨"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRoom(r.id)}
+                              disabled={deletingRoomId === r.id}
+                              className="text-red-500 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                              title="매칭방(팀) 삭제"
+                            >
+                              {deletingRoomId === r.id ? "삭제 중..." : "삭제"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
 
             {tab === "teamRanking" && (
@@ -608,7 +647,9 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {teams.map((t) => {
-                        const roomIdFromTeam = t.teamId.startsWith("team-") ? t.teamId.slice(5) : t.teamId;
+                        const roomIdFromTeam = t.teamId.startsWith("team-")
+                          ? t.teamId.slice(5)
+                          : t.teamId;
                         return (
                           <tr key={t.teamId} className="hover:bg-gray-50/50">
                             <td className="px-6 py-4 font-medium text-gray-900">
