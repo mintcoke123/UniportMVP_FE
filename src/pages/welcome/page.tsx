@@ -24,19 +24,12 @@ export default function WelcomePage() {
                   Uniport에 오신 것을 환영합니다
                 </h1>
                 <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">
-                  회원가입 후 대회에 참가하고, 팀을 이루어 모의투자를 경험해 보세요.
+                  로그인 후 대회에 참가하고, 팀을 이루어 모의투자를 경험해 보세요.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                   <Link
-                    to="/signup"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[44px] text-base font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 active:scale-[0.98] transition-colors"
-                  >
-                    <i className="ri-user-add-line" aria-hidden />
-                    회원가입
-                  </Link>
-                  <Link
                     to="/login"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[44px] text-base font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-colors"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[44px] text-base font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 active:scale-[0.98] transition-colors"
                   >
                     <i className="ri-login-box-line" aria-hidden />
                     로그인

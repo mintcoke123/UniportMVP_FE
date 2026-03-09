@@ -115,16 +115,6 @@ export default function LoginPage() {
             >
               {isLoading ? "로그인 중..." : "로그인"}
             </button>
-
-            <p className="text-sm text-center text-gray-600 mt-5">
-              계정이 없으신가요?{" "}
-              <Link
-                to="/signup"
-                className="font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
-              >
-                회원가입
-              </Link>
-            </p>
           </form>
         </div>
       </div>

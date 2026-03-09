@@ -1,81 +1,10 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
+import { Link } from "react-router-dom";
 
+/**
+ * 접수기간 종료 시 회원가입 비활성화.
+ * /signup 직접 접근 시 안내만 표시하고, 로그인은 그대로 사용 가능.
+ */
 export default function SignupPage() {
-  const { signup } = useAuth();
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    studentId: "",
-    password: "",
-    confirmPassword: "",
-    nickname: "",
-    phoneNumber: "",
-  });
-  const [agreePrivacy, setAgreePrivacy] = useState(false);
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    const sid = formData.studentId.trim();
-    if (!/^\d{8}$/.test(sid)) {
-      setError("학번은 숫자 8자리로 입력해 주세요.");
-      return;
-    }
-    const num = parseInt(sid, 10);
-    if (num < 15000000 || num > 26999999) {
-      setError("학번은 15000000~26999999 범위여야 합니다.");
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다");
-      return;
-    }
-
-    if (formData.password.length < 4) {
-      setError("비밀번호는 최소 4자 이상이어야 합니다");
-      return;
-    }
-
-    if (formData.nickname.length < 2) {
-      setError("닉네임은 최소 2자 이상이어야 합니다");
-      return;
-    }
-
-    if (!agreePrivacy) {
-      setError("개인정보 수집 및 이용에 동의해 주세요.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    const result = await signup(
-      formData.studentId.trim(),
-      formData.password,
-      formData.nickname,
-      formData.phoneNumber.trim()
-    );
-
-    setIsLoading(false);
-
-    if (result.success) {
-      navigate("/login");
-    } else {
-      setError(result.message);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
@@ -88,127 +17,32 @@ export default function SignupPage() {
             />
             <span className="text-3xl font-bold text-gray-900">Uniport</span>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-6">회원가입</h1>
-          <p className="text-sm text-gray-500 mt-2">
-            새로운 계정을 만들어 투자를 시작하세요
-          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                학번
-              </label>
-              <input
-                type="text"
-                name="studentId"
-                value={formData.studentId}
-                onChange={handleChange}
-                placeholder="8자리 학번"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                required
-                maxLength={8}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                닉네임
-              </label>
-              <input
-                type="text"
-                name="nickname"
-                value={formData.nickname}
-                onChange={handleChange}
-                placeholder="닉네임을 입력하세요"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                전화번호
-              </label>
-              <input
-                type="tel"
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                placeholder="010-XXXX-XXXX"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                비밀번호
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="비밀번호를 입력하세요"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                비밀번호 확인
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="비밀번호를 다시 입력하세요"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreePrivacy}
-                onChange={(e) => setAgreePrivacy(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer"
-              />
-              <span className="text-sm text-gray-700">
-                (필수) 개인정보 수집 및 이용에 동의합니다. (회원 식별 및 경품 발송 목적)
-              </span>
-            </label>
-
-            {error && (
-              <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-                <i className="ri-error-warning-line"></i>
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 bg-teal-500 text-white font-semibold rounded-xl hover:bg-teal-600 disabled:bg-gray-300 disabled:cursor-not-allowed cursor-pointer transition-colors whitespace-nowrap"
+        <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-amber-100 flex items-center justify-center">
+            <i className="ri-time-line text-2xl text-amber-600" aria-hidden />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">회원가입 접수 종료</h1>
+          <p className="text-gray-600 text-sm mb-6">
+            접수 기간이 종료되어 현재 회원가입을 받지 않습니다.
+            <br />
+            기존 계정으로 로그인해 주세요.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center gap-2 py-3.5 text-base font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 transition-colors"
             >
-              {isLoading ? "가입 중..." : "회원가입"}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600 text-center">
-              이미 계정이 있으신가요?{" "}
-              <Link
-                to="/login"
-                className="text-teal-600 font-semibold hover:text-teal-700 cursor-pointer"
-              >
-                로그인
-              </Link>
-            </p>
+              <i className="ri-login-box-line" aria-hidden />
+              로그인
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center gap-2 py-3 text-sm font-medium text-gray-600 hover:text-gray-800"
+            >
+              홈으로
+            </Link>
           </div>
         </div>
       </div>
