@@ -8,12 +8,14 @@ import {
   getAdminTeamsByCompetition,
   getAdminMatchingRooms,
   getAdminRoomVotes,
+  getAdminRoomChatMessages,
   deleteAdminMatchingRoom,
   deleteAdminMatchingRoomMember,
   getAdminUsers,
   deleteAdminUser,
   sendAdminFeedback,
 } from "../../services";
+import type { AdminChatMessageItem } from "../../services";
 import type { AdminCompetition } from "../../types";
 import type { CompetingTeamItem } from "../../types";
 import type { MatchingRoom, VoteItem } from "../../types";
@@ -86,6 +88,11 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState<string | null>(null);
   const [userSearchStudentId, setUserSearchStudentId] = useState("");
+  const [userSearchNickname, setUserSearchNickname] = useState("");
+  const [userSortBy, setUserSortBy] = useState<
+    "studentId" | "nickname" | "teamId" | "role"
+  >("studentId");
+  const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [feedbackByRoomId, setFeedbackByRoomId] = useState<
     Record<string, string>
   >({});
@@ -97,6 +104,12 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   const [roomLogVotes, setRoomLogVotes] = useState<VoteItem[]>([]);
   const [roomLogLoading, setRoomLogLoading] = useState(false);
   const [roomLogError, setRoomLogError] = useState<string | null>(null);
+  const [roomLogTab, setRoomLogTab] = useState<"votes" | "chat">("votes");
+  const [roomLogChatMessages, setRoomLogChatMessages] = useState<
+    AdminChatMessageItem[]
+  >([]);
+  const [roomLogChatLoading, setRoomLogChatLoading] = useState(false);
+  const [roomLogChatError, setRoomLogChatError] = useState<string | null>(null);
 
   /** 멱등성: 저장/전송 중복 클릭 방지 (setState는 비동기이므로 ref로 동기 가드) */
   const savingRef = useRef(false);
@@ -228,11 +241,14 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
     }
   }, [selectedCompetitionId]);
 
-  /** 방 거래내역 로그 모달: roomLogRoomId 변경 시 해당 방 투표 목록 로드 */
+  /** 방 거래내역 로그 모달: roomLogRoomId 변경 시 해당 방 투표 목록 로드 및 채팅 탭 초기화 */
   useEffect(() => {
     if (!roomLogRoomId) {
       setRoomLogVotes([]);
       setRoomLogError(null);
+      setRoomLogTab("votes");
+      setRoomLogChatMessages([]);
+      setRoomLogChatError(null);
       return;
     }
     setRoomLogLoading(true);
@@ -248,6 +264,23 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
       })
       .finally(() => setRoomLogLoading(false));
   }, [roomLogRoomId]);
+
+  /** 채팅 로그 탭 선택 시 해당 방 채팅 메시지 로드 */
+  useEffect(() => {
+    if (roomLogTab !== "chat" || !roomLogRoomId) return;
+    setRoomLogChatLoading(true);
+    setRoomLogChatError(null);
+    getAdminRoomChatMessages(roomLogRoomId)
+      .then(setRoomLogChatMessages)
+      .catch((e: unknown) => {
+        setRoomLogChatMessages([]);
+        setRoomLogChatError(
+          (e as { message?: string })?.message ??
+            "채팅 로그를 불러오지 못했습니다.",
+        );
+      })
+      .finally(() => setRoomLogChatLoading(false));
+  }, [roomLogTab, roomLogRoomId]);
 
   const handleLogout = () => {
     logout();
@@ -371,12 +404,11 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
     { key: "feedback", label: "팀 피드백" },
     { key: "users", label: "유저 관리" },
   ];
-  /** 팀 피드백 탭 비활성화: 탭 목록에서 제외 */
-  const tabs = (
+  /** SISU 모드에서는 대회 관리 탭만 숨김. 팀 피드백 탭은 관리자/SISU 모두 노출 */
+  const tabs =
     mode === "sisu"
-      ? allTabs.filter((t) => t.key !== "competition" && t.key !== "feedback")
-      : allTabs
-  ).filter((t) => t.key !== "feedback");
+      ? allTabs.filter((t) => t.key !== "competition")
+      : allTabs;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -520,9 +552,19 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
             {tab === "teams" && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">
+                  <h2 className="text-lg font-bold text-gray-900 mb-3">
                     매칭방 (팀 구성 대기)
                   </h2>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    팀(방) 검색
+                    <input
+                      type="text"
+                      value={roomSearchQuery}
+                      onChange={(e) => setRoomSearchQuery(e.target.value)}
+                      placeholder="방 이름 또는 ID"
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-48"
+                    />
+                  </label>
                   {roomActionError && (
                     <p className="mt-2 text-sm text-red-600">
                       {roomActionError}
@@ -540,7 +582,19 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {rooms.map((r) => (
+                      {rooms
+                        .filter(
+                          (r) =>
+                            !roomSearchQuery.trim() ||
+                            (r.name &&
+                              r.name
+                                .toLowerCase()
+                                .includes(roomSearchQuery.trim().toLowerCase())) ||
+                            String(r.id)
+                              .toLowerCase()
+                              .includes(roomSearchQuery.trim().toLowerCase()),
+                        )
+                        .map((r) => (
                         <tr key={r.id} className="hover:bg-gray-50/50">
                           <td className="px-6 py-4 font-medium text-gray-900">
                             {r.name}
@@ -642,6 +696,7 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                       <tr>
                         <th className="px-6 py-3">순위</th>
                         <th className="px-6 py-3">팀명</th>
+                        <th className="px-6 py-3">팀원</th>
                         <th className="px-6 py-3">총 평가액</th>
                         <th className="px-6 py-3">수익률</th>
                       </tr>
@@ -651,6 +706,11 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                         const roomIdFromTeam = t.teamId.startsWith("team-")
                           ? t.teamId.slice(5)
                           : t.teamId;
+                        const memberNames =
+                          t.members
+                            ?.map((m) => m.nickname || "")
+                            .filter(Boolean)
+                            .join(", ") ?? "—";
                         return (
                           <tr key={t.teamId} className="hover:bg-gray-50/50">
                             <td className="px-6 py-4 font-medium text-gray-900">
@@ -667,6 +727,9 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                               >
                                 {t.groupName}
                               </button>
+                            </td>
+                            <td className="px-6 py-4 text-gray-600 text-sm max-w-[200px] truncate" title={memberNames}>
+                              {memberNames}
                             </td>
                             <td className="px-6 py-4 text-gray-600">
                               {t.totalValue.toLocaleString("ko-KR")}원
@@ -698,8 +761,18 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
                     방마다 피드백 내용을 입력한 뒤 전송하면, 해당 채팅방에
-                    피드백 리포트 형식으로 표시되고 채팅이 비활성화됩니다.
+                    대회 종료 안내가 표시되고 해당 방의 채팅·거래가 비활성화됩니다.
                   </p>
+                  <label className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                    팀(방) 검색
+                    <input
+                      type="text"
+                      value={roomSearchQuery}
+                      onChange={(e) => setRoomSearchQuery(e.target.value)}
+                      placeholder="방 이름 또는 ID"
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-48"
+                    />
+                  </label>
                   {feedbackError && (
                     <p className="mt-2 text-sm text-red-600">{feedbackError}</p>
                   )}
@@ -725,7 +798,19 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {rooms.map((r) => (
+                      {rooms
+                        .filter(
+                          (r) =>
+                            !roomSearchQuery.trim() ||
+                            (r.name &&
+                              r.name
+                                .toLowerCase()
+                                .includes(roomSearchQuery.trim().toLowerCase())) ||
+                            String(r.id)
+                              .toLowerCase()
+                              .includes(roomSearchQuery.trim().toLowerCase()),
+                        )
+                        .map((r) => (
                         <tr key={r.id} className="hover:bg-gray-50/50">
                           <td className="px-6 py-4 font-medium text-gray-900">
                             <button
@@ -784,16 +869,49 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                       총 {users.length}명
                     </span>
                     <label className="flex items-center gap-2 text-sm text-gray-600">
-                      학번 검색
+                      학번
                       <input
                         type="text"
                         value={userSearchStudentId}
                         onChange={(e) =>
                           setUserSearchStudentId(e.target.value)
                         }
-                        placeholder="학번 일부 입력"
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-40"
+                        placeholder="검색"
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-28"
                       />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      닉네임
+                      <input
+                        type="text"
+                        value={userSearchNickname}
+                        onChange={(e) =>
+                          setUserSearchNickname(e.target.value)
+                        }
+                        placeholder="검색"
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-28"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      정렬
+                      <select
+                        value={userSortBy}
+                        onChange={(e) =>
+                          setUserSortBy(
+                            e.target.value as
+                              | "studentId"
+                              | "nickname"
+                              | "teamId"
+                              | "role",
+                          )
+                        }
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="studentId">학번</option>
+                        <option value="nickname">닉네임</option>
+                        <option value="teamId">팀</option>
+                        <option value="role">역할</option>
+                      </select>
                     </label>
                   </div>
                   {userActionError && (
@@ -816,11 +934,16 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                     <tbody className="divide-y divide-gray-100">
                       {users
                         .filter((u) => {
-                          const q = userSearchStudentId.trim();
-                          return (
-                            !q ||
-                            (u.studentId && u.studentId.includes(q))
-                          );
+                          const qId = userSearchStudentId.trim();
+                          const qNick = userSearchNickname.trim();
+                          const matchId = !qId || (u.studentId && u.studentId.includes(qId));
+                          const matchNick = !qNick || (u.nickname && u.nickname.includes(qNick));
+                          return matchId && matchNick;
+                        })
+                        .sort((a, b) => {
+                          const va = userSortBy === "studentId" ? a.studentId ?? "" : userSortBy === "nickname" ? a.nickname ?? "" : userSortBy === "teamId" ? a.teamId ?? "" : a.role ?? "";
+                          const vb = userSortBy === "studentId" ? b.studentId ?? "" : userSortBy === "nickname" ? b.nickname ?? "" : userSortBy === "teamId" ? b.teamId ?? "" : b.role ?? "";
+                          return va.localeCompare(vb, "ko");
                         })
                         .map((u) => {
                         const isSelf =
@@ -960,6 +1083,9 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                 onClick={() => {
                   setRoomLogRoomId(null);
                   setRoomLogRoomName("");
+                  setRoomLogTab("votes");
+                  setRoomLogChatMessages([]);
+                  setRoomLogChatError(null);
                 }}
                 className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
                 aria-label="닫기"
@@ -967,15 +1093,41 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                 ✕
               </button>
             </div>
+            <div className="flex border-b border-gray-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setRoomLogTab("votes")}
+                className={`px-4 py-3 text-sm font-medium ${
+                  roomLogTab === "votes"
+                    ? "text-teal-600 border-b-2 border-teal-500 bg-gray-50/50"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                거래내역
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoomLogTab("chat")}
+                className={`px-4 py-3 text-sm font-medium ${
+                  roomLogTab === "chat"
+                    ? "text-teal-600 border-b-2 border-teal-500 bg-gray-50/50"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                채팅 로그
+              </button>
+            </div>
             <div className="overflow-auto flex-1 p-6">
-              {roomLogLoading ? (
-                <p className="text-gray-500 text-sm">불러오는 중…</p>
-              ) : roomLogError ? (
-                <p className="text-red-600 text-sm">{roomLogError}</p>
-              ) : roomLogVotes.length === 0 ? (
-                <p className="text-gray-500 text-sm">거래내역이 없습니다.</p>
-              ) : (
-                <table className="w-full text-left text-sm">
+              {roomLogTab === "votes" ? (
+                <>
+                  {roomLogLoading ? (
+                    <p className="text-gray-500 text-sm">불러오는 중…</p>
+                  ) : roomLogError ? (
+                    <p className="text-red-600 text-sm">{roomLogError}</p>
+                  ) : roomLogVotes.length === 0 ? (
+                    <p className="text-gray-500 text-sm">거래내역이 없습니다.</p>
+                  ) : (
+                    <table className="w-full text-left text-sm">
                   <thead className="bg-gray-50 text-gray-600 font-medium">
                     <tr>
                       <th className="px-3 py-2 rounded-tl">일시</th>
@@ -1054,6 +1206,71 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                     ))}
                   </tbody>
                 </table>
+                  )}
+                </>
+              ) : (
+                <>
+                  {roomLogChatLoading ? (
+                    <p className="text-gray-500 text-sm">불러오는 중…</p>
+                  ) : roomLogChatError ? (
+                    <p className="text-red-600 text-sm">{roomLogChatError}</p>
+                  ) : roomLogChatMessages.length === 0 ? (
+                    <p className="text-gray-500 text-sm">채팅 메시지가 없습니다.</p>
+                  ) : (
+                    <ul className="space-y-2 text-sm">
+                      {roomLogChatMessages.map((msg) => (
+                        <li
+                          key={msg.id}
+                          className="flex flex-wrap gap-x-2 gap-y-0.5 py-1.5 border-b border-gray-100 last:border-0"
+                        >
+                          <span className="text-gray-500 shrink-0">
+                            {new Date(msg.timestamp).toLocaleString("ko-KR", {
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          <span className="font-medium text-gray-700 shrink-0">
+                            {msg.userNickname || "—"}
+                          </span>
+                          <span
+                            className={`shrink-0 px-1.5 py-0.5 rounded text-xs ${
+                              msg.type === "feedback"
+                                ? "bg-amber-100 text-amber-800"
+                                : msg.type === "trade"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : msg.type === "execution"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {msg.type === "user"
+                              ? "채팅"
+                              : msg.type === "feedback"
+                                ? "피드백"
+                                : msg.type === "trade"
+                                  ? "투자공유"
+                                  : msg.type === "execution"
+                                    ? "체결"
+                                    : msg.type}
+                          </span>
+                          <span className="min-w-0 break-words">
+                            {msg.type === "feedback"
+                              ? (msg.feedbackContent ?? "—")
+                              : msg.type === "user"
+                                ? (msg.message ?? "—")
+                                : msg.type === "execution" && msg.executionData
+                                  ? `${(msg.executionData as { action?: string; stockName?: string; quantity?: number })?.action ?? ""} ${(msg.executionData as { stockName?: string })?.stockName ?? ""} ${(msg.executionData as { quantity?: number })?.quantity ?? 0}주`
+                                  : msg.type === "trade" && msg.tradeData
+                                    ? (msg.tradeData as { stockName?: string })?.stockName ?? "—"
+                                    : msg.message ?? "—"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
           </div>

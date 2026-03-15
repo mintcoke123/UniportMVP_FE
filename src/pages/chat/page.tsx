@@ -542,6 +542,7 @@ export default function ChatPage() {
 
   const handleVote = (voteId: number, voteType: "찬성" | "반대" | "보류") => {
     if (groupId == null) return;
+    if (chatInputDisabled) return;
     if (votingVoteId === voteId) return;
     const vote = votes.find((v) => v.id === voteId);
     if (vote && getUserVote(vote) === voteType) return;
@@ -860,10 +861,19 @@ export default function ChatPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={cancellingVoteId === vote.id}
+                                  disabled={
+                                    cancellingVoteId === vote.id ||
+                                    chatInputDisabled
+                                  }
+                                  title={
+                                    chatInputDisabled
+                                      ? "대회 종료로 비활성화되었습니다."
+                                      : "지정가 대기 취소"
+                                  }
                                   onClick={async (e) => {
                                     e.stopPropagation();
-                                    if (groupId == null) return;
+                                    if (groupId == null || chatInputDisabled)
+                                      return;
                                     setCancellingVoteId(vote.id);
                                     try {
                                       await cancelPendingVote(groupId, vote.id);
@@ -879,7 +889,6 @@ export default function ChatPage() {
                                     }
                                   }}
                                   className="shrink-0 py-2 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="지정가 대기 취소"
                                 >
                                   {cancellingVoteId === vote.id
                                     ? "취소 중…"
@@ -921,8 +930,17 @@ export default function ChatPage() {
                               </div>
                               <button
                                 type="button"
-                                disabled={cancellingOrderId === order.orderId}
+                                disabled={
+                                  cancellingOrderId === order.orderId ||
+                                  chatInputDisabled
+                                }
+                                title={
+                                  chatInputDisabled
+                                    ? "대회 종료로 비활성화되었습니다."
+                                    : undefined
+                                }
                                 onClick={async () => {
+                                  if (chatInputDisabled) return;
                                   setCancellingOrderId(order.orderId);
                                   try {
                                     await cancelOrder(order.orderId);
@@ -1215,21 +1233,25 @@ export default function ChatPage() {
                                     hasOngoingVoteForStock(
                                       holding.stockCode,
                                       "매도",
-                                    )
+                                    ) ||
+                                    chatInputDisabled
                                   }
                                   title={
-                                    hasOngoingVoteForStock(
-                                      holding.stockCode,
-                                      "매도",
-                                    )
-                                      ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
-                                      : undefined
+                                    chatInputDisabled
+                                      ? "대회 종료로 비활성화되었습니다."
+                                      : hasOngoingVoteForStock(
+                                            holding.stockCode,
+                                            "매도",
+                                          )
+                                        ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
+                                        : undefined
                                   }
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     if (
                                       groupId == null ||
-                                      creatingVoteStockId != null
+                                      creatingVoteStockId != null ||
+                                      chatInputDisabled
                                     )
                                       return;
                                     if (
@@ -1360,21 +1382,28 @@ export default function ChatPage() {
                                             holding.stockCode,
                                             "매도",
                                           ) ||
-                                          !isValid
+                                          !isValid ||
+                                          chatInputDisabled
                                         }
                                         title={
-                                          hasOngoingVoteForStock(
-                                            holding.stockCode,
-                                            "매도",
-                                          )
-                                            ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
-                                            : undefined
+                                          chatInputDisabled
+                                            ? "대회 종료로 비활성화되었습니다."
+                                            : hasOngoingVoteForStock(
+                                                  holding.stockCode,
+                                                  "매도",
+                                                )
+                                              ? "이미 해당 종목에 대한 매도 투표가 진행 중입니다."
+                                              : undefined
                                         }
                                         onClick={async (e) => {
                                           e.stopPropagation();
                                           if (
                                             groupId == null ||
                                             creatingVoteStockId != null ||
+                                            chatInputDisabled
+                                          )
+                                            return;
+                                          if (
                                             hasOngoingVoteForStock(
                                               holding.stockCode,
                                               "매도",
@@ -1814,7 +1843,7 @@ export default function ChatPage() {
                                 disabled={chatInputDisabled}
                                 title={
                                   chatInputDisabled
-                                    ? "채팅이 비활성화되어 모의투자로 이동할 수 없습니다."
+                                    ? "대회 종료로 비활성화되어 모의투자로 이동할 수 없습니다."
                                     : undefined
                                 }
                                 className="w-full min-h-[44px] py-2.5 mb-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-sm font-bold rounded-xl hover:from-red-600 hover:to-pink-600 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:from-red-500 disabled:hover:to-pink-500"
@@ -1834,7 +1863,7 @@ export default function ChatPage() {
                                   }
                                   placeholder={
                                     chatInputDisabled
-                                      ? "채팅이 비활성화되었습니다."
+                                      ? "대회 종료로 비활성화되었습니다."
                                       : groupId == null
                                         ? myRooms.length === 0 &&
                                           !myRoomsLoading
@@ -1980,7 +2009,15 @@ export default function ChatPage() {
                                   <div className="flex gap-2">
                                     <button
                                       type="button"
-                                      disabled={votingVoteId === vote.id}
+                                      disabled={
+                                        votingVoteId === vote.id ||
+                                        chatInputDisabled
+                                      }
+                                      title={
+                                        chatInputDisabled
+                                          ? "대회 종료로 비활성화되었습니다."
+                                          : undefined
+                                      }
                                       onClick={() =>
                                         handleVote(vote.id, "찬성")
                                       }
@@ -1994,7 +2031,15 @@ export default function ChatPage() {
                                     </button>
                                     <button
                                       type="button"
-                                      disabled={votingVoteId === vote.id}
+                                      disabled={
+                                        votingVoteId === vote.id ||
+                                        chatInputDisabled
+                                      }
+                                      title={
+                                        chatInputDisabled
+                                          ? "대회 종료로 비활성화되었습니다."
+                                          : undefined
+                                      }
                                       onClick={() =>
                                         handleVote(vote.id, "보류")
                                       }
@@ -2008,7 +2053,15 @@ export default function ChatPage() {
                                     </button>
                                     <button
                                       type="button"
-                                      disabled={votingVoteId === vote.id}
+                                      disabled={
+                                        votingVoteId === vote.id ||
+                                        chatInputDisabled
+                                      }
+                                      title={
+                                        chatInputDisabled
+                                          ? "대회 종료로 비활성화되었습니다."
+                                          : undefined
+                                      }
                                       onClick={() =>
                                         handleVote(vote.id, "반대")
                                       }
@@ -2052,12 +2105,19 @@ export default function ChatPage() {
                                         <button
                                           type="button"
                                           disabled={
-                                            cancellingVoteId === vote.id
+                                            cancellingVoteId === vote.id ||
+                                            chatInputDisabled
+                                          }
+                                          title={
+                                            chatInputDisabled
+                                              ? "대회 종료로 비활성화되었습니다."
+                                              : undefined
                                           }
                                           onClick={async () => {
                                             if (
                                               groupId == null ||
-                                              cancellingVoteId === vote.id
+                                              cancellingVoteId === vote.id ||
+                                              chatInputDisabled
                                             )
                                               return;
                                             setCancellingVoteId(vote.id);
@@ -2409,10 +2469,17 @@ export default function ChatPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={cancellingVoteId === vote.id}
+                        disabled={
+                          cancellingVoteId === vote.id || chatInputDisabled
+                        }
+                        title={
+                          chatInputDisabled
+                            ? "대회 종료로 비활성화되었습니다."
+                            : "지정가 대기 취소"
+                        }
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (groupId == null) return;
+                          if (groupId == null || chatInputDisabled) return;
                           setCancellingVoteId(vote.id);
                           try {
                             await cancelPendingVote(groupId, vote.id);
@@ -2428,7 +2495,6 @@ export default function ChatPage() {
                           }
                         }}
                         className="shrink-0 py-2 px-3 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="지정가 대기 취소"
                       >
                         {cancellingVoteId === vote.id ? "취소 중…" : "취소"}
                       </button>
@@ -2462,8 +2528,17 @@ export default function ChatPage() {
                     </div>
                     <button
                       type="button"
-                      disabled={cancellingOrderId === order.orderId}
+                      disabled={
+                        cancellingOrderId === order.orderId ||
+                        chatInputDisabled
+                      }
+                      title={
+                        chatInputDisabled
+                          ? "대회 종료로 비활성화되었습니다."
+                          : undefined
+                      }
                       onClick={async () => {
+                        if (chatInputDisabled) return;
                         setCancellingOrderId(order.orderId);
                         try {
                           await cancelOrder(order.orderId);

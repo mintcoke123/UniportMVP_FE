@@ -41,20 +41,20 @@ export async function createAdminCompetition(body: {
 /** 대회 수정 */
 export async function updateAdminCompetition(
   id: number,
-  body: { name?: string; startDate?: string; endDate?: string }
+  body: { name?: string; startDate?: string; endDate?: string },
 ): Promise<{ success: boolean; message: string }> {
   return await apiPatch<{ success: boolean; message: string }>(
     `/api/admin/competitions/${id}`,
-    body
+    body,
   );
 }
 
 /** 대회별 팀 목록 */
 export async function getAdminTeamsByCompetition(
-  competitionId: number
+  competitionId: number,
 ): Promise<CompetingTeamItem[]> {
   return await apiGet<CompetingTeamItem[]>(
-    `/api/admin/competitions/${competitionId}/teams`
+    `/api/admin/competitions/${competitionId}/teams`,
   );
 }
 
@@ -66,28 +66,50 @@ export async function getAdminMatchingRooms(): Promise<MatchingRoom[]> {
 /** 팀(방)별 거래내역 로그: 해당 방의 투표(체결 포함) 목록. roomId: "room-1" 또는 "1" */
 export async function getAdminRoomVotes(roomId: string): Promise<VoteItem[]> {
   return await apiGet<VoteItem[]>(
-    `/api/admin/matching-rooms/${encodeURIComponent(roomId)}/votes`
+    `/api/admin/matching-rooms/${encodeURIComponent(roomId)}/votes`,
+  );
+}
+
+/** 관리자 채팅 로그 메시지 (방별 조회 응답 항목) */
+export interface AdminChatMessageItem {
+  id: number;
+  userId: number;
+  userNickname: string;
+  timestamp: string;
+  type: "user" | "trade" | "execution" | "feedback";
+  message?: string | null;
+  tradeData?: unknown;
+  executionData?: unknown;
+  feedbackContent?: string | null;
+}
+
+/** 팀(방)별 채팅 로그. roomId: "room-1" 또는 "1" */
+export async function getAdminRoomChatMessages(
+  roomId: string,
+): Promise<AdminChatMessageItem[]> {
+  return await apiGet<AdminChatMessageItem[]>(
+    `/api/admin/matching-rooms/${encodeURIComponent(roomId)}/chat-messages`,
   );
 }
 
 /** 팀(매칭방) 삭제. DELETE /api/admin/matching-rooms/{roomId} — roomId: room-1 또는 1 */
 export async function deleteAdminMatchingRoom(
-  roomId: string
+  roomId: string,
 ): Promise<{ success: boolean; message: string }> {
   return await apiDelete<{ success: boolean; message: string }>(
-    `/api/admin/matching-rooms/${encodeURIComponent(roomId)}`
+    `/api/admin/matching-rooms/${encodeURIComponent(roomId)}`,
   );
 }
 
 /** 멤버 강제 제거. DELETE /api/admin/matching-rooms/{roomId}/members/{userId} */
 export async function deleteAdminMatchingRoomMember(
   roomId: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; message: string }> {
   return await apiDelete<{ success: boolean; message: string }>(
     `/api/admin/matching-rooms/${encodeURIComponent(
-      roomId
-    )}/members/${encodeURIComponent(userId)}`
+      roomId,
+    )}/members/${encodeURIComponent(userId)}`,
   );
 }
 
@@ -113,16 +135,21 @@ export async function getAdminUsers(): Promise<
 }
 
 /** 팀별 피드백 전송: 선택한 방들의 채팅에 피드백 메시지 표시 및 해당 방 채팅 비활성화 */
-export async function sendAdminFeedback(deliveries: { roomId: number | string; content: string }[]): Promise<{ success: boolean; message: string }> {
-  const res = await apiPost<{ success: boolean; message: string }>("/api/admin/chat/feedback", { deliveries });
+export async function sendAdminFeedback(
+  deliveries: { roomId: number | string; content: string }[],
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiPost<{ success: boolean; message: string }>(
+    "/api/admin/chat/feedback",
+    { deliveries },
+  );
   return res;
 }
 
 /** 유저 삭제 (관리자 전용). 본인·다른 관리자 계정은 삭제 불가. */
 export async function deleteAdminUser(
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; message: string }> {
   return await apiDelete<{ success: boolean; message: string }>(
-    `/api/admin/users/${encodeURIComponent(userId)}`
+    `/api/admin/users/${encodeURIComponent(userId)}`,
   );
 }

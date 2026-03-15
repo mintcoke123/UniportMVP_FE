@@ -204,7 +204,7 @@ export interface GroupMemberItem {
   nickname: string;
 }
 
-/** 대회에서 경쟁 중인 팀 한 건 (실시간 투자금·수익률·순위 표시용) */
+/** 대회에서 경쟁 중인 팀 한 건 (실시간 투자금·수익률·순위 표시용). members는 관리자 API에서만 내려옴 */
 export interface CompetingTeamItem {
   teamId: string;
   groupName: string;
@@ -214,6 +214,8 @@ export interface CompetingTeamItem {
   profitLossPercentage: number;
   rank: number;
   isMyTeam?: boolean;
+  /** 팀원 목록 (관리자 팀 순위 API) */
+  members?: { userId: number | null; nickname: string }[];
 }
 
 // ---- Chat ----

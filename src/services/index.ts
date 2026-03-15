@@ -99,9 +99,11 @@ export {
   getAdminTeamsByCompetition,
   getAdminMatchingRooms,
   getAdminRoomVotes,
+  getAdminRoomChatMessages,
   deleteAdminMatchingRoom,
   deleteAdminMatchingRoomMember,
   getAdminUsers,
   deleteAdminUser,
   sendAdminFeedback,
 } from "./adminService";
+export type { AdminChatMessageItem } from "./adminService";
