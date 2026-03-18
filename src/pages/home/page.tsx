@@ -19,6 +19,8 @@ export default function Home() {
       assets: "12,666,600원",
     },
   ] as const;
+  const surveyUrl =
+    "https://docs.google.com/forms/d/1nvWJjVSmeMY6Ev2s-etKNf6teg8HF-haVaTBj5PSeKM/viewform?hl=ko&hl=ko&edit_requested=true";
 
   return (
     <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
@@ -77,6 +79,21 @@ export default function Home() {
               <li>참여상(2명): 스타벅스 기프티콘</li>
             </ul>
           </div>
+        </section>
+
+        <section className="mt-4 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6">
+          <a
+            href={surveyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+          >
+            대회 피드백 설문조사 참여하기
+          </a>
+          <p className="text-xs text-gray-500 mt-2">
+            설문조사를 진행하면 소정의 상품(추첨을 통해 스타벅스 기프티콘 3명)을
+            드립니다.
+          </p>
         </section>
       </main>
     </div>
