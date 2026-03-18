@@ -32,7 +32,7 @@ export default function Home() {
                 모의투자 대회가 종료되었습니다.
               </p>
               <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">
-                상품 지급은 차주(3월 넷째주)에 상금에 따라 지급됩니다.
+                상품 지급은 차주(3월 넷째주)에 순위에 따라 지급됩니다.
               </p>
             </div>
             <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center flex-shrink-0">
