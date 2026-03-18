@@ -243,6 +243,75 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
           {/* 왼쪽 컬럼 - 모바일에서 자산 먼저, 데스크톱에서는 대회 → 자산 → 보유 주식 */}
           <div className="md:col-span-8 min-w-0 flex flex-col">
+            {/* 대회 종료 안내 + 수상자/상품 */}
+            <section className="order-0 md:order-0">
+              <h3 className="text-base font-semibold text-gray-700 mb-4">
+                대회 종료 안내
+              </h3>
+              <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-600">
+                      모의투자 대회가 종료되었습니다.
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      상품 지급은 <span className="font-semibold text-gray-900">차주(3월 넷째주)</span>에 상금에 따라 지급됩니다.
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <i
+                      className="ri-award-line text-2xl text-teal-600"
+                      aria-hidden
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {allGroupsRanking.slice(0, 3).map((group, idx) => {
+                    const rank = idx + 1;
+                    const medal =
+                      rank === 1 ? "bg-yellow-50 border-yellow-200" : rank === 2 ? "bg-gray-50 border-gray-200" : "bg-amber-50 border-amber-200";
+                    return (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => navigate("/ranking")}
+                        className={`text-left rounded-2xl p-4 border ${medal} hover:shadow-sm active:scale-[0.99] transition-all min-h-[44px]`}
+                        aria-label={`랭킹 ${rank}위 ${group.groupName} 보기`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-gray-900">
+                            {rank}위
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatPercentWithSign(group.profitRate * 100)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-base font-semibold text-gray-900 truncate">
+                          {group.groupName}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {formatCurrency(group.currentAssets)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-5 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-sm font-semibold text-gray-800 mb-2">
+                    상품 안내
+                  </p>
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    <li>1등(1명): 배민 5만원 권</li>
+                    <li>2등(1명): 배민 3만원 권</li>
+                    <li>3등(2명): 배민 1만원 권</li>
+                    <li>참여상(2명): 스타벅스 기프티콘</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
             {/* 진행 중인 대회 - 모바일에서는 자산 아래 */}
             <section className="order-2 md:order-1 mt-6 md:mt-0">
               <h3 className="text-base font-semibold text-gray-700 mb-4">
