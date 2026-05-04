@@ -141,6 +141,19 @@ export function apiPatch<T>(
   });
 }
 
+/** PUT */
+export function apiPut<T>(
+  path: string,
+  body?: unknown,
+  config?: RequestConfig
+): Promise<T> {
+  return request<T>(path, {
+    ...config,
+    method: "PUT",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
 /** DELETE */
 export function apiDelete<T>(path: string, config?: RequestConfig): Promise<T> {
   return request<T>(path, { ...config, method: "DELETE" });

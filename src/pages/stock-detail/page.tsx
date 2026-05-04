@@ -293,12 +293,12 @@ const StockDetailPage = () => {
     setPricePerShare(displayCurrentPrice);
     if (type === "sell") {
       const maxQty = maxQuantityByHolding;
-      setQuantity(maxQty > 0 ? Math.min(1, maxQty) : 1);
+      setQuantityInput(String(maxQty > 0 ? Math.min(1, maxQty) : 1));
     } else {
       const cash = availableCash ?? 0;
       const price = displayCurrentPrice || 1;
       const maxQ = computeMaxBuyQuantity({ availableCash: cash, price });
-      setQuantity(maxQ > 0 ? Math.min(1, maxQ) : 1);
+      setQuantityInput(String(maxQ > 0 ? Math.min(1, maxQ) : 1));
     }
     setInvestmentLogic("");
     setSelectedTags([]);
@@ -467,11 +467,7 @@ const StockDetailPage = () => {
           return;
         }
         const pricePerShare =
-          orderStrategy === "LIMIT"
-            ? limitPrice
-            : orderStrategy === "MARKET"
-              ? displayCurrentPrice
-              : triggerPrice;
+          orderStrategy === "MARKET" ? displayCurrentPrice : triggerPrice;
         const stockIdNum = parseInt(String(stock.code).trim(), 10);
         if (!Number.isFinite(stockIdNum) || stockIdNum < 0) {
           setShareError("종목 정보가 올바르지 않습니다.");
