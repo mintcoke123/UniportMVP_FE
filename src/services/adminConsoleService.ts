@@ -52,6 +52,7 @@ export interface ManagedNewsArticle {
 export interface ManagedCommunityComment {
   id?: number;
   postId?: number;
+  authorUserId?: number | null;
   authorName: string;
   authorProfileImageUrl?: string;
   content: string;
@@ -62,8 +63,12 @@ export interface ManagedCommunityComment {
 export interface ManagedCommunityPost {
   id?: number;
   type: string;
+  authorUserId?: number | null;
   authorName: string;
   authorProfileImageUrl?: string;
+  stockCode?: string;
+  stockName?: string;
+  sentiment?: string;
   title: string;
   content: string;
   analysisReportId?: string;

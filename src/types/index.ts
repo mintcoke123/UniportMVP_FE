@@ -111,6 +111,15 @@ export interface StockNewsItem {
   summary: string;
 }
 
+export interface InvestorSentimentItem {
+  bullishCount: number;
+  bearishCount: number;
+  neutralCount: number;
+  bullishPercentage: number;
+  bearishPercentage: number;
+  neutralPercentage: number;
+}
+
 /** 실시간 시세 WebSocket 수신 메시지 (백엔드 /prices 푸시) */
 export interface RealtimePriceUpdate {
   stockCode: string;
@@ -134,6 +143,8 @@ export interface StockDetailResponse {
   financialData: FinancialQuarter[];
   companyInfo: string;
   news: StockNewsItem[];
+  investorSentiment?: InvestorSentimentItem;
+  discussionCount?: number;
 }
 
 // ---- Competition (대회 — 랭킹 방식) ----

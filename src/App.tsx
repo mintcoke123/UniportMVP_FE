@@ -118,8 +118,12 @@ const emptyNewsForm: ManagedNewsArticle = {
 
 const emptyPostForm: ManagedCommunityPost = {
   type: "GENERAL",
+  authorUserId: null,
   authorName: "",
   authorProfileImageUrl: "",
+  stockCode: "",
+  stockName: "",
+  sentiment: "NEUTRAL",
   title: "",
   content: "",
   analysisReportId: "",
@@ -128,6 +132,7 @@ const emptyPostForm: ManagedCommunityPost = {
 };
 
 const emptyCommentForm: ManagedCommunityComment = {
+  authorUserId: null,
   authorName: "",
   authorProfileImageUrl: "",
   content: "",
