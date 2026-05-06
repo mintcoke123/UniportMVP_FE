@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AdminUser,
   BootstrapCounts,
+  EducationCatalogResponse,
+  EducationDayContent,
   FriendRelation,
   GifticonInventory,
   ManagedCommunityComment,
@@ -31,6 +33,8 @@ import {
   deleteUser,
   getBootstrap,
   getCommunityPosts,
+  getEducationCatalog,
+  getEducationDayContent,
   getEtfs,
   getFriendRelations,
   getGifticonInventory,
@@ -55,6 +59,7 @@ import {
 
 type TabKey =
   | "dashboard"
+  | "education"
   | "etfs"
   | "news"
   | "community"
@@ -67,6 +72,7 @@ type PointShopTab = "products" | "inventory" | "wallets" | "orders";
 
 const navItems: Array<{ key: TabKey; label: string; description: string }> = [
   { key: "dashboard", label: "대시보드", description: "전체 현황" },
+  { key: "education", label: "교육", description: "카탈로그와 Day 콘텐츠 조회" },
   { key: "etfs", label: "ETF", description: "편집, 분석, 탐색 데이터" },
   { key: "news", label: "뉴스", description: "기사와 메타데이터" },
   { key: "community", label: "커뮤니티", description: "글과 댓글" },
@@ -203,6 +209,13 @@ function App() {
   const [wallets, setWallets] = useState<PointWallet[]>([]);
   const [orders, setOrders] = useState<PointShopOrder[]>([]);
   const [friends, setFriends] = useState<FriendRelation[]>([]);
+  const [educationCatalog, setEducationCatalog] = useState<EducationCatalogResponse | null>(null);
+  const [educationDayContent, setEducationDayContent] = useState<EducationDayContent | null>(null);
+  const [educationCatalogLoading, setEducationCatalogLoading] = useState(false);
+  const [educationDayLoading, setEducationDayLoading] = useState(false);
+  const [selectedEducationTrackKey, setSelectedEducationTrackKey] = useState("");
+  const [selectedEducationDay, setSelectedEducationDay] = useState("1");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   const [etfForm, setEtfForm] = useState<ManagedEtf>(emptyEtfForm);
   const [newsForm, setNewsForm] = useState<ManagedNewsArticle>(emptyNewsForm);
@@ -246,10 +259,52 @@ function App() {
       })),
     [inventory],
   );
+  const filteredUsers = useMemo(() => {
+    const query = userSearchQuery.trim().toLowerCase();
+    if (!query) return users;
+    return users.filter((user) =>
+      [user.studentId, user.nickname, user.email, user.role, user.teamId].some((value) =>
+        String(value ?? "").toLowerCase().includes(query),
+      ),
+    );
+  }, [userSearchQuery, users]);
+  const educationTrackOptions = useMemo(
+    () =>
+      (educationCatalog?.tracks ?? []).map((track) => ({
+        value: createEducationTrackKey(track.track, track.sector),
+        label: `${track.title ?? track.track}${track.sector ? ` · ${track.sector}` : ""}`,
+      })),
+    [educationCatalog],
+  );
+  const selectedEducationTrack = useMemo(
+    () => parseEducationTrackKey(selectedEducationTrackKey),
+    [selectedEducationTrackKey],
+  );
+  const selectedEducationTrackSummary = useMemo(
+    () =>
+      (educationCatalog?.tracks ?? []).find(
+        (track) =>
+          track.track === selectedEducationTrack.track &&
+          (track.sector ?? "") === (selectedEducationTrack.sector ?? ""),
+      ) ?? null,
+    [educationCatalog, selectedEducationTrack],
+  );
 
   useEffect(() => {
     void loadAll();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "education" || educationCatalogLoading || educationCatalog) return;
+    void loadEducationCatalog();
+  }, [activeTab, educationCatalog, educationCatalogLoading]);
+
+  useEffect(() => {
+    if (activeTab !== "education" || !selectedEducationTrackKey) return;
+    const day = Number(selectedEducationDay);
+    if (!Number.isFinite(day) || day < 1) return;
+    void loadEducationDay(selectedEducationTrack.track, day, selectedEducationTrack.sector);
+  }, [activeTab, selectedEducationDay, selectedEducationTrack, selectedEducationTrackKey]);
 
   async function loadAll() {
     setError(null);
@@ -296,6 +351,38 @@ function App() {
       setFriends(friendRes);
     } catch (err) {
       setError(extractMessage(err));
+    }
+  }
+
+  async function loadEducationCatalog() {
+    setEducationCatalogLoading(true);
+    setError(null);
+    try {
+      const catalog = await getEducationCatalog();
+      setEducationCatalog(catalog);
+      if (!selectedEducationTrackKey && catalog.tracks.length > 0) {
+        const first = catalog.tracks[0];
+        setSelectedEducationTrackKey(createEducationTrackKey(first.track, first.sector));
+        setSelectedEducationDay("1");
+      }
+    } catch (err) {
+      setError(extractMessage(err));
+    } finally {
+      setEducationCatalogLoading(false);
+    }
+  }
+
+  async function loadEducationDay(track: string, day: number, sector?: string | null) {
+    setEducationDayLoading(true);
+    setError(null);
+    try {
+      const content = await getEducationDayContent(track, day, sector);
+      setEducationDayContent(content);
+    } catch (err) {
+      setEducationDayContent(null);
+      setError(extractMessage(err));
+    } finally {
+      setEducationDayLoading(false);
     }
   }
 
@@ -788,6 +875,123 @@ function App() {
             </div>
           )}
 
+          {activeTab === "education" && (
+            <div className="space-y-4">
+              <Panel title="교육 콘텐츠 조회" description="카탈로그를 고르고 Day 상세 콘텐츠를 읽기 전용으로 확인합니다.">
+                <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr_0.5fr_auto]">
+                  <SelectField
+                    label="트랙"
+                    value={selectedEducationTrackKey}
+                    onChange={setSelectedEducationTrackKey}
+                    options={[
+                      { value: "", label: educationCatalogLoading ? "불러오는 중..." : "트랙 선택" },
+                      ...educationTrackOptions,
+                    ]}
+                  />
+                  <Field
+                    label="섹터"
+                    value={selectedEducationTrackSummary?.sector ?? selectedEducationTrack.sector ?? "-"}
+                    onChange={() => {}}
+                  />
+                  <Field label="Day" type="number" value={selectedEducationDay} onChange={setSelectedEducationDay} />
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => void loadEducationCatalog()}
+                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      카탈로그 새로고침
+                    </button>
+                  </div>
+                </div>
+              </Panel>
+
+              {educationCatalog && (
+                <div className="grid gap-4 xl:grid-cols-[0.7fr_1.3fr]">
+                  <Panel title="카탈로그 요약" description={`콘텐츠 버전 ${educationCatalog.contentVersion ?? "-"}`}>
+                    <div className="space-y-3 text-sm text-slate-700">
+                      <DashboardRow label="트랙 수" value={String(educationCatalog.tracks.length)} />
+                      <DashboardRow label="섹터 수" value={String(educationCatalog.sectors?.length ?? 0)} />
+                      <DashboardRow label="선택 트랙 전체 Day" value={String(selectedEducationTrackSummary?.totalDays ?? "-")} />
+                    </div>
+                  </Panel>
+
+                  <Panel
+                    title={
+                      selectedEducationTrackSummary?.title
+                        ? `${selectedEducationTrackSummary.title} / Day ${selectedEducationDay}`
+                        : `Day ${selectedEducationDay}`
+                    }
+                    description={selectedEducationTrackSummary?.levelLabel ?? "선택한 교육 콘텐츠를 상세 조회합니다."}
+                  >
+                    {educationDayLoading ? (
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                        교육 콘텐츠를 불러오는 중입니다.
+                      </div>
+                    ) : educationDayContent ? (
+                      <div className="space-y-6">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="rounded-2xl bg-slate-50 p-4">
+                            <h4 className="text-base font-bold text-slate-900">{educationDayContent.overview?.title ?? "개요"}</h4>
+                            <p className="mt-2 text-sm text-slate-600">{educationDayContent.overview?.summary1 ?? "-"}</p>
+                            <p className="mt-2 text-sm text-slate-600">{educationDayContent.overview?.summary2 ?? "-"}</p>
+                          </div>
+                          <div className="rounded-2xl bg-slate-50 p-4">
+                            <h4 className="text-base font-bold text-slate-900">퀴즈 정보</h4>
+                            <div className="mt-3 space-y-3 text-sm text-slate-700">
+                              <DashboardRow label="모드" value={String(educationDayContent.quiz?.mode ?? "-")} />
+                              <DashboardRow label="문항 수" value={String(educationDayContent.quiz?.questionCount ?? 0)} />
+                              <DashboardRow label="사용 가능" value={educationDayContent.quiz?.available ? "YES" : "NO"} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <h4 className="text-base font-bold text-slate-900">Key Points</h4>
+                          {educationDayContent.overview?.keyPoints?.length ? (
+                            <div className="mt-3 space-y-2">
+                              {educationDayContent.overview.keyPoints.map((point, index) => (
+                                <div key={`${point}-${index}`} className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                                  {point}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-sm text-slate-500">요약 포인트가 없습니다.</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <h4 className="text-base font-bold text-slate-900">카드 목록</h4>
+                          {educationDayContent.cards?.length ? (
+                            educationDayContent.cards.map((card) => (
+                              <div key={`${card.idx ?? 0}-${card.cardNumber ?? "card"}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                                  <span>{card.section ?? "SECTION"}</span>
+                                  <span>{card.cardNumber ?? ""}</span>
+                                </div>
+                                <h5 className="mt-2 text-lg font-bold text-slate-950">{card.title ?? "Untitled"}</h5>
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{card.text ?? "-"}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                              해당 Day에 카드가 없습니다.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                        트랙과 Day를 선택하면 교육 콘텐츠를 보여줍니다.
+                      </div>
+                    )}
+                  </Panel>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "insights" && (
             <Panel title="홈 대시보드 상위 그룹 인사이트" description="`/api/home/group-insights`에 들어갈 운영 데이터를 관리합니다.">
               <form
@@ -826,21 +1030,24 @@ function App() {
               formTitle={selectedUserId ? "회원 정보 수정" : "회원 선택"}
               onReset={() => resetSelection("user")}
               list={
-                <EntityList
-                  items={users}
-                  selectedId={selectedUserId}
-                  getId={(item) => item.id}
-                  getTitle={(item) => item.nickname}
-                  getMeta={(item) => `${item.studentId} · ${item.role ?? "user"} · ${item.pointBalance ?? 0}P`}
-                  onSelect={selectUser}
-                  onDelete={(item) =>
-                    void withMutation("delete-user", async () => {
-                      await deleteUser(item.id);
-                      await loadAll();
-                      resetSelection("user");
-                    })
-                  }
-                />
+                <div className="space-y-4">
+                  <Field label="회원 검색" value={userSearchQuery} onChange={setUserSearchQuery} />
+                  <EntityList
+                    items={filteredUsers}
+                    selectedId={selectedUserId}
+                    getId={(item) => item.id}
+                    getTitle={(item) => item.nickname}
+                    getMeta={(item) => `${item.studentId} · ${item.role ?? "user"} · ${item.pointBalance ?? 0}P`}
+                    onSelect={selectUser}
+                    onDelete={(item) =>
+                      void withMutation("delete-user", async () => {
+                        await deleteUser(item.id);
+                        await loadAll();
+                        resetSelection("user");
+                      })
+                    }
+                  />
+                </div>
               }
               form={
                 selectedUserId ? (
@@ -1545,6 +1752,18 @@ function PrimaryButton({
       {busy ? "저장 중..." : children}
     </button>
   );
+}
+
+function createEducationTrackKey(track?: string | null, sector?: string | null) {
+  return `${track ?? ""}::${sector ?? ""}`;
+}
+
+function parseEducationTrackKey(value: string) {
+  const [track = "", sector = ""] = value.split("::");
+  return {
+    track,
+    sector: sector || null,
+  };
 }
 
 function extractMessage(error: unknown) {

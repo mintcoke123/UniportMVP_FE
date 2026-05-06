@@ -176,6 +176,62 @@ export interface FriendRelation {
   updatedAt?: string;
 }
 
+export interface EducationTrackSummary {
+  track: string;
+  levelLabel?: string;
+  title?: string;
+  totalDays?: number;
+  sector?: string | null;
+}
+
+export interface EducationCatalogResponse {
+  contentVersion?: string;
+  tracks: EducationTrackSummary[];
+  sectors?: string[];
+}
+
+export interface EducationOverview {
+  levelLabel?: string;
+  dayLabel?: string;
+  title?: string;
+  summary1?: string;
+  summary2?: string;
+  keyPoints?: string[];
+  ctaLabel?: string;
+}
+
+export interface EducationCard {
+  idx?: number;
+  sheet?: string;
+  track?: string;
+  sector?: string | null;
+  day?: number;
+  section?: string;
+  cardNumber?: string;
+  assetId?: string;
+  title?: string;
+  text?: string;
+  imageType?: string;
+  svgPreset?: string;
+  visual?: unknown;
+}
+
+export interface EducationQuizMeta {
+  mode?: string;
+  questionCount?: number;
+  available?: boolean;
+}
+
+export interface EducationDayContent {
+  contentVersion?: string;
+  track?: string;
+  sector?: string | null;
+  day?: number;
+  overview?: EducationOverview;
+  cards?: EducationCard[];
+  quiz?: EducationQuizMeta;
+}
+
 const base = "/api/admin-console";
 
 export const getBootstrap = () => apiGet<BootstrapCounts>(`${base}/bootstrap`, { skipAuth: true });
@@ -228,3 +284,9 @@ export const getFriendRelations = () => apiGet<FriendRelation[]>(`${base}/friend
 export const createFriendRelation = (body: FriendRelation) => apiPost<FriendRelation>(`${base}/friends`, body, { skipAuth: true });
 export const updateFriendRelation = (id: number, body: FriendRelation) => apiPut<FriendRelation>(`${base}/friends/${id}`, body, { skipAuth: true });
 export const deleteFriendRelation = (id: number) => apiDelete<{ success: boolean }>(`${base}/friends/${id}`, { skipAuth: true });
+
+export const getEducationCatalog = () => apiGet<EducationCatalogResponse>(`${base}/education/catalog`, { skipAuth: true });
+export const getEducationDayContent = (track: string, day: number, sector?: string | null) => {
+  const query = sector ? `?sector=${encodeURIComponent(sector)}` : "";
+  return apiGet<EducationDayContent>(`${base}/education/days/${encodeURIComponent(track)}/${day}${query}`, { skipAuth: true });
+};
