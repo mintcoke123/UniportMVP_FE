@@ -232,6 +232,24 @@ export interface EducationDayContent {
   quiz?: EducationQuizMeta;
 }
 
+export interface AdminMatchingRoomMember {
+  userId?: string | number | null;
+  nickname?: string;
+  joinedAt?: string;
+}
+
+export interface AdminMatchingRoom {
+  id: string;
+  name: string;
+  capacity: number;
+  memberCount: number;
+  members: AdminMatchingRoomMember[];
+  status?: string;
+  visibility?: string;
+  inviteCode?: string | null;
+  createdAt?: string;
+}
+
 const base = "/api/admin-console";
 
 export const getBootstrap = () => apiGet<BootstrapCounts>(`${base}/bootstrap`, { skipAuth: true });
@@ -256,6 +274,15 @@ export const deleteCommunityComment = (id: number) => apiDelete<{ success: boole
 
 export const getHomeGroupInsight = () => apiGet<ManagedGroupInsight>(`${base}/group-insights/home`, { skipAuth: true });
 export const updateHomeGroupInsight = (body: ManagedGroupInsight) => apiPut<ManagedGroupInsight>(`${base}/group-insights/home`, body, { skipAuth: true });
+
+export const getMatchingRooms = () => apiGet<AdminMatchingRoom[]>(`${base}/matching-rooms`, { skipAuth: true });
+export const deleteMatchingRoom = (roomId: string) =>
+  apiDelete<{ success: boolean; message: string }>(`${base}/matching-rooms/${encodeURIComponent(roomId)}`, { skipAuth: true });
+export const deleteMatchingRoomMember = (roomId: string, userId: string) =>
+  apiDelete<{ success: boolean; message: string }>(
+    `${base}/matching-rooms/${encodeURIComponent(roomId)}/members/${encodeURIComponent(userId)}`,
+    { skipAuth: true },
+  );
 
 export const getUsers = () => apiGet<AdminUser[]>(`${base}/users`, { skipAuth: true });
 export const updateUser = (id: number, body: Partial<AdminUser>) => apiPatch<AdminUser>(`${base}/users/${id}`, body, { skipAuth: true });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  AdminMatchingRoom,
   AdminUser,
   BootstrapCounts,
   EducationCatalogResponse,
@@ -24,6 +25,8 @@ import {
   createPointShopProduct,
   deleteCommunityComment,
   deleteCommunityPost,
+  deleteMatchingRoom,
+  deleteMatchingRoomMember,
   deleteEtf,
   deleteFriendRelation,
   deleteGifticonInventory,
@@ -39,6 +42,7 @@ import {
   getFriendRelations,
   getGifticonInventory,
   getHomeGroupInsight,
+  getMatchingRooms,
   getNews,
   getPointShopOrders,
   getPointShopProducts,
@@ -56,12 +60,6 @@ import {
   updatePointWallet,
   updateUser,
 } from "./services/adminConsoleService";
-import {
-  deleteAdminMatchingRoom,
-  deleteAdminMatchingRoomMember,
-  getAdminMatchingRooms,
-} from "./services/adminService";
-import type { MatchingRoom } from "./types";
 
 type TabKey =
   | "dashboard"
@@ -74,16 +72,6 @@ type TabKey =
   | "users"
   | "pointshop"
   | "friends";
-
-type AdminMatchingRoomMember = {
-  userId?: string | number | null;
-  nickname?: string;
-  joinedAt?: string;
-};
-
-type AdminMatchingRoom = Omit<MatchingRoom, "members"> & {
-  members: AdminMatchingRoomMember[];
-};
 
 type PointShopTab = "products" | "inventory" | "wallets" | "orders";
 
@@ -375,7 +363,7 @@ function App() {
         getNews(),
         getCommunityPosts(),
         getHomeGroupInsight(),
-        getAdminMatchingRooms(),
+        getMatchingRooms(),
         getUsers(),
         getPointShopProducts(),
         getGifticonInventory(),
@@ -441,7 +429,7 @@ function App() {
     setRoomActionError(null);
     setDeletingRoomId(roomId);
     try {
-      const result = await deleteAdminMatchingRoom(roomId);
+      const result = await deleteMatchingRoom(roomId);
       if (!result.success) {
         setRoomActionError(result.message);
         return;
@@ -466,7 +454,7 @@ function App() {
     setRoomActionError(null);
     setMemberActionKey(actionKey);
     try {
-      const result = await deleteAdminMatchingRoomMember(roomId, normalizedUserId);
+      const result = await deleteMatchingRoomMember(roomId, normalizedUserId);
       if (!result.success) {
         setRoomActionError(result.message);
         return;
@@ -614,7 +602,7 @@ function App() {
             </p>
           </div>
           <div className="space-y-2">
-            {navItems.map((item) => (
+                {legacyNavItems.map((item) => (
               <button
                 key={item.key}
                 type="button"
@@ -638,7 +626,7 @@ function App() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Admin Data Workspace</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  {navItems.find((item) => item.key === activeTab)?.label}
+                  {legacyNavItems.find((item) => item.key === activeTab)?.label}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
                   인증 없이 운영 데이터 입력과 수정이 가능하도록 구성된 내부 관리 화면입니다.
