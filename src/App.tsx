@@ -94,7 +94,7 @@ const legacyNavItems: Array<{ key: TabKey; label: string; description: string }>
   { key: "news", label: "News", description: "Article data management" },
   { key: "community", label: "Community", description: "Posts and comments" },
   { key: "insights", label: "Insights", description: "Home group insight" },
-  { key: "matchingrooms", label: "Matching Rooms", description: "Rooms and forced member removal" },
+  { key: "matchingrooms", label: "매칭방", description: "방과 멤버 관리" },
   { key: "users", label: "Users", description: "View, edit, delete" },
   { key: "pointshop", label: "Point Shop", description: "Products, inventory, wallets, orders" },
   { key: "friends", label: "Friends", description: "Friend relation management" },
@@ -1106,16 +1106,16 @@ function App() {
           )}
 
           {activeTab === "matchingrooms" && (
-            <Panel title="Matching Rooms" description="Manage rooms and forcibly remove members from each room.">
+            <Panel title="매칭방 관리" description="매칭방 목록을 보고 멤버를 강제로 제거하거나 방을 삭제할 수 있습니다.">
               <div className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                  <Field label="Room Search" value={roomSearchQuery} onChange={setRoomSearchQuery} />
+                  <Field label="방 검색" value={roomSearchQuery} onChange={setRoomSearchQuery} />
                   <button
                     type="button"
                     onClick={() => void loadAll()}
                     className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    Refresh Rooms
+                    방 목록 새로고침
                   </button>
                 </div>
 
@@ -1127,7 +1127,7 @@ function App() {
 
                 {filteredRooms.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
-                    No matching rooms found.
+                    검색 조건에 맞는 매칭방이 없습니다.
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1145,9 +1145,9 @@ function App() {
                               </span>
                             </div>
                             <div className="flex flex-wrap gap-3 text-sm text-slate-600">
-                              <span>Members {room.memberCount}/{room.capacity}</span>
-                              <span>Visibility {room.visibility ?? "-"}</span>
-                              <span>Invite {room.inviteCode ?? "-"}</span>
+                              <span>멤버 {room.memberCount}/{room.capacity}</span>
+                              <span>공개 범위 {room.visibility ?? "-"}</span>
+                              <span>초대 코드 {room.inviteCode ?? "-"}</span>
                             </div>
                           </div>
                           <button
@@ -1156,7 +1156,7 @@ function App() {
                             disabled={deletingRoomId === room.id}
                             className="rounded-2xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {deletingRoomId === room.id ? "Deleting..." : "Delete Room"}
+                            {deletingRoomId === room.id ? "삭제 중..." : "방 삭제"}
                           </button>
                         </div>
 
@@ -1173,13 +1173,13 @@ function App() {
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                       <div className="truncate text-sm font-bold text-slate-900">
-                                        {member.nickname ?? "Unknown"}
+                                        {member.nickname ?? "알 수 없음"}
                                       </div>
                                       <div className="mt-1 text-xs text-slate-500">
-                                        User ID {normalizedUserId || "-"}
+                                        사용자 ID {normalizedUserId || "-"}
                                       </div>
                                       <div className="mt-1 text-xs text-slate-500">
-                                        Joined {member.joinedAt ? member.joinedAt : "-"}
+                                        참여 시각 {member.joinedAt ? member.joinedAt : "-"}
                                       </div>
                                     </div>
                                     <button
@@ -1188,7 +1188,7 @@ function App() {
                                       disabled={!normalizedUserId || memberActionKey === actionKey}
                                       className="rounded-xl border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                      {memberActionKey === actionKey ? "Removing..." : "Remove"}
+                                      {memberActionKey === actionKey ? "제거 중..." : "멤버 제거"}
                                     </button>
                                   </div>
                                 </div>
@@ -1196,7 +1196,7 @@ function App() {
                             })
                           ) : (
                             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                              No members in this room.
+                              이 방에는 표시할 멤버가 없습니다.
                             </div>
                           )}
                         </div>
