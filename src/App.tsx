@@ -100,11 +100,37 @@ const legacyNavItems: Array<{ key: TabKey; label: string; description: string }>
   { key: "friends", label: "Friends", description: "Friend relation management" },
 ];
 
+const legacyNavItemsKo: Array<{ key: TabKey; label: string; description: string }> = [
+  { key: "dashboard", label: "대시보드", description: "전체 현황" },
+  { key: "education", label: "교육", description: "트랙과 Day 콘텐츠 조회" },
+  { key: "etfs", label: "ETF", description: "ETF 데이터 관리" },
+  { key: "news", label: "뉴스", description: "기사 데이터 관리" },
+  { key: "community", label: "커뮤니티", description: "게시글과 댓글 관리" },
+  { key: "insights", label: "인사이트", description: "홈 그룹 인사이트 관리" },
+  { key: "matchingrooms", label: "매칭방", description: "방과 멤버 관리" },
+  { key: "users", label: "회원", description: "조회, 수정, 삭제" },
+  { key: "pointshop", label: "포인트샵", description: "상품, 재고, 지갑, 주문" },
+  { key: "friends", label: "친구", description: "친구 관계 관리" },
+];
+
 const pointShopNav: Array<{ key: PointShopTab; label: string }> = [
   { key: "products", label: "상품" },
   { key: "inventory", label: "기프티콘 재고" },
   { key: "wallets", label: "포인트 지갑" },
   { key: "orders", label: "주문" },
+];
+
+const displayedNavItems: Array<{ key: TabKey; label: string; description: string }> = [
+  { key: "dashboard", label: "대시보드", description: "전체 현황" },
+  { key: "education", label: "교육", description: "트랙과 Day 콘텐츠 조회" },
+  { key: "etfs", label: "ETF", description: "ETF 데이터 관리" },
+  { key: "news", label: "뉴스", description: "기사 데이터 관리" },
+  { key: "community", label: "커뮤니티", description: "게시글과 댓글 관리" },
+  { key: "insights", label: "인사이트", description: "홈 그룹 인사이트 관리" },
+  { key: "matchingrooms", label: "매칭방", description: "방과 멤버 관리" },
+  { key: "users", label: "회원", description: "조회, 수정, 삭제" },
+  { key: "pointshop", label: "포인트샵", description: "상품, 재고, 지갑, 주문" },
+  { key: "friends", label: "친구", description: "친구 관계 관리" },
 ];
 
 const emptyEtfForm: ManagedEtf = {
@@ -595,14 +621,14 @@ function App() {
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
         <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white/90 px-5 py-6 backdrop-blur lg:block">
           <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">UniPort Admin</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">유니포트 어드민</p>
             <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950">데이터 콘솔</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               ETF, 뉴스, 커뮤니티, 포인트샵, 친구, 회원 정보를 한 화면에서 관리합니다.
             </p>
           </div>
           <div className="space-y-2">
-                {legacyNavItems.map((item) => (
+                {displayedNavItems.map((item) => (
               <button
                 key={item.key}
                 type="button"
@@ -624,9 +650,9 @@ function App() {
           <header className="mb-6 rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Admin Data Workspace</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">운영 데이터 작업 공간</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  {legacyNavItems.find((item) => item.key === activeTab)?.label}
+                  {displayedNavItems.find((item) => item.key === activeTab)?.label}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
                   인증 없이 운영 데이터 입력과 수정이 가능하도록 구성된 내부 관리 화면입니다.
@@ -1022,13 +1048,13 @@ function App() {
                             <div className="mt-3 space-y-3 text-sm text-slate-700">
                               <DashboardRow label="모드" value={String(educationDayContent.quiz?.mode ?? "-")} />
                               <DashboardRow label="문항 수" value={String(educationDayContent.quiz?.questionCount ?? 0)} />
-                              <DashboardRow label="사용 가능" value={educationDayContent.quiz?.available ? "YES" : "NO"} />
+                              <DashboardRow label="사용 가능" value={educationDayContent.quiz?.available ? "예" : "아니오"} />
                             </div>
                           </div>
                         </div>
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <h4 className="text-base font-bold text-slate-900">Key Points</h4>
+                          <h4 className="text-base font-bold text-slate-900">핵심 포인트</h4>
                           {educationDayContent.overview?.keyPoints?.length ? (
                             <div className="mt-3 space-y-2">
                               {educationDayContent.overview.keyPoints.map((point, index) => (
@@ -1048,10 +1074,10 @@ function App() {
                             educationDayContent.cards.map((card) => (
                               <div key={`${card.idx ?? 0}-${card.cardNumber ?? "card"}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                                  <span>{card.section ?? "SECTION"}</span>
+                                  <span>{card.section ?? "섹션"}</span>
                                   <span>{card.cardNumber ?? ""}</span>
                                 </div>
-                                <h5 className="mt-2 text-lg font-bold text-slate-950">{card.title ?? "Untitled"}</h5>
+                                <h5 className="mt-2 text-lg font-bold text-slate-950">{card.title ?? "제목 없음"}</h5>
                                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{card.text ?? "-"}</p>
                               </div>
                             ))
