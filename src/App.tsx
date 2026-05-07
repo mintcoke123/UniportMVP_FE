@@ -56,6 +56,12 @@ import {
   updatePointWallet,
   updateUser,
 } from "./services/adminConsoleService";
+import {
+  deleteAdminMatchingRoom,
+  deleteAdminMatchingRoomMember,
+  getAdminMatchingRooms,
+} from "./services/adminService";
+import type { MatchingRoom } from "./types";
 
 type TabKey =
   | "dashboard"
@@ -64,9 +70,20 @@ type TabKey =
   | "news"
   | "community"
   | "insights"
+  | "matchingrooms"
   | "users"
   | "pointshop"
   | "friends";
+
+type AdminMatchingRoomMember = {
+  userId?: string | number | null;
+  nickname?: string;
+  joinedAt?: string;
+};
+
+type AdminMatchingRoom = Omit<MatchingRoom, "members"> & {
+  members: AdminMatchingRoomMember[];
+};
 
 type PointShopTab = "products" | "inventory" | "wallets" | "orders";
 
@@ -80,6 +97,19 @@ const navItems: Array<{ key: TabKey; label: string; description: string }> = [
   { key: "users", label: "회원 관리", description: "조회, 수정, 삭제" },
   { key: "pointshop", label: "포인트샵", description: "상품, 재고, 지갑, 주문" },
   { key: "friends", label: "친구", description: "친구 관계 관리" },
+];
+
+const legacyNavItems: Array<{ key: TabKey; label: string; description: string }> = [
+  { key: "dashboard", label: "Dashboard", description: "Overview" },
+  { key: "education", label: "Education", description: "Track and day content" },
+  { key: "etfs", label: "ETF", description: "ETF data management" },
+  { key: "news", label: "News", description: "Article data management" },
+  { key: "community", label: "Community", description: "Posts and comments" },
+  { key: "insights", label: "Insights", description: "Home group insight" },
+  { key: "matchingrooms", label: "Matching Rooms", description: "Rooms and forced member removal" },
+  { key: "users", label: "Users", description: "View, edit, delete" },
+  { key: "pointshop", label: "Point Shop", description: "Products, inventory, wallets, orders" },
+  { key: "friends", label: "Friends", description: "Friend relation management" },
 ];
 
 const pointShopNav: Array<{ key: PointShopTab; label: string }> = [
@@ -203,6 +233,7 @@ function App() {
   const [news, setNews] = useState<ManagedNewsArticle[]>([]);
   const [posts, setPosts] = useState<ManagedCommunityPost[]>([]);
   const [insight, setInsight] = useState<ManagedGroupInsight>(emptyInsightForm);
+  const [rooms, setRooms] = useState<AdminMatchingRoom[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [products, setProducts] = useState<PointShopProduct[]>([]);
   const [inventory, setInventory] = useState<GifticonInventory[]>([]);
@@ -215,6 +246,10 @@ function App() {
   const [educationDayLoading, setEducationDayLoading] = useState(false);
   const [selectedEducationTrackKey, setSelectedEducationTrackKey] = useState("");
   const [selectedEducationDay, setSelectedEducationDay] = useState("1");
+  const [roomSearchQuery, setRoomSearchQuery] = useState("");
+  const [roomActionError, setRoomActionError] = useState<string | null>(null);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+  const [memberActionKey, setMemberActionKey] = useState<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState("");
 
   const [etfForm, setEtfForm] = useState<ManagedEtf>(emptyEtfForm);
@@ -268,6 +303,18 @@ function App() {
       ),
     );
   }, [userSearchQuery, users]);
+  const filteredRooms = useMemo(() => {
+    const query = roomSearchQuery.trim().toLowerCase();
+    if (!query) return rooms;
+    return rooms.filter((room) => {
+      const memberText = room.members
+        .map((member) => `${member.nickname ?? ""} ${member.userId ?? ""}`)
+        .join(" ");
+      return [room.id, room.name, room.status, room.inviteCode, memberText].some((value) =>
+        String(value ?? "").toLowerCase().includes(query),
+      );
+    });
+  }, [roomSearchQuery, rooms]);
   const educationTrackOptions = useMemo(
     () =>
       (educationCatalog?.tracks ?? []).map((track) => ({
@@ -315,6 +362,7 @@ function App() {
         newsRes,
         postRes,
         insightRes,
+        roomRes,
         userRes,
         productRes,
         inventoryRes,
@@ -327,6 +375,7 @@ function App() {
         getNews(),
         getCommunityPosts(),
         getHomeGroupInsight(),
+        getAdminMatchingRooms(),
         getUsers(),
         getPointShopProducts(),
         getGifticonInventory(),
@@ -343,6 +392,7 @@ function App() {
         ...insightRes,
         topGroupId: insightRes.topGroupId ?? null,
       });
+      setRooms(roomRes);
       setUsers(userRes);
       setProducts(productRes);
       setInventory(inventoryRes);
@@ -383,6 +433,49 @@ function App() {
       setError(extractMessage(err));
     } finally {
       setEducationDayLoading(false);
+    }
+  }
+
+  async function handleDeleteRoom(roomId: string) {
+    if (!window.confirm(`"${roomId}" 방을 삭제할까요?`)) return;
+    setRoomActionError(null);
+    setDeletingRoomId(roomId);
+    try {
+      const result = await deleteAdminMatchingRoom(roomId);
+      if (!result.success) {
+        setRoomActionError(result.message);
+        return;
+      }
+      await loadAll();
+    } catch (err) {
+      setRoomActionError(extractMessage(err));
+    } finally {
+      setDeletingRoomId(null);
+    }
+  }
+
+  async function handleRemoveRoomMember(roomId: string, userId: string | number | null | undefined) {
+    const normalizedUserId =
+      userId != null && String(userId).trim() !== "" ? String(userId).trim() : null;
+    if (!normalizedUserId) {
+      setRoomActionError("멤버 식별값이 없어 제거할 수 없습니다.");
+      return;
+    }
+    if (!window.confirm("이 멤버를 해당 방에서 강제로 제거할까요?")) return;
+    const actionKey = `${roomId}:${normalizedUserId}`;
+    setRoomActionError(null);
+    setMemberActionKey(actionKey);
+    try {
+      const result = await deleteAdminMatchingRoomMember(roomId, normalizedUserId);
+      if (!result.success) {
+        setRoomActionError(result.message);
+        return;
+      }
+      await loadAll();
+    } catch (err) {
+      setRoomActionError(extractMessage(err));
+    } finally {
+      setMemberActionKey(null);
     }
   }
 
@@ -1021,6 +1114,109 @@ function App() {
                   <PrimaryButton busy={saving === "save-insight"}>인사이트 저장</PrimaryButton>
                 </div>
               </form>
+            </Panel>
+          )}
+
+          {activeTab === "matchingrooms" && (
+            <Panel title="Matching Rooms" description="Manage rooms and forcibly remove members from each room.">
+              <div className="space-y-4">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <Field label="Room Search" value={roomSearchQuery} onChange={setRoomSearchQuery} />
+                  <button
+                    type="button"
+                    onClick={() => void loadAll()}
+                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Refresh Rooms
+                  </button>
+                </div>
+
+                {roomActionError && (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {roomActionError}
+                  </div>
+                )}
+
+                {filteredRooms.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                    No matching rooms found.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredRooms.map((room) => (
+                      <div key={room.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-black tracking-tight text-slate-950">{room.name}</h3>
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                {room.id}
+                              </span>
+                              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                                {room.status}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+                              <span>Members {room.memberCount}/{room.capacity}</span>
+                              <span>Visibility {room.visibility ?? "-"}</span>
+                              <span>Invite {room.inviteCode ?? "-"}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteRoom(room.id)}
+                            disabled={deletingRoomId === room.id}
+                            className="rounded-2xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingRoomId === room.id ? "Deleting..." : "Delete Room"}
+                          </button>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {room.members.length > 0 ? (
+                            room.members.map((member, index) => {
+                              const normalizedUserId =
+                                member.userId != null && String(member.userId).trim() !== ""
+                                  ? String(member.userId).trim()
+                                  : "";
+                              const actionKey = `${room.id}:${normalizedUserId}`;
+                              return (
+                                <div key={`${room.id}-member-${normalizedUserId || index}`} className="rounded-2xl bg-slate-50 p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <div className="truncate text-sm font-bold text-slate-900">
+                                        {member.nickname ?? "Unknown"}
+                                      </div>
+                                      <div className="mt-1 text-xs text-slate-500">
+                                        User ID {normalizedUserId || "-"}
+                                      </div>
+                                      <div className="mt-1 text-xs text-slate-500">
+                                        Joined {member.joinedAt ? member.joinedAt : "-"}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleRemoveRoomMember(room.id, member.userId)}
+                                      disabled={!normalizedUserId || memberActionKey === actionKey}
+                                      className="rounded-xl border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {memberActionKey === actionKey ? "Removing..." : "Remove"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                              No members in this room.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </Panel>
           )}
 
