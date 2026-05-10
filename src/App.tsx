@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdminCompetition } from "./types";
-import { createAdminCompetition, getAdminCompetitions } from "./services/adminService";
 import {
   AdminMatchingRoom,
   AdminUser,
@@ -19,6 +18,7 @@ import {
   PointWallet,
   createCommunityComment,
   createCommunityPost,
+  createCompetition,
   createEtf,
   createFriendRelation,
   createGifticonInventory,
@@ -38,6 +38,7 @@ import {
   deleteUser,
   getBootstrap,
   getCommunityPosts,
+  getCompetitions,
   getEducationCatalog,
   getEducationDayContent,
   getEtfs,
@@ -411,7 +412,7 @@ function App() {
         getHomeGroupInsight(),
         getMatchingRooms(),
         getUsers(),
-        getAdminCompetitions(),
+        getCompetitions(),
         getPointShopProducts(),
         getGifticonInventory(),
         getPointWallets(),
@@ -576,7 +577,7 @@ function App() {
     }
 
     await withMutation("save-competition", async () => {
-      const result = await createAdminCompetition({
+      const result = await createCompetition({
         name: competitionForm.name.trim(),
         startDate: competitionForm.startDate,
         endDate: competitionForm.endDate,

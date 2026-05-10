@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./apiClient";
+import type { AdminCompetition } from "../types";
 
 export interface BootstrapCounts {
   counts: {
@@ -253,6 +254,18 @@ export interface AdminMatchingRoom {
 const base = "/api/admin-console";
 
 export const getBootstrap = () => apiGet<BootstrapCounts>(`${base}/bootstrap`, { skipAuth: true });
+
+export const getCompetitions = () => apiGet<AdminCompetition[]>(`${base}/competitions`, { skipAuth: true });
+export const createCompetition = (body: {
+  name: string;
+  startDate: string;
+  endDate: string;
+}) =>
+  apiPost<{ success: boolean; message: string; competition?: AdminCompetition }>(
+    `${base}/competitions`,
+    body,
+    { skipAuth: true },
+  );
 
 export const getEtfs = () => apiGet<ManagedEtf[]>(`${base}/etfs`, { skipAuth: true });
 export const createEtf = (body: ManagedEtf) => apiPost<ManagedEtf>(`${base}/etfs`, body, { skipAuth: true });
