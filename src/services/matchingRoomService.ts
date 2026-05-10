@@ -19,6 +19,16 @@ export interface JoinMatchingRoomResponse {
   room?: MatchingRoom;
 }
 
+export interface QuickMatchResponse {
+  success?: boolean;
+  message: string;
+  mode?: "RANDOM" | "FRIEND" | "SOLO";
+  room?: MatchingRoom;
+  teamId?: string;
+  groupId?: number;
+  competitionId?: number;
+}
+
 /**
  * 전체 매칭방 목록. 인증 시 각 방에 isJoined 포함.
  */
@@ -96,4 +106,13 @@ export async function startMatchingRoom(roomId: string): Promise<{
     groupId?: number;
     competitionId?: number;
   }>(`/api/matching-rooms/${roomId}/start`);
+}
+
+export async function quickMatchRandom(
+  marketType: "KR" | "US" = "KR"
+): Promise<QuickMatchResponse> {
+  return await apiPost<QuickMatchResponse>("/api/matching-rooms/quick-match", {
+    mode: "RANDOM",
+    marketType,
+  });
 }

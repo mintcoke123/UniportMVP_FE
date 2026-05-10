@@ -85,6 +85,7 @@ export {
   createMatchingRoom,
   joinMatchingRoom,
   joinRoomByCode,
+  quickMatchRandom,
   leaveMatchingRoom,
   startMatchingRoom,
 } from "./matchingRoomService";

@@ -6,6 +6,7 @@ import {
   createMatchingRoom,
   joinMatchingRoom,
   joinRoomByCode,
+  quickMatchRandom,
   leaveMatchingRoom,
   startMatchingRoom,
 } from "../../services";
@@ -29,6 +30,7 @@ export default function MatchingRoomsPage() {
   const [showJoinByCodeModal, setShowJoinByCodeModal] = useState(false);
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [joinByCodeLoading, setJoinByCodeLoading] = useState(false);
+  const [quickMatching, setQuickMatching] = useState(false);
   const [joinByCodeError, setJoinByCodeError] = useState<string | null>(null);
   /** 나가기 확인 모달에 표시할 방 id (null이면 모달 비표시) */
   const [leaveConfirmRoomId, setLeaveConfirmRoomId] = useState<string | null>(
@@ -188,6 +190,49 @@ export default function MatchingRoomsPage() {
     }
   };
 
+  const handleQuickMatch = async () => {
+    if (hasTeam) {
+      alert("?대? ????뚯냽?섏뼱 ?덉뼱 ?ㅻⅨ 諛⑹뿉 李멸??????놁뒿?덈떎.");
+      return;
+    }
+    if (hasJoinedRoom) {
+      alert("?대? 李멸? 以묒씤 諛⑹씠 ?덉뒿?덈떎. 癒쇱? ?꾩옱 諛⑹쓣 ?댁슜???몄슂.");
+      return;
+    }
+
+    setQuickMatching(true);
+    try {
+      const result = await quickMatchRandom("KR");
+      if (result.room) {
+        setRooms((prev) =>
+          prev.some((room) => room.id === result.room!.id)
+            ? prev.map((room) =>
+                room.id === result.room!.id
+                  ? ({ ...room, ...result.room!, isJoined: true } as MatchingRoom)
+                  : room
+              )
+            : [{ ...result.room, isJoined: true }, ...prev]
+        );
+      }
+      await getMatchingRooms().then(setRooms).catch(() => {});
+
+      const teamIdToSet =
+        result.teamId ??
+        (result.groupId != null ? String(result.groupId) : null);
+      if (teamIdToSet) {
+        updateUserTeam(teamIdToSet);
+        navigate("/mock-investment");
+        return;
+      }
+
+      alert(result.message ?? "?쒕뜡 留ㅼ묶 ?붿껌???꾨즺?덉뒿?덈떎.");
+    } catch (e: unknown) {
+      alert((e as { message?: string })?.message ?? "?쒕뜡 留ㅼ묶???ㅽ뙣?덉뒿?덈떎.");
+    } finally {
+      setQuickMatching(false);
+    }
+  };
+
   const isFull = (room: MatchingRoom) => room.memberCount >= CAPACITY;
   /** 팀방(capacity>1)은 2명 이상, 개인방은 1명일 때 모의투자 시작 가능 */
   const canStartRoom = (room: MatchingRoom) =>
@@ -246,6 +291,22 @@ export default function MatchingRoomsPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleQuickMatch}
+                  disabled={hasJoinedRoom || hasTeam || quickMatching}
+                  title={
+                    hasTeam
+                      ? "You are already on a team."
+                      : hasJoinedRoom
+                        ? "Leave your current room before starting random match."
+                        : undefined
+                  }
+                  className="py-2.5 px-5 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 cursor-pointer transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <i className="ri-shuffle-line text-lg" aria-hidden />
+                  {quickMatching ? "Matching..." : "Random Match"}
+                </button>
                 <button
                   type="button"
                   onClick={() =>

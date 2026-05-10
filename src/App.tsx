@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import type { AdminCompetition } from "./types";
+import { createAdminCompetition, getAdminCompetitions } from "./services/adminService";
 import {
   AdminMatchingRoom,
   AdminUser,
@@ -236,6 +238,21 @@ const emptyFriendForm: FriendRelation = {
   status: "ACCEPTED",
 };
 
+function createDefaultCompetitionForm() {
+  const start = new Date();
+  start.setMonth(start.getMonth() + 1);
+  start.setSeconds(0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+
+  return {
+    name: "",
+    startDate: start.toISOString().slice(0, 16),
+    endDate: end.toISOString().slice(0, 16),
+  };
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [pointShopTab, setPointShopTab] = useState<PointShopTab>("products");
@@ -249,6 +266,7 @@ function App() {
   const [insight, setInsight] = useState<ManagedGroupInsight>(emptyInsightForm);
   const [rooms, setRooms] = useState<AdminMatchingRoom[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [competitions, setCompetitions] = useState<AdminCompetition[]>([]);
   const [products, setProducts] = useState<PointShopProduct[]>([]);
   const [inventory, setInventory] = useState<GifticonInventory[]>([]);
   const [wallets, setWallets] = useState<PointWallet[]>([]);
@@ -274,6 +292,7 @@ function App() {
   const [inventoryForm, setInventoryForm] = useState<GifticonInventory>(emptyInventoryForm);
   const [orderForm, setOrderForm] = useState<PointShopOrder>(emptyOrderForm);
   const [friendForm, setFriendForm] = useState<FriendRelation>(emptyFriendForm);
+  const [competitionForm, setCompetitionForm] = useState(createDefaultCompetitionForm);
 
   const [selectedEtfId, setSelectedEtfId] = useState<number | null>(null);
   const [selectedNewsId, setSelectedNewsId] = useState<number | null>(null);
@@ -378,6 +397,7 @@ function App() {
         insightRes,
         roomRes,
         userRes,
+        competitionRes,
         productRes,
         inventoryRes,
         walletRes,
@@ -391,6 +411,7 @@ function App() {
         getHomeGroupInsight(),
         getMatchingRooms(),
         getUsers(),
+        getAdminCompetitions(),
         getPointShopProducts(),
         getGifticonInventory(),
         getPointWallets(),
@@ -408,6 +429,7 @@ function App() {
       });
       setRooms(roomRes);
       setUsers(userRes);
+      setCompetitions(competitionRes);
       setProducts(productRes);
       setInventory(inventoryRes);
       setWallets(walletRes);
@@ -545,6 +567,29 @@ function App() {
     } finally {
       setSaving(null);
     }
+  }
+
+  async function handleCreateCompetition() {
+    if (!competitionForm.name.trim()) {
+      setError("토너먼트 이름을 입력해주세요.");
+      return;
+    }
+
+    await withMutation("save-competition", async () => {
+      const result = await createAdminCompetition({
+        name: competitionForm.name.trim(),
+        startDate: competitionForm.startDate,
+        endDate: competitionForm.endDate,
+      });
+
+      if (!result.success) {
+        setError(result.message);
+        return;
+      }
+
+      await loadAll();
+      setCompetitionForm(createDefaultCompetitionForm());
+    });
   }
 
   function selectEtf(item: ManagedEtf) {
@@ -703,6 +748,65 @@ function App() {
                 </div>
               </Panel>
             </div>
+          )}
+
+          {activeTab === "dashboard" && (
+            <Panel title="토너먼트 시작" description="기존 /admin 에 있던 대회 생성 기능을 여기서 바로 실행합니다.">
+              <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+                <form
+                  className="space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleCreateCompetition();
+                  }}
+                >
+                  <Field
+                    label="토너먼트 이름"
+                    value={competitionForm.name}
+                    onChange={(value) => setCompetitionForm((prev) => ({ ...prev, name: value }))}
+                    required
+                  />
+                  <TwoCol>
+                    <Field
+                      label="시작일"
+                      type="datetime-local"
+                      value={competitionForm.startDate}
+                      onChange={(value) => setCompetitionForm((prev) => ({ ...prev, startDate: value }))}
+                      required
+                    />
+                    <Field
+                      label="종료일"
+                      type="datetime-local"
+                      value={competitionForm.endDate}
+                      onChange={(value) => setCompetitionForm((prev) => ({ ...prev, endDate: value }))}
+                      required
+                    />
+                  </TwoCol>
+                  <PrimaryButton busy={saving === "save-competition"}>토너먼트 생성</PrimaryButton>
+                </form>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-slate-700">현재 등록된 토너먼트</p>
+                  {competitions.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                      아직 등록된 토너먼트가 없습니다.
+                    </p>
+                  ) : (
+                    competitions.map((competition) => (
+                      <div key={competition.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div className="text-sm font-bold text-slate-900">{competition.name}</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {toLocalDateTimeInput(competition.startDate)} ~ {toLocalDateTimeInput(competition.endDate)}
+                        </div>
+                        <div className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          {competition.status}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </Panel>
           )}
 
           {activeTab === "etfs" && (
