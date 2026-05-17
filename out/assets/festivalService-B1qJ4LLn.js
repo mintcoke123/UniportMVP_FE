@@ -1,2 +1,0 @@
-import{d as e,l as i}from"./index-DmXz-WRt.js";function n(s){return i("/api/festival/sessions/start",s,{skipAuth:!0})}function r(s,t){return i(`/api/festival/sessions/${s}/complete`,t,{skipAuth:!0})}function o(s){return i(`/api/festival/sessions/${s}/begin`,void 0,{skipAuth:!0})}function u(s){return e(`/api/festival/sessions/${s}`,{skipAuth:!0})}function p(){return e("/api/festival/leaderboard",{skipAuth:!0})}function v(){return e("/api/festival-admin/overview")}export{v as a,o as b,r as c,p as d,u as g,n as s};
-//# sourceMappingURL=festivalService-B1qJ4LLn.js.map

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -14,6 +14,7 @@ import {
 import type { StockListItem } from "../../types";
 
 type TabType = "volume" | "rising" | "falling";
+type TradeSide = "BUY" | "SELL";
 
 type SelectedStock = {
   id: number;
@@ -28,14 +29,36 @@ type SelectedStock = {
 type FestivalSessionState = {
   sessionId?: number;
   displayName?: string;
-  startedAt?: string;
+  startedAt?: string | null;
   participant?: {
     name?: string;
     phoneNumber?: string;
   };
 };
 
+type HoldingState = {
+  stockCode: string;
+  stockName: string;
+  quantity: number;
+  averagePrice: number;
+  logoColor: string;
+};
+
+type TradeHistoryState = {
+  stockCode: string;
+  stockName: string;
+  side: TradeSide;
+  orderType: "MARKET";
+  quantity: number;
+  orderPrice: number;
+  executedPrice: number;
+  status: "EXECUTED";
+  createdAt: string;
+  executedAt: string;
+};
+
 const FESTIVAL_DURATION_MS = 2 * 60 * 1000;
+const INITIAL_CASH = 100_000_000;
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
@@ -50,11 +73,20 @@ export default function MockInvestmentPage() {
   const [marketError, setMarketError] = useState<string | null>(null);
   const [routeOk, setRouteOk] = useState(false);
   const [selectedStock, setSelectedStock] = useState<SelectedStock | null>(null);
+  const [selectedTradeSide, setSelectedTradeSide] = useState<TradeSide>("BUY");
+  const [quantityInput, setQuantityInput] = useState("1");
+  const [tradeError, setTradeError] = useState<string | null>(null);
   const [timeLeftMs, setTimeLeftMs] = useState(FESTIVAL_DURATION_MS);
   const [festivalStartedAt, setFestivalStartedAt] = useState<string | null>(null);
-  const [festivalStatus, setFestivalStatus] = useState<"NOT_STARTED" | "IN_PROGRESS" | "COMPLETED">("NOT_STARTED");
+  const [festivalStatus, setFestivalStatus] = useState<"NOT_STARTED" | "IN_PROGRESS" | "COMPLETED">(
+    "NOT_STARTED",
+  );
   const [loadingSession, setLoadingSession] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [cashBalance, setCashBalance] = useState(INITIAL_CASH);
+  const [holdings, setHoldings] = useState<Record<string, HoldingState>>({});
+  const [tradeHistory, setTradeHistory] = useState<TradeHistoryState[]>([]);
+  const completionRequestedRef = useRef(false);
 
   const festivalSession = useMemo(() => {
     if (!isFestivalPage) return null;
@@ -65,12 +97,11 @@ export default function MockInvestmentPage() {
       return null;
     }
   }, [isFestivalPage]);
-  const festivalSessionId = festivalSession?.sessionId ?? null;
 
+  const festivalSessionId = festivalSession?.sessionId ?? null;
   const festivalStarted = isFestivalPage && festivalStatus === "IN_PROGRESS" && timeLeftMs > 0;
   const festivalEnded = isFestivalPage && festivalStatus === "COMPLETED";
-  const startDisabled =
-    !festivalSessionId || loadingSession || festivalStatus !== "NOT_STARTED";
+  const startDisabled = !festivalSessionId || loadingSession || festivalStatus !== "NOT_STARTED";
 
   useEffect(() => {
     if (isFestivalPage || user) {
@@ -94,22 +125,7 @@ export default function MockInvestmentPage() {
       .then((sessionState) => {
         setFestivalStatus(sessionState.status);
         setFestivalStartedAt(sessionState.startedAt);
-        try {
-          const current = sessionStorage.getItem("festivalSession");
-          const parsed = current ? (JSON.parse(current) as FestivalSessionState) : {};
-          sessionStorage.setItem(
-            "festivalSession",
-            JSON.stringify({
-              ...parsed,
-              sessionId: sessionState.sessionId,
-              displayName: sessionState.displayName,
-              startCash: sessionState.startCash,
-              startedAt: sessionState.startedAt,
-            }),
-          );
-        } catch {
-          // ignore session storage sync failure
-        }
+        syncFestivalSessionStorage(sessionState);
       })
       .catch((err: { message?: string }) => {
         setStartError(err?.message ?? "참가 상태를 불러오지 못했습니다.");
@@ -144,30 +160,6 @@ export default function MockInvestmentPage() {
   }, [festivalStartedAt, isFestivalPage]);
 
   useEffect(() => {
-    if (!isFestivalPage || timeLeftMs !== 0 || festivalStatus !== "IN_PROGRESS" || !festivalSessionId) {
-      return;
-    }
-
-    completeFestivalSession(festivalSessionId, {
-      endCash: 100000000,
-      endPortfolioValue: 0,
-      endTotalValue: 100000000,
-      returnRate: 0,
-      mainStockName: null,
-      tradeCount: 0,
-      unfilledOrderCount: 0,
-      holdingsSnapshot: [],
-      tradeHistory: [],
-    })
-      .then(() => {
-        setFestivalStatus("COMPLETED");
-      })
-      .catch(() => {
-        setFestivalStatus("COMPLETED");
-      });
-  }, [festivalSessionId, festivalStatus, isFestivalPage, timeLeftMs]);
-
-  useEffect(() => {
     setMarketError(null);
     const requests = [getStocksByVolume(), getStocksByRising(), getStocksByFalling()] as const;
 
@@ -198,8 +190,97 @@ export default function MockInvestmentPage() {
 
   const stockList = useMemo(() => tabStocks, [tabStocks]);
 
+  const priceMap = useMemo(() => {
+    const allStocks = [...stocksByVolume, ...stocksByRising, ...stocksByFalling];
+    const nextMap = new Map<string, number>();
+
+    allStocks.forEach((stock) => {
+      const codeKey = normalizeStockCodeForPrice(stock.code);
+      const realtime = realtimeUpdates[codeKey];
+      nextMap.set(stock.code, realtime?.currentPrice ?? stock.currentPrice);
+    });
+
+    return nextMap;
+  }, [realtimeUpdates, stocksByFalling, stocksByRising, stocksByVolume]);
+
+  const portfolioValue = useMemo(
+    () =>
+      Object.values(holdings).reduce((sum, holding) => {
+        const currentPrice = priceMap.get(holding.stockCode) ?? holding.averagePrice;
+        return sum + currentPrice * holding.quantity;
+      }, 0),
+    [holdings, priceMap],
+  );
+
+  const totalAssetValue = cashBalance + portfolioValue;
+  const returnRate = ((totalAssetValue - INITIAL_CASH) / INITIAL_CASH) * 100;
+
+  const currentHolding = selectedStock ? holdings[selectedStock.code] : undefined;
+  const currentPrice = selectedStock?.currentPrice ?? 0;
+  const maxBuyQuantity =
+    currentPrice > 0 ? Math.max(0, Math.floor(cashBalance / currentPrice)) : 0;
+  const maxSellQuantity = currentHolding?.quantity ?? 0;
+  const parsedQuantity = parsePositiveInt(quantityInput);
+  const canBuy = selectedStock !== null && currentPrice > 0 && parsedQuantity > 0 && parsedQuantity <= maxBuyQuantity;
+  const canSell =
+    selectedStock !== null && currentPrice > 0 && parsedQuantity > 0 && parsedQuantity <= maxSellQuantity;
+
+  useEffect(() => {
+    if (!isFestivalPage || timeLeftMs !== 0 || festivalStatus !== "COMPLETED" || !festivalSessionId) {
+      return;
+    }
+    if (completionRequestedRef.current) return;
+
+    completionRequestedRef.current = true;
+    completeFestivalSession(festivalSessionId, {
+      endCash: roundToWon(cashBalance),
+      endPortfolioValue: roundToWon(portfolioValue),
+      endTotalValue: roundToWon(totalAssetValue),
+      returnRate,
+      mainStockName: resolveMainStockName(tradeHistory),
+      tradeCount: tradeHistory.length,
+      unfilledOrderCount: 0,
+      holdingsSnapshot: Object.values(holdings).map((holding) => {
+        const snapshotPrice = priceMap.get(holding.stockCode) ?? holding.averagePrice;
+        return {
+          stockCode: holding.stockCode,
+          stockName: holding.stockName,
+          quantity: holding.quantity,
+          snapshotPrice: roundToWon(snapshotPrice),
+          evaluatedAmount: roundToWon(snapshotPrice * holding.quantity),
+        };
+      }),
+      tradeHistory: tradeHistory.map((trade) => ({
+        stockCode: trade.stockCode,
+        stockName: trade.stockName,
+        side: trade.side,
+        orderType: trade.orderType,
+        quantity: trade.quantity,
+        orderPrice: roundToWon(trade.orderPrice),
+        executedPrice: roundToWon(trade.executedPrice),
+        status: trade.status,
+        createdAt: trade.createdAt,
+        executedAt: trade.executedAt,
+      })),
+    }).catch(() => {
+      // Keep the UI in completed state even if the completion request fails.
+    });
+  }, [
+    cashBalance,
+    festivalSessionId,
+    festivalStatus,
+    holdings,
+    isFestivalPage,
+    portfolioValue,
+    priceMap,
+    returnRate,
+    timeLeftMs,
+    totalAssetValue,
+    tradeHistory,
+  ]);
+
   const handleFestivalStart = () => {
-    if (!isFestivalPage || startDisabled) return;
+    if (!isFestivalPage || startDisabled || !festivalSessionId) return;
 
     setLoadingSession(true);
     setStartError(null);
@@ -207,22 +288,7 @@ export default function MockInvestmentPage() {
       .then((sessionState) => {
         setFestivalStatus(sessionState.status);
         setFestivalStartedAt(sessionState.startedAt);
-        try {
-          const current = sessionStorage.getItem("festivalSession");
-          const parsed = current ? (JSON.parse(current) as FestivalSessionState) : {};
-          sessionStorage.setItem(
-            "festivalSession",
-            JSON.stringify({
-              ...parsed,
-              sessionId: sessionState.sessionId,
-              displayName: sessionState.displayName,
-              startCash: sessionState.startCash,
-              startedAt: sessionState.startedAt,
-            }),
-          );
-        } catch {
-          // ignore session storage sync failure
-        }
+        syncFestivalSessionStorage(sessionState);
       })
       .catch((err: { message?: string }) => {
         setStartError(err?.message ?? "참가를 시작하지 못했습니다.");
@@ -233,6 +299,15 @@ export default function MockInvestmentPage() {
   const openFestivalActions = (stock: SelectedStock) => {
     if (!festivalStarted) return;
     setSelectedStock(stock);
+    setSelectedTradeSide("BUY");
+    setQuantityInput("1");
+    setTradeError(null);
+  };
+
+  const closeTradeModal = () => {
+    setSelectedStock(null);
+    setTradeError(null);
+    setQuantityInput("1");
   };
 
   const handleStockClick = (stock: SelectedStock) => {
@@ -241,6 +316,96 @@ export default function MockInvestmentPage() {
       return;
     }
     openFestivalActions(stock);
+  };
+
+  const handleAllInBuy = () => {
+    if (maxBuyQuantity <= 0) return;
+    setSelectedTradeSide("BUY");
+    setQuantityInput(String(maxBuyQuantity));
+    setTradeError(null);
+  };
+
+  const handleExecuteTrade = () => {
+    if (!selectedStock) return;
+
+    const quantity = parsePositiveInt(quantityInput);
+    if (quantity <= 0) {
+      setTradeError("거래 수량은 1주 이상이어야 합니다.");
+      return;
+    }
+    if (selectedTradeSide === "BUY" && quantity > maxBuyQuantity) {
+      setTradeError("보유 현금을 초과하는 수량입니다.");
+      return;
+    }
+    if (selectedTradeSide === "SELL" && quantity > maxSellQuantity) {
+      setTradeError("보유 수량을 초과하는 매도입니다.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const executedPrice = selectedStock.currentPrice;
+
+    if (selectedTradeSide === "BUY") {
+      const orderAmount = executedPrice * quantity;
+      setCashBalance((prev) => prev - orderAmount);
+      setHoldings((prev) => {
+        const existing = prev[selectedStock.code];
+        const nextQuantity = (existing?.quantity ?? 0) + quantity;
+        const nextAveragePrice =
+          nextQuantity === 0
+            ? executedPrice
+            : (((existing?.averagePrice ?? 0) * (existing?.quantity ?? 0)) + orderAmount) /
+              nextQuantity;
+        return {
+          ...prev,
+          [selectedStock.code]: {
+            stockCode: selectedStock.code,
+            stockName: selectedStock.name,
+            quantity: nextQuantity,
+            averagePrice: nextAveragePrice,
+            logoColor: selectedStock.logoColor,
+          },
+        };
+      });
+    } else {
+      const orderAmount = executedPrice * quantity;
+      setCashBalance((prev) => prev + orderAmount);
+      setHoldings((prev) => {
+        const existing = prev[selectedStock.code];
+        if (!existing) return prev;
+        const remainingQuantity = existing.quantity - quantity;
+        if (remainingQuantity <= 0) {
+          const next = { ...prev };
+          delete next[selectedStock.code];
+          return next;
+        }
+        return {
+          ...prev,
+          [selectedStock.code]: {
+            ...existing,
+            quantity: remainingQuantity,
+          },
+        };
+      });
+    }
+
+    setTradeHistory((prev) => [
+      {
+        stockCode: selectedStock.code,
+        stockName: selectedStock.name,
+        side: selectedTradeSide,
+        orderType: "MARKET",
+        quantity,
+        orderPrice: executedPrice,
+        executedPrice,
+        status: "EXECUTED",
+        createdAt: now,
+        executedAt: now,
+      },
+      ...prev,
+    ]);
+
+    closeTradeModal();
   };
 
   if (user && !routeOk) {
@@ -284,8 +449,13 @@ export default function MockInvestmentPage() {
                 <div className="mt-2 text-2xl font-black text-slate-950">
                   {festivalSession?.displayName ?? "축제 참가자"}
                 </div>
-                <div className="mt-3 text-sm text-slate-500">
-                  한 계정당 한 번만 참여할 수 있습니다. 시작 후 2분 동안만 매매가 가능합니다.
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <MetricTile label="보유 현금" value={`${formatNumber(cashBalance)}원`} />
+                  <MetricTile label="총 평가금" value={`${formatNumber(totalAssetValue)}원`} />
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <MetricTile label="보유 종목 수" value={`${Object.keys(holdings).length}개`} />
+                  <MetricTile label="진행 상태" value={festivalStarted ? "투자 진행 중" : festivalEnded ? "참여 종료" : "시작 대기"} />
                 </div>
               </div>
 
@@ -314,8 +484,8 @@ export default function MockInvestmentPage() {
                     : loadingSession
                       ? "확인 중"
                       : festivalStarted
-                      ? "진행 중"
-                      : "시작하기"}
+                        ? "진행 중"
+                        : "시작하기"}
                 </button>
                 {startError ? (
                   <p className="mt-3 text-xs text-rose-300">{startError}</p>
@@ -483,14 +653,14 @@ export default function MockInvestmentPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div
             className="absolute inset-0 bg-slate-950/55 backdrop-blur-[1px]"
-            onClick={() => setSelectedStock(null)}
+            onClick={closeTradeModal}
             aria-hidden
           />
 
           <div className="relative w-full max-w-md rounded-[32px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
             <button
               type="button"
-              onClick={() => setSelectedStock(null)}
+              onClick={closeTradeModal}
               className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
             >
               <i className="ri-close-line text-xl" />
@@ -529,18 +699,107 @@ export default function MockInvestmentPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                className="rounded-[24px] bg-rose-500 px-4 py-5 text-lg font-black text-white transition hover:bg-rose-600"
+                onClick={() => setSelectedTradeSide("BUY")}
+                className={`rounded-2xl px-4 py-3 text-base font-bold transition ${
+                  selectedTradeSide === "BUY"
+                    ? "bg-rose-500 text-white"
+                    : "bg-rose-50 text-rose-600 hover:bg-rose-100"
+                }`}
               >
                 매수
               </button>
               <button
                 type="button"
-                className="rounded-[24px] bg-blue-500 px-4 py-5 text-lg font-black text-white transition hover:bg-blue-600"
+                onClick={() => setSelectedTradeSide("SELL")}
+                className={`rounded-2xl px-4 py-3 text-base font-bold transition ${
+                  selectedTradeSide === "SELL"
+                    ? "bg-blue-500 text-white"
+                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                }`}
               >
                 매도
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MetricTile label="보유 현금" value={`${formatNumber(cashBalance)}원`} />
+                <MetricTile
+                  label="보유 수량"
+                  value={`${formatNumber(currentHolding?.quantity ?? 0)}주`}
+                />
+              </div>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">거래 수량</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={quantityInput}
+                  onChange={(event) => {
+                    setQuantityInput(event.target.value);
+                    setTradeError(null);
+                  }}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base font-semibold text-slate-900 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                />
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MetricTile
+                  label="최대 매수 가능"
+                  value={`${formatNumber(maxBuyQuantity)}주`}
+                />
+                <MetricTile
+                  label="최대 매도 가능"
+                  value={`${formatNumber(maxSellQuantity)}주`}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAllInBuy}
+                disabled={maxBuyQuantity <= 0}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                전량 매수
+              </button>
+
+              {tradeError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                  {tradeError}
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  {selectedTradeSide === "BUY"
+                    ? `현재 현금으로 최대 ${formatNumber(maxBuyQuantity)}주까지 매수할 수 있습니다.`
+                    : `현재 보유 수량 기준으로 최대 ${formatNumber(maxSellQuantity)}주까지 매도할 수 있습니다.`}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleExecuteTrade}
+                disabled={selectedTradeSide === "BUY" ? !canBuy : !canSell}
+                className={`rounded-[24px] px-4 py-5 text-lg font-black text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                  selectedTradeSide === "BUY"
+                    ? "bg-rose-500 hover:bg-rose-600"
+                    : "bg-blue-500 hover:bg-blue-600"
+                }`}
+              >
+                {selectedTradeSide === "BUY" ? "매수 실행" : "매도 실행"}
+              </button>
+              <button
+                type="button"
+                onClick={closeTradeModal}
+                className="rounded-[24px] border border-slate-200 px-4 py-5 text-lg font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                닫기
               </button>
             </div>
           </div>
@@ -548,6 +807,72 @@ export default function MockInvestmentPage() {
       )}
     </div>
   );
+
+  function syncFestivalSessionStorage(sessionState: {
+    sessionId: number;
+    displayName: string;
+    startCash: number;
+    startedAt: string | null;
+  }) {
+    try {
+      const current = sessionStorage.getItem("festivalSession");
+      const parsed = current ? (JSON.parse(current) as FestivalSessionState) : {};
+      sessionStorage.setItem(
+        "festivalSession",
+        JSON.stringify({
+          ...parsed,
+          sessionId: sessionState.sessionId,
+          displayName: sessionState.displayName,
+          startCash: sessionState.startCash,
+          startedAt: sessionState.startedAt,
+        }),
+      );
+    } catch {
+      // ignore session storage sync failure
+    }
+  }
+}
+
+function MetricTile({
+  label,
+  value,
+  accent = "text-slate-950",
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+        {label}
+      </div>
+      <div className={`mt-2 text-lg font-black ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+function parsePositiveInt(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function roundToWon(value: number) {
+  return Math.round(value);
+}
+
+function resolveMainStockName(trades: TradeHistoryState[]) {
+  if (!trades.length) return null;
+  const counts = new Map<string, { name: string; count: number }>();
+  trades.forEach((trade) => {
+    const current = counts.get(trade.stockCode);
+    counts.set(trade.stockCode, {
+      name: trade.stockName,
+      count: (current?.count ?? 0) + 1,
+    });
+  });
+
+  return [...counts.values()].sort((a, b) => b.count - a.count)[0]?.name ?? null;
 }
 
 function formatNumber(num: number) {
