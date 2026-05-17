@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Trophy, UserRound } from "lucide-react";
 import {
@@ -17,6 +17,10 @@ export default function FestivalPage() {
   const [form, setForm] = useState<FestivalParticipantInput>(initialFormState);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    sessionStorage.removeItem("festivalSession");
+  }, []);
 
   const handleStart = async () => {
     if (submitting) return;

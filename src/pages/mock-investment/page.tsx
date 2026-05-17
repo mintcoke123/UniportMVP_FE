@@ -493,6 +493,14 @@ export default function MockInvestmentPage() {
                   <p className="mt-3 text-xs text-slate-300">
                     참가 세션이 없어 시작할 수 없습니다. 등록 페이지에서 먼저 참가 등록을 해주세요.
                   </p>
+                ) : festivalEnded ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/", { replace: true })}
+                    className="mt-3 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  >
+                    ?ㅼ쓬 李멸? ???깅줉?섍린
+                  </button>
                 ) : null}
               </div>
             </div>
