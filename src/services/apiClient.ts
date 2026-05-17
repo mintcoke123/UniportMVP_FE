@@ -6,7 +6,7 @@
  */
 
 const getBaseUrl = (): string => {
-  const url = import.meta.env.VITE_API_BASE_URL;
+  const url = import.meta.env.VITE_FES_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
   if (url) return url.replace(/\/$/, "");
   return "http://localhost:8080";
 };
