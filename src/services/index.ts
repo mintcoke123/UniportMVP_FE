@@ -90,6 +90,24 @@ export {
   startMatchingRoom,
 } from "./matchingRoomService";
 
+export {
+  startFestivalSession,
+  beginFestivalSession,
+  getFestivalSession,
+  completeFestivalSession,
+  getFestivalLeaderboard,
+  getFestivalAdminOverview,
+} from "./festivalService";
+export type {
+  FestivalParticipantInput,
+  FestivalSessionStartResponse,
+  FestivalSessionCompletePayload,
+  FestivalSessionCompleteResponse,
+  FestivalLeaderboardItem,
+  FestivalAdminOverview,
+  FestivalAdminSessionItem,
+} from "./festivalService";
+
 export { getMe } from "./meService";
 export type { MeResponse } from "./meService";
 

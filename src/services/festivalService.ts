@@ -11,7 +11,10 @@ export interface FestivalSessionStartResponse {
   sessionId: number;
   displayName: string;
   startCash: number;
-  startedAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  canStart: boolean;
 }
 
 export interface FestivalHoldingSnapshot {
@@ -145,6 +148,18 @@ export function completeFestivalSession(sessionId: number, body: FestivalSession
     body,
     { skipAuth: true },
   );
+}
+
+export function beginFestivalSession(sessionId: number) {
+  return apiPost<FestivalSessionStartResponse>(`/api/festival/sessions/${sessionId}/begin`, undefined, {
+    skipAuth: true,
+  });
+}
+
+export function getFestivalSession(sessionId: number) {
+  return apiGet<FestivalSessionStartResponse>(`/api/festival/sessions/${sessionId}`, {
+    skipAuth: true,
+  });
 }
 
 export function getFestivalLeaderboard() {

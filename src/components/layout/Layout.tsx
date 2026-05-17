@@ -9,7 +9,7 @@ export default function Layout() {
   return (
     <div className="flex flex-col h-dvh overflow-hidden">
       <Header />
-      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+      <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:pb-0">
         <Outlet />
       </main>
       <BottomNav />

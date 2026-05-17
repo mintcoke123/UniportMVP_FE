@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  beginFestivalSession,
+  completeFestivalSession,
+  getFestivalSession,
   getStocksByFalling,
   getStocksByRising,
   getStocksByVolume,
@@ -22,6 +25,16 @@ type SelectedStock = {
   logoColor: string;
 };
 
+type FestivalSessionState = {
+  sessionId?: number;
+  displayName?: string;
+  startedAt?: string;
+  participant?: {
+    name?: string;
+    phoneNumber?: string;
+  };
+};
+
 const FESTIVAL_DURATION_MS = 2 * 60 * 1000;
 
 export default function MockInvestmentPage() {
@@ -38,16 +51,26 @@ export default function MockInvestmentPage() {
   const [routeOk, setRouteOk] = useState(false);
   const [selectedStock, setSelectedStock] = useState<SelectedStock | null>(null);
   const [timeLeftMs, setTimeLeftMs] = useState(FESTIVAL_DURATION_MS);
+  const [festivalStartedAt, setFestivalStartedAt] = useState<string | null>(null);
+  const [festivalStatus, setFestivalStatus] = useState<"NOT_STARTED" | "IN_PROGRESS" | "COMPLETED">("NOT_STARTED");
+  const [loadingSession, setLoadingSession] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   const festivalSession = useMemo(() => {
     if (!isFestivalPage) return null;
     try {
       const raw = sessionStorage.getItem("festivalSession");
-      return raw ? (JSON.parse(raw) as { displayName?: string; startedAt?: string }) : null;
+      return raw ? (JSON.parse(raw) as FestivalSessionState) : null;
     } catch {
       return null;
     }
   }, [isFestivalPage]);
+  const festivalSessionId = festivalSession?.sessionId ?? null;
+
+  const festivalStarted = isFestivalPage && festivalStatus === "IN_PROGRESS" && timeLeftMs > 0;
+  const festivalEnded = isFestivalPage && festivalStatus === "COMPLETED";
+  const startDisabled =
+    !festivalSessionId || loadingSession || festivalStatus !== "NOT_STARTED";
 
   useEffect(() => {
     if (isFestivalPage || user) {
@@ -56,25 +79,93 @@ export default function MockInvestmentPage() {
   }, [isFestivalPage, user]);
 
   useEffect(() => {
-    if (!isFestivalPage || !festivalSession?.startedAt) {
+    if (!isFestivalPage) return;
+
+    const storedStart = festivalSession?.startedAt ?? null;
+    setFestivalStartedAt(storedStart);
+
+    if (!festivalSessionId) {
+      setFestivalStatus("NOT_STARTED");
+      return;
+    }
+
+    setLoadingSession(true);
+    getFestivalSession(festivalSessionId)
+      .then((sessionState) => {
+        setFestivalStatus(sessionState.status);
+        setFestivalStartedAt(sessionState.startedAt);
+        try {
+          const current = sessionStorage.getItem("festivalSession");
+          const parsed = current ? (JSON.parse(current) as FestivalSessionState) : {};
+          sessionStorage.setItem(
+            "festivalSession",
+            JSON.stringify({
+              ...parsed,
+              sessionId: sessionState.sessionId,
+              displayName: sessionState.displayName,
+              startCash: sessionState.startCash,
+              startedAt: sessionState.startedAt,
+            }),
+          );
+        } catch {
+          // ignore session storage sync failure
+        }
+      })
+      .catch((err: { message?: string }) => {
+        setStartError(err?.message ?? "참가 상태를 불러오지 못했습니다.");
+      })
+      .finally(() => setLoadingSession(false));
+  }, [festivalSession?.startedAt, festivalSessionId, isFestivalPage]);
+
+  useEffect(() => {
+    if (!isFestivalPage || !festivalStartedAt) {
       setTimeLeftMs(FESTIVAL_DURATION_MS);
       return;
     }
 
     const updateTimer = () => {
-      const startedAt = new Date(festivalSession.startedAt ?? "").getTime();
-      if (Number.isNaN(startedAt)) {
+      const startedAtMs = new Date(festivalStartedAt).getTime();
+      if (Number.isNaN(startedAtMs)) {
         setTimeLeftMs(FESTIVAL_DURATION_MS);
         return;
       }
-      const remaining = Math.max(0, FESTIVAL_DURATION_MS - (Date.now() - startedAt));
+
+      const remaining = Math.max(0, FESTIVAL_DURATION_MS - (Date.now() - startedAtMs));
       setTimeLeftMs(remaining);
+
+      if (remaining === 0) {
+        setFestivalStatus("COMPLETED");
+      }
     };
 
     updateTimer();
     const interval = window.setInterval(updateTimer, 1000);
     return () => window.clearInterval(interval);
-  }, [festivalSession?.startedAt, isFestivalPage]);
+  }, [festivalStartedAt, isFestivalPage]);
+
+  useEffect(() => {
+    if (!isFestivalPage || timeLeftMs !== 0 || festivalStatus !== "IN_PROGRESS" || !festivalSessionId) {
+      return;
+    }
+
+    completeFestivalSession(festivalSessionId, {
+      endCash: 100000000,
+      endPortfolioValue: 0,
+      endTotalValue: 100000000,
+      returnRate: 0,
+      mainStockName: null,
+      tradeCount: 0,
+      unfilledOrderCount: 0,
+      holdingsSnapshot: [],
+      tradeHistory: [],
+    })
+      .then(() => {
+        setFestivalStatus("COMPLETED");
+      })
+      .catch(() => {
+        setFestivalStatus("COMPLETED");
+      });
+  }, [festivalSessionId, festivalStatus, isFestivalPage, timeLeftMs]);
 
   useEffect(() => {
     setMarketError(null);
@@ -107,7 +198,40 @@ export default function MockInvestmentPage() {
 
   const stockList = useMemo(() => tabStocks, [tabStocks]);
 
+  const handleFestivalStart = () => {
+    if (!isFestivalPage || startDisabled) return;
+
+    setLoadingSession(true);
+    setStartError(null);
+    beginFestivalSession(festivalSessionId)
+      .then((sessionState) => {
+        setFestivalStatus(sessionState.status);
+        setFestivalStartedAt(sessionState.startedAt);
+        try {
+          const current = sessionStorage.getItem("festivalSession");
+          const parsed = current ? (JSON.parse(current) as FestivalSessionState) : {};
+          sessionStorage.setItem(
+            "festivalSession",
+            JSON.stringify({
+              ...parsed,
+              sessionId: sessionState.sessionId,
+              displayName: sessionState.displayName,
+              startCash: sessionState.startCash,
+              startedAt: sessionState.startedAt,
+            }),
+          );
+        } catch {
+          // ignore session storage sync failure
+        }
+      })
+      .catch((err: { message?: string }) => {
+        setStartError(err?.message ?? "참가를 시작하지 못했습니다.");
+      })
+      .finally(() => setLoadingSession(false));
+  };
+
   const openFestivalActions = (stock: SelectedStock) => {
+    if (!festivalStarted) return;
     setSelectedStock(stock);
   };
 
@@ -138,7 +262,7 @@ export default function MockInvestmentPage() {
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             {isFestivalPage
-              ? "종목을 누르면 상세 페이지 대신 매수와 매도 액션만 바로 선택할 수 있습니다."
+              ? "계정당 1회만 참여할 수 있고, 시작하기를 눌러야 2분 타이머가 시작됩니다."
               : "종목을 선택하고 기존 투자 UI를 기준으로 화면을 확장해나가겠습니다."}
           </p>
         </div>
@@ -161,7 +285,7 @@ export default function MockInvestmentPage() {
                   {festivalSession?.displayName ?? "축제 참가자"}
                 </div>
                 <div className="mt-3 text-sm text-slate-500">
-                  시작 후 2분 안에 수익률을 최대한 끌어올려보세요.
+                  한 계정당 한 번만 참여할 수 있습니다. 시작 후 2분 동안만 매매가 가능합니다.
                 </div>
               </div>
 
@@ -173,10 +297,33 @@ export default function MockInvestmentPage() {
                   {formatTime(timeLeftMs)}
                 </div>
                 <div className="mt-2 text-sm text-slate-300">
-                  {timeLeftMs === 0
-                    ? "투자 시간이 종료됐습니다."
-                    : "종료 시점 평가금으로 최종 순위를 계산합니다."}
+                  {festivalEnded
+                    ? "참여가 종료되었습니다."
+                    : festivalStarted
+                      ? "타이머가 진행 중입니다."
+                      : "시작하기를 누르면 2분 타이머가 시작됩니다."}
                 </div>
+                <button
+                  type="button"
+                  onClick={handleFestivalStart}
+                  disabled={startDisabled}
+                  className="mt-5 w-full rounded-2xl bg-orange-500 px-4 py-3 text-base font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-500"
+                >
+                  {festivalStatus === "COMPLETED"
+                    ? "이미 참여 완료"
+                    : loadingSession
+                      ? "확인 중"
+                      : festivalStarted
+                      ? "진행 중"
+                      : "시작하기"}
+                </button>
+                {startError ? (
+                  <p className="mt-3 text-xs text-rose-300">{startError}</p>
+                ) : !festivalSessionId ? (
+                  <p className="mt-3 text-xs text-slate-300">
+                    참가 세션이 없어 시작할 수 없습니다. 등록 페이지에서 먼저 참가 등록을 해주세요.
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>
@@ -252,7 +399,12 @@ export default function MockInvestmentPage() {
                     key={`${activeTab}-${stock.code}-${index}`}
                     type="button"
                     onClick={() => handleStockClick(clickableStock)}
-                    className="grid min-h-[44px] w-full min-w-0 grid-cols-12 items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-gray-50 lg:gap-4 lg:px-6 lg:py-4"
+                    disabled={isFestivalPage && !festivalStarted}
+                    className={`grid min-h-[44px] w-full min-w-0 grid-cols-12 items-center gap-2 px-4 py-2.5 text-left transition-colors lg:gap-4 lg:px-6 lg:py-4 ${
+                      isFestivalPage && !festivalStarted
+                        ? "cursor-not-allowed bg-gray-50/60 opacity-60"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
                     <span className="col-span-1 hidden text-sm font-medium text-gray-500 lg:block">
                       {index + 1}
