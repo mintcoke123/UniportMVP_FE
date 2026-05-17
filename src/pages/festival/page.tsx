@@ -81,7 +81,7 @@ export default function FestivalPage() {
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 개인정보 동의 후 시작하기를 누르면 바로 투자 화면으로 이동합니다. 전화번호는
-                중복 등록할 수 없습니다.
+                중복 등록할 수 없으며, 등록 후 투자 화면에서 2분 타이머를 시작할 수 있습니다.
               </p>
             </div>
 
