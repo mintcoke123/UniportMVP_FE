@@ -43,7 +43,7 @@ export default function LoginPage() {
         setError("SISU-admin(준관리자) 계정으로 로그인해 주세요.");
         return;
       }
-      navigate(from || "/", { replace: true });
+      navigate(from || "/stock", { replace: true });
     } else {
       setError(result.message);
     }

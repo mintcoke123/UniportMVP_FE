@@ -1,1281 +1,578 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  getAdminCompetitions,
-  createAdminCompetition,
-  updateAdminCompetition,
-  getAdminTeamsByCompetition,
-  getAdminMatchingRooms,
-  getAdminRoomVotes,
-  getAdminRoomChatMessages,
-  deleteAdminMatchingRoom,
-  deleteAdminMatchingRoomMember,
-  getAdminUsers,
-  deleteAdminUser,
-  sendAdminFeedback,
-} from "../../services";
-import type { AdminChatMessageItem } from "../../services";
-import type { AdminCompetition } from "../../types";
-import type { CompetingTeamItem } from "../../types";
-import type { MatchingRoom, VoteItem } from "../../types";
-
-type AdminTab = "competition" | "teams" | "teamRanking" | "feedback" | "users";
+  getFestivalAdminOverview,
+  type FestivalAdminOverview,
+  type FestivalAdminSessionItem,
+} from "../../services/festivalService";
 
 interface AdminPageProps {
-  /** SISU-admin(준관리자) 모드: 대회 관리·팀 피드백 탭 숨김 */
   mode?: "sisu";
 }
 
-/** 배포용주석**/
-const STATUS_LABEL: Record<AdminCompetition["status"], string> = {
-  upcoming: "예정",
-  ongoing: "진행 중",
-  ended: "종료",
-};
+type SessionFilter = "ALL" | "IN_PROGRESS" | "COMPLETED";
 
-/** 대회 내역 표기: 날짜만 (시간 없음) */
-function formatDateOnly(iso: string) {
-  if (!iso || !iso.trim()) return "-";
-  const s = iso.trim();
-  const datePart = s.includes("T") ? s.slice(0, 10) : s.slice(0, 10);
-  try {
-    return new Date(datePart + "T12:00:00").toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-  } catch {
-    return datePart;
-  }
-}
+const currencyFormatter = new Intl.NumberFormat("ko-KR");
+const percentFormatter = new Intl.NumberFormat("ko-KR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 export default function AdminPage({ mode }: AdminPageProps = {}) {
   const navigate = useNavigate();
-  const { user, logout, isAdmin } = useAuth();
-  const [tab, setTab] = useState<AdminTab>(
-    mode === "sisu" ? "teams" : "competition",
-  );
-
-  const [competitions, setCompetitions] = useState<AdminCompetition[]>([]);
-  const [teams, setTeams] = useState<CompetingTeamItem[]>([]);
-  const [rooms, setRooms] = useState<MatchingRoom[]>([]);
-  const [users, setUsers] = useState<
-    {
-      id: string;
-      studentId: string;
-      nickname: string;
-      teamId: string | null;
-      role: string;
-    }[]
-  >([]);
+  const { user, logout } = useAuth();
+  const [overview, setOverview] = useState<FestivalAdminOverview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedCompetitionId, setSelectedCompetitionId] = useState<
-    number | null
-  >(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<SessionFilter>("ALL");
+  const [search, setSearch] = useState("");
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
 
-  const [showCompetitionModal, setShowCompetitionModal] = useState(false);
-  const [editingCompetition, setEditingCompetition] =
-    useState<AdminCompetition | null>(null);
-  const [formName, setFormName] = useState("");
-  const [formStartDate, setFormStartDate] = useState("");
-  const [formEndDate, setFormEndDate] = useState("");
-  const [formError, setFormError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [memberActionKey, setMemberActionKey] = useState<string | null>(null);
-  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
-  const [roomActionError, setRoomActionError] = useState<string | null>(null);
-  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
-  const [userActionError, setUserActionError] = useState<string | null>(null);
-  const [userSearchStudentId, setUserSearchStudentId] = useState("");
-  const [userSearchNickname, setUserSearchNickname] = useState("");
-  const [userSortBy, setUserSortBy] = useState<
-    "studentId" | "nickname" | "teamId" | "role"
-  >("studentId");
-  const [roomSearchQuery, setRoomSearchQuery] = useState("");
-  const [feedbackByRoomId, setFeedbackByRoomId] = useState<
-    Record<string, string>
-  >({});
-  const [feedbackSending, setFeedbackSending] = useState(false);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
-  /** 팀별 피드백 탭에서 방 클릭 시 해당 방 거래내역 로그 모달 */
-  const [roomLogRoomId, setRoomLogRoomId] = useState<string | null>(null);
-  const [roomLogRoomName, setRoomLogRoomName] = useState<string>("");
-  const [roomLogVotes, setRoomLogVotes] = useState<VoteItem[]>([]);
-  const [roomLogLoading, setRoomLogLoading] = useState(false);
-  const [roomLogError, setRoomLogError] = useState<string | null>(null);
-  const [roomLogTab, setRoomLogTab] = useState<"votes" | "chat">("votes");
-  const [roomLogChatMessages, setRoomLogChatMessages] = useState<
-    AdminChatMessageItem[]
-  >([]);
-  const [roomLogChatLoading, setRoomLogChatLoading] = useState(false);
-  const [roomLogChatError, setRoomLogChatError] = useState<string | null>(null);
-
-  /** 멱등성: 저장/전송 중복 클릭 방지 (setState는 비동기이므로 ref로 동기 가드) */
-  const savingRef = useRef(false);
-  const feedbackSendingRef = useRef(false);
-
-  const loadCompetitions = () => {
-    getAdminCompetitions().then(setCompetitions);
-  };
-  const loadTeams = (competitionId: number) => {
-    getAdminTeamsByCompetition(competitionId).then(setTeams);
-  };
-  const loadRooms = () => {
-    getAdminMatchingRooms().then(setRooms);
-  };
-
-  const handleRemoveMember = async (roomId: string, userId: string) => {
-    const uid =
-      userId != null &&
-      String(userId).trim() !== "" &&
-      String(userId) !== "undefined"
-        ? String(userId).trim()
-        : null;
-    if (uid == null) {
-      setRoomActionError("멤버 정보를 확인할 수 없습니다.");
-      return;
-    }
-    if (!window.confirm("이 멤버를 팀에서 강제 제거합니다. 계속할까요?"))
-      return;
-    setRoomActionError(null);
-    const key = `${roomId}-${uid}`;
-    setMemberActionKey(key);
+  const loadOverview = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    else setRefreshing(true);
+    setError(null);
     try {
-      const res = await deleteAdminMatchingRoomMember(roomId, uid);
-      if (res.success) {
-        setRoomActionError(null);
-        loadRooms();
-      } else {
-        setRoomActionError(res.message);
-      }
-    } catch (e: unknown) {
-      const err = e as { message?: string };
-      setRoomActionError(err?.message ?? "멤버 제거에 실패했습니다.");
+      const data = await getFestivalAdminOverview();
+      setOverview(data);
+      setSelectedSessionId((currentId) => {
+        if (!data.sessions.length) return null;
+        if (currentId && data.sessions.some((session) => session.sessionId === currentId)) {
+          return currentId;
+        }
+        return data.sessions[0].sessionId;
+      });
+    } catch (e) {
+      const message =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message?: string }).message)
+          : "축제 운영 데이터를 불러오지 못했습니다.";
+      setError(message);
     } finally {
-      setMemberActionKey(null);
-    }
-  };
-
-  const handleDeleteRoom = async (roomId: string) => {
-    if (!window.confirm(`매칭방 "${roomId}"을(를) 삭제합니다. 계속할까요?`))
-      return;
-    setRoomActionError(null);
-    setDeletingRoomId(roomId);
-    try {
-      const res = await deleteAdminMatchingRoom(roomId);
-      if (res.success) {
-        await loadRooms();
-      } else {
-        setRoomActionError(res.message ?? "삭제에 실패했습니다.");
-      }
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string } }; message?: string };
-      setRoomActionError(err?.response?.data?.message ?? err?.message ?? "삭제에 실패했습니다.");
-    } finally {
-      setDeletingRoomId(null);
-    }
-  };
-
-  const loadUsers = () => {
-    getAdminUsers().then(setUsers);
-  };
-
-  const handleDeleteUser = async (u: {
-    id: string;
-    studentId: string;
-    role: string;
-  }) => {
-    if (u.role === "admin") {
-      setUserActionError("관리자 계정은 삭제할 수 없습니다.");
-      return;
-    }
-    if (user?.id != null && String(user.id) === u.id) {
-      setUserActionError("본인 계정은 삭제할 수 없습니다.");
-      return;
-    }
-    if (!window.confirm(`"${u.studentId}" 유저를 삭제할까요?`)) return;
-    setUserActionError(null);
-    setDeletingUserId(u.id);
-    try {
-      const res = await deleteAdminUser(u.id);
-      if (res.success) {
-        loadUsers();
-      } else {
-        setUserActionError(res.message ?? "삭제에 실패했습니다.");
-      }
-    } catch (e: unknown) {
-      const err = e as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      const msg =
-        err?.response?.data?.message ?? err?.message ?? "삭제에 실패했습니다.";
-      setUserActionError(msg);
-    } finally {
-      setDeletingUserId(null);
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      getAdminCompetitions(),
-      getAdminMatchingRooms(),
-      getAdminUsers(),
-    ])
-      .then(([comp, roomList, userList]) => {
-        setCompetitions(comp);
-        setRooms(roomList);
-        setUsers(userList);
-        if (comp.length > 0 && !selectedCompetitionId) {
-          setSelectedCompetitionId(comp[0].id);
-        }
-      })
-      .finally(() => setLoading(false));
+    void loadOverview(true);
   }, []);
 
-  useEffect(() => {
-    if (selectedCompetitionId) {
-      getAdminTeamsByCompetition(selectedCompetitionId).then(setTeams);
-    }
-  }, [selectedCompetitionId]);
+  const filteredSessions = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    const sessions = overview?.sessions ?? [];
+    return sessions.filter((session) => {
+      if (filter !== "ALL" && session.status !== filter) return false;
+      if (!keyword) return true;
+      return [
+        session.displayName,
+        session.participantName,
+        session.department,
+        session.studentId,
+        session.phoneNumber,
+        session.mainStockName ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword);
+    });
+  }, [filter, overview?.sessions, search]);
 
-  /** 방 거래내역 로그 모달: roomLogRoomId 변경 시 해당 방 투표 목록 로드 및 채팅 탭 초기화 */
-  useEffect(() => {
-    if (!roomLogRoomId) {
-      setRoomLogVotes([]);
-      setRoomLogError(null);
-      setRoomLogTab("votes");
-      setRoomLogChatMessages([]);
-      setRoomLogChatError(null);
-      return;
-    }
-    setRoomLogLoading(true);
-    setRoomLogError(null);
-    getAdminRoomVotes(roomLogRoomId)
-      .then(setRoomLogVotes)
-      .catch((e: unknown) => {
-        setRoomLogVotes([]);
-        setRoomLogError(
-          (e as { message?: string })?.message ??
-            "거래내역을 불러오지 못했습니다.",
-        );
-      })
-      .finally(() => setRoomLogLoading(false));
-  }, [roomLogRoomId]);
+  const selectedSession =
+    filteredSessions.find((session) => session.sessionId === selectedSessionId) ??
+    overview?.sessions.find((session) => session.sessionId === selectedSessionId) ??
+    filteredSessions[0] ??
+    null;
 
-  /** 채팅 로그 탭 선택 시 해당 방 채팅 메시지 로드 */
-  useEffect(() => {
-    if (roomLogTab !== "chat" || !roomLogRoomId) return;
-    setRoomLogChatLoading(true);
-    setRoomLogChatError(null);
-    getAdminRoomChatMessages(roomLogRoomId)
-      .then(setRoomLogChatMessages)
-      .catch((e: unknown) => {
-        setRoomLogChatMessages([]);
-        setRoomLogChatError(
-          (e as { message?: string })?.message ??
-            "채팅 로그를 불러오지 못했습니다.",
-        );
-      })
-      .finally(() => setRoomLogChatLoading(false));
-  }, [roomLogTab, roomLogRoomId]);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
-  };
-
-  const openCreateCompetition = () => {
-    setEditingCompetition(null);
-    setFormName("");
-    const nextMonth = new Date();
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const end = new Date(nextMonth);
-    end.setDate(end.getDate() + 7);
-    setFormStartDate(nextMonth.toISOString().slice(0, 16));
-    setFormEndDate(end.toISOString().slice(0, 16));
-    setFormError("");
-    setShowCompetitionModal(true);
-  };
-
-  const openEditCompetition = (c: AdminCompetition) => {
-    setEditingCompetition(c);
-    setFormName(c.name);
-    setFormStartDate(c.startDate.slice(0, 16));
-    setFormEndDate(c.endDate.slice(0, 16));
-    setFormError("");
-    setShowCompetitionModal(true);
-  };
-
-  const closeCompetitionModal = () => {
-    setShowCompetitionModal(false);
-    setEditingCompetition(null);
-    setFormError("");
-  };
-
-  const handleSaveCompetition = async () => {
-    if (savingRef.current) return;
-    setFormError("");
-    if (!formName.trim()) {
-      setFormError("대회 이름을 입력하세요.");
-      return;
-    }
-    savingRef.current = true;
-    setSaving(true);
-    try {
-      if (editingCompetition) {
-        const result = await updateAdminCompetition(editingCompetition.id, {
-          name: formName.trim(),
-          startDate: formStartDate,
-          endDate: formEndDate,
-        });
-        if (result.success) {
-          loadCompetitions();
-          closeCompetitionModal();
-        } else {
-          setFormError(result.message);
-        }
-      } else {
-        const result = await createAdminCompetition({
-          name: formName.trim(),
-          startDate: formStartDate,
-          endDate: formEndDate,
-        });
-        if (result.success) {
-          loadCompetitions();
-          closeCompetitionModal();
-        } else {
-          setFormError(result.message);
-        }
-      }
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  };
-
-  const handleSendFeedback = async () => {
-    if (feedbackSendingRef.current) return;
-    const deliveries = rooms
-      .filter((r) => (feedbackByRoomId[r.id] ?? "").trim())
-      .map((r) => ({
-        roomId: r.id,
-        content: (feedbackByRoomId[r.id] ?? "").trim(),
-      }));
-    if (deliveries.length === 0) {
-      setFeedbackError("내용을 입력한 방을 하나 이상 선택해 주세요.");
-      return;
-    }
-    setFeedbackError(null);
-    feedbackSendingRef.current = true;
-    setFeedbackSending(true);
-    try {
-      const res = await sendAdminFeedback(deliveries);
-      if (res.success) {
-        setFeedbackByRoomId((prev) => {
-          const next = { ...prev };
-          deliveries.forEach((d) => {
-            const key =
-              typeof d.roomId === "string" ? d.roomId : `room-${d.roomId}`;
-            delete next[key];
-            delete next[String(d.roomId)];
-          });
-          return next;
-        });
-      } else {
-        setFeedbackError(res.message ?? "전송에 실패했습니다.");
-      }
-    } catch (e) {
-      setFeedbackError(
-        (e as { message?: string })?.message ?? "전송에 실패했습니다.",
-      );
-    } finally {
-      feedbackSendingRef.current = false;
-      setFeedbackSending(false);
-    }
-  };
-
-  const allTabs: { key: AdminTab; label: string }[] = [
-    { key: "competition", label: "대회 관리" },
-    { key: "teams", label: "팀 관리" },
-    { key: "teamRanking", label: "팀 순위" },
-    { key: "feedback", label: "팀 피드백" },
-    { key: "users", label: "유저 관리" },
-  ];
-  /** SISU 모드에서는 대회 관리 탭만 숨김. 팀 피드백 탭은 관리자/SISU 모두 노출 */
-  const tabs =
-    mode === "sisu"
-      ? allTabs.filter((t) => t.key !== "competition")
-      : allTabs;
+  const completedSessions = overview?.sessions.filter((session) => session.status === "COMPLETED") ?? [];
+  const podium = [...completedSessions]
+    .sort((a, b) => (b.returnRate ?? -999) - (a.returnRate ?? -999))
+    .slice(0, 3);
+  const recentInProgress =
+    overview?.sessions.filter((session) => session.status === "IN_PROGRESS").slice(0, 5) ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-            >
-              ← 서비스 홈
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">
-              {mode === "sisu" ? "SISU 관리자" : "관리자"}
-            </h1>
-            {mode === "sisu" && isAdmin && (
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f7f9fc_0%,#eef3ff_100%)] text-slate-900">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-6 py-8">
+        <section className="overflow-hidden rounded-[32px] bg-slate-950 px-8 py-8 text-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center rounded-full bg-white/10 px-4 py-1 text-sm font-medium tracking-[0.18em] text-slate-200">
+                {mode === "sisu" ? "SISU FESTIVAL DESK" : "UNIPORT FESTIVAL DESK"}
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                  축제 운영용 관리자 대시보드
+                </h1>
+                <p className="max-w-3xl text-sm text-slate-300 md:text-base">
+                  참가자 등록 현황, 실시간 진행 세션, 종료 수익률, 지급 상품까지 이 화면에서 바로 확인할 수 있습니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => navigate("/admin")}
-                className="text-sm font-medium text-teal-600 hover:text-teal-700"
+                onClick={() => void loadOverview(false)}
+                className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/16"
               >
-                전체 관리자
+                {refreshing ? "새로고침 중..." : "새로고침"}
               </button>
-            )}
-            {mode !== "sisu" && isAdmin && (
               <button
                 type="button"
-                onClick={() => navigate("/SISU-admin")}
-                className="text-sm font-medium text-gray-600 hover:text-gray-800"
+                onClick={() => navigate("/")}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
               >
-                SISU 관리자
+                축제 홈으로
               </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">
-              {user?.nickname ?? user?.studentId}
-            </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              로그아웃
-            </button>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-gray-100">
-          <nav className="flex gap-1 pt-2">
-            {tabs.map(({ key, label }) => (
               <button
-                key={key}
                 type="button"
-                onClick={() => setTab(key)}
-                className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
-                  tab === key
-                    ? "bg-white text-teal-600 border border-b-0 border-gray-200 -mb-px"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
+                onClick={logout}
+                className="rounded-2xl border border-white/20 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/8"
               >
-                {label}
+                로그아웃
               </button>
-            ))}
-          </nav>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loading ? (
-          <div className="flex justify-center py-16 text-gray-500">
-            로딩 중...
+            </div>
           </div>
-        ) : (
-          <>
-            {tab === "competition" && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-gray-900">대회 목록</h2>
-                  <button
-                    type="button"
-                    onClick={openCreateCompetition}
-                    className="px-4 py-2 text-sm font-medium text-white bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors"
-                  >
-                    대회 추가
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                      <tr>
-                        <th className="px-6 py-3">이름</th>
-                        <th className="px-6 py-3">시작일</th>
-                        <th className="px-6 py-3">종료일</th>
-                        <th className="px-6 py-3">상태</th>
-                        <th className="px-6 py-3 w-24">관리</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {competitions.map((c) => (
-                        <tr key={c.id} className="hover:bg-gray-50/50">
-                          <td className="px-6 py-4 font-medium text-gray-900">
-                            {c.name}
-                          </td>
-                          <td className="px-6 py-4 text-gray-600 text-sm">
-                            {formatDateOnly(c.startDate)}
-                          </td>
-                          <td className="px-6 py-4 text-gray-600 text-sm">
-                            {formatDateOnly(c.endDate)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
-                                c.status === "ongoing"
-                                  ? "bg-teal-100 text-teal-700"
-                                  : c.status === "upcoming"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {STATUS_LABEL[c.status]}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <button
-                              type="button"
-                              onClick={() => openEditCompetition(c)}
-                              className="text-sm text-teal-600 hover:text-teal-700 font-medium"
-                            >
-                              수정
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+          <div className="mt-6 flex flex-wrap gap-4 text-sm text-slate-300">
+            <span>관리자: {user?.nickname ?? user?.studentId ?? "admin"}</span>
+            <span>마지막 종료 세션: {formatDateTime(overview?.lastCompletedAt)}</span>
+            <span>평균 수익률: {formatPercent(overview?.averageReturnRate)}</span>
+          </div>
+        </section>
 
-            {tab === "teams" && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900 mb-3">
-                    매칭방 (팀 구성 대기)
-                  </h2>
-                  <label className="flex items-center gap-2 text-sm text-gray-600">
-                    팀(방) 검색
-                    <input
-                      type="text"
-                      value={roomSearchQuery}
-                      onChange={(e) => setRoomSearchQuery(e.target.value)}
-                      placeholder="방 이름 또는 ID"
-                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-48"
-                    />
-                  </label>
-                  {roomActionError && (
-                    <p className="mt-2 text-sm text-red-600">
-                      {roomActionError}
-                    </p>
-                  )}
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                      <tr>
-                        <th className="px-6 py-3">방 이름</th>
-                        <th className="px-6 py-3">멤버</th>
-                        <th className="px-6 py-3">상태</th>
-                        <th className="px-6 py-3 w-24">삭제</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {rooms
-                        .filter(
-                          (r) =>
-                            !roomSearchQuery.trim() ||
-                            (r.name &&
-                              r.name
-                                .toLowerCase()
-                                .includes(roomSearchQuery.trim().toLowerCase())) ||
-                            String(r.id)
-                              .toLowerCase()
-                              .includes(roomSearchQuery.trim().toLowerCase()),
-                        )
-                        .map((r) => (
-                        <tr key={r.id} className="hover:bg-gray-50/50">
-                          <td className="px-6 py-4 font-medium text-gray-900">
-                            {r.name}
-                          </td>
-                          <td className="px-6 py-4 text-gray-600">
-                            {r.memberCount}/{r.capacity}명 (
-                            {r.members.map((m) => {
-                              const memberId =
-                                (m as { userId?: string; id?: string })
-                                  .userId ??
-                                (m as { userId?: string; id?: string }).id ??
-                                "";
-                              return (
-                                <span
-                                  key={memberId || m.nickname}
-                                  className="inline-flex items-center gap-1 mr-1"
-                                >
-                                  {m.nickname}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleRemoveMember(r.id, memberId)
-                                    }
-                                    disabled={
-                                      !memberId ||
-                                      memberActionKey === `${r.id}-${memberId}`
-                                    }
-                                    className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
-                                    title="멤버 강제 제거"
-                                  >
-                                    {memberActionKey === `${r.id}-${memberId}`
-                                      ? "제거 중..."
-                                      : "제거"}
-                                  </button>
-                                </span>
-                              );
-                            })}
-                            )
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
-                                r.status === "full"
-                                  ? "bg-teal-100 text-teal-700"
-                                  : r.status === "started"
-                                    ? "bg-gray-100 text-gray-600"
-                                    : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {r.status === "waiting"
-                                ? "대기 중"
-                                : r.status === "full"
-                                  ? "정원 참"
-                                  : "시작됨"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRoom(r.id)}
-                              disabled={deletingRoomId === r.id}
-                              className="text-red-500 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                              title="매칭방(팀) 삭제"
-                            >
-                              {deletingRoomId === r.id ? "삭제 중..." : "삭제"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+        {error ? (
+          <section className="rounded-[28px] border border-rose-200 bg-rose-50 px-6 py-5 text-rose-700 shadow-sm">
+            {error}
+          </section>
+        ) : null}
 
-            {tab === "teamRanking" && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900 mb-3">
-                    팀 순위
-                  </h2>
-                  <select
-                    value={selectedCompetitionId ?? ""}
-                    onChange={(e) =>
-                      setSelectedCompetitionId(Number(e.target.value) || null)
-                    }
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  >
-                    {competitions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({STATUS_LABEL[c.status]})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                      <tr>
-                        <th className="px-6 py-3">순위</th>
-                        <th className="px-6 py-3">팀명</th>
-                        <th className="px-6 py-3">팀원</th>
-                        <th className="px-6 py-3">총 평가액</th>
-                        <th className="px-6 py-3">수익률</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {teams.map((t) => {
-                        const roomIdFromTeam = t.teamId.startsWith("team-")
-                          ? t.teamId.slice(5)
-                          : t.teamId;
-                        const memberNames =
-                          t.members
-                            ?.map((m) => m.nickname || "")
-                            .filter(Boolean)
-                            .join(", ") ?? "—";
-                        return (
-                          <tr key={t.teamId} className="hover:bg-gray-50/50">
-                            <td className="px-6 py-4 font-medium text-gray-900">
-                              {t.rank}위
-                            </td>
-                            <td className="px-6 py-4">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRoomLogRoomId(roomIdFromTeam);
-                                  setRoomLogRoomName(t.groupName);
-                                }}
-                                className="text-left text-teal-600 hover:text-teal-700 hover:underline font-medium"
-                              >
-                                {t.groupName}
-                              </button>
-                            </td>
-                            <td className="px-6 py-4 text-gray-600 text-sm max-w-[200px] truncate" title={memberNames}>
-                              {memberNames}
-                            </td>
-                            <td className="px-6 py-4 text-gray-600">
-                              {t.totalValue.toLocaleString("ko-KR")}원
-                            </td>
-                            <td
-                              className={`px-6 py-4 font-medium ${
-                                t.profitLossPercentage >= 0
-                                  ? "text-red-500"
-                                  : "text-blue-500"
-                              }`}
-                            >
-                              {t.profitLossPercentage >= 0 ? "+" : ""}
-                              {t.profitLossPercentage}%
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <MetricCard
+            label="총 참가자"
+            value={String(overview?.totalParticipants ?? 0)}
+            accent="bg-blue-50 text-blue-700"
+          />
+          <MetricCard
+            label="진행 완료"
+            value={String(overview?.completedParticipants ?? 0)}
+            accent="bg-emerald-50 text-emerald-700"
+          />
+          <MetricCard
+            label="진행 중"
+            value={String(overview?.activeParticipants ?? 0)}
+            accent="bg-amber-50 text-amber-700"
+          />
+          <MetricCard
+            label="1.5% 이상"
+            value={String(overview?.qualifiedParticipants ?? 0)}
+            accent="bg-fuchsia-50 text-fuchsia-700"
+          />
+          <MetricCard
+            label="최고 수익률"
+            value={formatPercent(overview?.bestReturnRate)}
+            accent="bg-slate-100 text-slate-800"
+          />
+        </section>
 
-            {tab === "feedback" && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">
-                    팀별 피드백 전송
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    방마다 피드백 내용을 입력한 뒤 전송하면, 해당 채팅방에
-                    대회 종료 안내가 표시되고 해당 방의 채팅·거래가 비활성화됩니다.
-                  </p>
-                  <label className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-                    팀(방) 검색
-                    <input
-                      type="text"
-                      value={roomSearchQuery}
-                      onChange={(e) => setRoomSearchQuery(e.target.value)}
-                      placeholder="방 이름 또는 ID"
-                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-48"
-                    />
-                  </label>
-                  {feedbackError && (
-                    <p className="mt-2 text-sm text-red-600">{feedbackError}</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleSendFeedback}
-                    disabled={feedbackSending}
-                    className="mt-4 px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {feedbackSending
-                      ? "전송 중..."
-                      : "내용 입력한 방에 피드백 전송"}
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                      <tr>
-                        <th className="px-6 py-3">방 이름</th>
-                        <th className="px-6 py-3">멤버</th>
-                        <th className="px-6 py-3">상태</th>
-                        <th className="px-6 py-3 min-w-[280px]">피드백 내용</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {rooms
-                        .filter(
-                          (r) =>
-                            !roomSearchQuery.trim() ||
-                            (r.name &&
-                              r.name
-                                .toLowerCase()
-                                .includes(roomSearchQuery.trim().toLowerCase())) ||
-                            String(r.id)
-                              .toLowerCase()
-                              .includes(roomSearchQuery.trim().toLowerCase()),
-                        )
-                        .map((r) => (
-                        <tr key={r.id} className="hover:bg-gray-50/50">
-                          <td className="px-6 py-4 font-medium text-gray-900">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRoomLogRoomId(r.id);
-                                setRoomLogRoomName(r.name);
-                              }}
-                              className="text-left text-teal-600 hover:text-teal-800 hover:underline"
-                            >
-                              {r.name}
-                            </button>
-                          </td>
-                          <td className="px-6 py-4 text-gray-600">
-                            {r.memberCount}/{r.capacity}명
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-gray-600">
-                              {r.status === "started"
-                                ? "진행 중"
-                                : r.status === "full"
-                                  ? "참가 완료"
-                                  : "대기"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <textarea
-                              value={feedbackByRoomId[r.id] ?? ""}
-                              onChange={(e) =>
-                                setFeedbackByRoomId((prev) => ({
-                                  ...prev,
-                                  [r.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="이 방에 보낼 피드백 내용 (비우면 전송 제외)"
-                              rows={3}
-                              className="w-full min-w-[260px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {tab === "users" && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <h2 className="text-lg font-bold text-gray-900">
-                      유저 목록
-                    </h2>
-                    <span className="text-sm text-gray-600">
-                      총 {users.length}명
-                    </span>
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      학번
-                      <input
-                        type="text"
-                        value={userSearchStudentId}
-                        onChange={(e) =>
-                          setUserSearchStudentId(e.target.value)
-                        }
-                        placeholder="검색"
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-28"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      닉네임
-                      <input
-                        type="text"
-                        value={userSearchNickname}
-                        onChange={(e) =>
-                          setUserSearchNickname(e.target.value)
-                        }
-                        placeholder="검색"
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-28"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      정렬
-                      <select
-                        value={userSortBy}
-                        onChange={(e) =>
-                          setUserSortBy(
-                            e.target.value as
-                              | "studentId"
-                              | "nickname"
-                              | "teamId"
-                              | "role",
-                          )
-                        }
-                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      >
-                        <option value="studentId">학번</option>
-                        <option value="nickname">닉네임</option>
-                        <option value="teamId">팀</option>
-                        <option value="role">역할</option>
-                      </select>
-                    </label>
-                  </div>
-                  {userActionError && (
-                    <p className="mt-2 text-sm text-red-600">
-                      {userActionError}
-                    </p>
-                  )}
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-600 text-sm font-medium">
-                      <tr>
-                        <th className="px-6 py-3">학번</th>
-                        <th className="px-6 py-3">닉네임</th>
-                        <th className="px-6 py-3">팀</th>
-                        <th className="px-6 py-3">역할</th>
-                        <th className="px-6 py-3 w-24">삭제</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {users
-                        .filter((u) => {
-                          const qId = userSearchStudentId.trim();
-                          const qNick = userSearchNickname.trim();
-                          const matchId = !qId || (u.studentId && u.studentId.includes(qId));
-                          const matchNick = !qNick || (u.nickname && u.nickname.includes(qNick));
-                          return matchId && matchNick;
-                        })
-                        .sort((a, b) => {
-                          const va = userSortBy === "studentId" ? a.studentId ?? "" : userSortBy === "nickname" ? a.nickname ?? "" : userSortBy === "teamId" ? a.teamId ?? "" : a.role ?? "";
-                          const vb = userSortBy === "studentId" ? b.studentId ?? "" : userSortBy === "nickname" ? b.nickname ?? "" : userSortBy === "teamId" ? b.teamId ?? "" : b.role ?? "";
-                          return va.localeCompare(vb, "ko");
-                        })
-                        .map((u) => {
-                        const isSelf =
-                          user?.id != null && String(user.id) === u.id;
-                        const cannotDelete = u.role === "admin" || isSelf;
-                        return (
-                          <tr key={u.id} className="hover:bg-gray-50/50">
-                            <td className="px-6 py-4 text-gray-900">
-                              {u.studentId}
-                            </td>
-                            <td className="px-6 py-4 font-medium text-gray-900">
-                              {u.nickname}
-                            </td>
-                            <td className="px-6 py-4 text-gray-600">
-                              {u.teamId ?? "—"}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span
-                                className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
-                                  u.role === "admin"
-                                    ? "bg-purple-100 text-purple-700"
-                                    : u.role === "sisu_admin"
-                                      ? "bg-teal-100 text-teal-700"
-                                      : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {u.role === "admin"
-                                  ? "관리자"
-                                  : u.role === "sisu_admin"
-                                    ? "준관리자"
-                                    : "일반"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              {cannotDelete ? (
-                                <span className="text-gray-400 text-sm">—</span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={deletingUserId === u.id}
-                                  onClick={() => handleDeleteUser(u)}
-                                  className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                                >
-                                  {deletingUserId === u.id
-                                    ? "삭제 중..."
-                                    : "삭제"}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </main>
-
-      {/* 대회 추가/수정 모달 */}
-      {showCompetitionModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              {editingCompetition ? "대회 수정" : "대회 추가"}
-            </h3>
-            <div className="space-y-4">
+        <section className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+          <div className="rounded-[28px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  대회 이름
-                </label>
+                <h2 className="text-xl font-semibold text-slate-900">참가 세션 목록</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  학생 정보와 종료 스냅샷을 함께 확인하면서 운영하세요.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+                  {(["ALL", "IN_PROGRESS", "COMPLETED"] as SessionFilter[]).map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setFilter(item)}
+                      className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                        filter === item
+                          ? "bg-white text-slate-950 shadow-sm"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
+                    >
+                      {filterLabel(item)}
+                    </button>
+                  ))}
+                </div>
                 <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="예: 2025 봄 시즌 대회"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="이름, 학번, 전화번호, 종목 검색"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 sm:w-72"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  시작일
-                </label>
-                <input
-                  type="datetime-local"
-                  value={formStartDate}
-                  onChange={(e) => setFormStartDate(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  종료일
-                </label>
-                <input
-                  type="datetime-local"
-                  value={formEndDate}
-                  onChange={(e) => setFormEndDate(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-              {formError && <p className="text-sm text-red-600">{formError}</p>}
             </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={closeCompetitionModal}
-                className="flex-1 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveCompetition}
-                disabled={saving}
-                className="flex-1 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-lg hover:bg-teal-600 disabled:opacity-50"
-              >
-                {saving ? "저장 중..." : editingCompetition ? "수정" : "추가"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* 팀별 거래내역 로그 모달 (팀별 피드백 탭에서 방 이름 클릭 시) */}
-      {roomLogRoomId != null && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-safe">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">
-                팀별 거래내역 로그 — {roomLogRoomName}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setRoomLogRoomId(null);
-                  setRoomLogRoomName("");
-                  setRoomLogTab("votes");
-                  setRoomLogChatMessages([]);
-                  setRoomLogChatError(null);
-                }}
-                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
-                aria-label="닫기"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex border-b border-gray-200 shrink-0">
-              <button
-                type="button"
-                onClick={() => setRoomLogTab("votes")}
-                className={`px-4 py-3 text-sm font-medium ${
-                  roomLogTab === "votes"
-                    ? "text-teal-600 border-b-2 border-teal-500 bg-gray-50/50"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                거래내역
-              </button>
-              <button
-                type="button"
-                onClick={() => setRoomLogTab("chat")}
-                className={`px-4 py-3 text-sm font-medium ${
-                  roomLogTab === "chat"
-                    ? "text-teal-600 border-b-2 border-teal-500 bg-gray-50/50"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                채팅 로그
-              </button>
-            </div>
-            <div className="overflow-auto flex-1 p-6">
-              {roomLogTab === "votes" ? (
-                <>
-                  {roomLogLoading ? (
-                    <p className="text-gray-500 text-sm">불러오는 중…</p>
-                  ) : roomLogError ? (
-                    <p className="text-red-600 text-sm">{roomLogError}</p>
-                  ) : roomLogVotes.length === 0 ? (
-                    <p className="text-gray-500 text-sm">거래내역이 없습니다.</p>
-                  ) : (
-                    <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 text-gray-600 font-medium">
+            <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200">
+              <div className="max-h-[640px] overflow-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="sticky top-0 bg-slate-50 text-left text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 rounded-tl">일시</th>
-                      <th className="px-3 py-2">유형</th>
-                      <th className="px-3 py-2">종목</th>
-                      <th className="px-3 py-2">수량</th>
-                      <th className="px-3 py-2">가격</th>
-                      <th className="px-3 py-2 rounded-tr">상태</th>
+                      <th className="px-4 py-3 font-medium">상태</th>
+                      <th className="px-4 py-3 font-medium">참가자</th>
+                      <th className="px-4 py-3 font-medium">학과 / 학번</th>
+                      <th className="px-4 py-3 font-medium">연락처</th>
+                      <th className="px-4 py-3 font-medium">주요 종목</th>
+                      <th className="px-4 py-3 font-medium">종료 평가금</th>
+                      <th className="px-4 py-3 font-medium">수익률</th>
+                      <th className="px-4 py-3 font-medium">상품</th>
+                      <th className="px-4 py-3 font-medium">종료 시각</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {roomLogVotes.map((v) => (
-                      <tr key={v.id} className="hover:bg-gray-50/50">
-                        <td className="px-3 py-2 text-gray-600">
-                          {v.executedAt
-                            ? new Date(v.executedAt).toLocaleString("ko-KR", {
-                                month: "2-digit",
-                                day: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : new Date(v.createdAt).toLocaleString("ko-KR", {
-                                month: "2-digit",
-                                day: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span
-                            className={
-                              v.type === "매수"
-                                ? "text-red-600 font-medium"
-                                : "text-blue-600 font-medium"
-                            }
-                          >
-                            {v.type}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 font-medium text-gray-900">
-                          {v.stockName ?? v.stockCode ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">
-                          {v.quantity}주
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">
-                          {(
-                            v.executionPrice ?? v.proposedPrice
-                          )?.toLocaleString("ko-KR") ?? "—"}
-                          원
-                        </td>
-                        <td className="px-3 py-2">
-                          <span
-                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                              v.status === "executed"
-                                ? "bg-teal-100 text-teal-700"
-                                : v.status === "pending"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {v.status === "executed"
-                              ? "체결"
-                              : v.status === "pending"
-                                ? "대기"
-                                : v.status === "executing"
-                                  ? "주문중"
-                                  : v.status === "cancelled"
-                                    ? "취소"
-                                    : v.status === "expired"
-                                      ? "만료"
-                                      : v.status}
-                          </span>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {loading ? (
+                      Array.from({ length: 8 }).map((_, index) => (
+                        <tr key={`skeleton-${index}`}>
+                          <td className="px-4 py-4" colSpan={9}>
+                            <div className="h-10 animate-pulse rounded-2xl bg-slate-100" />
+                          </td>
+                        </tr>
+                      ))
+                    ) : filteredSessions.length ? (
+                      filteredSessions.map((session) => (
+                        <tr
+                          key={session.sessionId}
+                          className={`cursor-pointer transition hover:bg-slate-50 ${
+                            selectedSession?.sessionId === session.sessionId ? "bg-blue-50/70" : ""
+                          }`}
+                          onClick={() => setSelectedSessionId(session.sessionId)}
+                        >
+                          <td className="px-4 py-4">
+                            <StatusBadge status={session.status} />
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="font-semibold text-slate-900">{session.displayName}</div>
+                            <div className="text-xs text-slate-500">{session.participantName}</div>
+                          </td>
+                          <td className="px-4 py-4 text-slate-600">
+                            <div>{session.department}</div>
+                            <div className="text-xs text-slate-400">{session.studentId}</div>
+                          </td>
+                          <td className="px-4 py-4 text-slate-600">{session.phoneNumber}</td>
+                          <td className="px-4 py-4 text-slate-600">{session.mainStockName ?? "-"}</td>
+                          <td className="px-4 py-4 font-medium text-slate-900">
+                            {formatCurrency(session.endTotalValue)}
+                          </td>
+                          <td className={`px-4 py-4 font-semibold ${profitClassName(session.returnRate)}`}>
+                            {formatPercent(session.returnRate)}
+                          </td>
+                          <td className="px-4 py-4 text-slate-600">
+                            {session.finalPrize ?? session.basePrize ?? "-"}
+                          </td>
+                          <td className="px-4 py-4 text-slate-500">
+                            {formatDateTime(session.endedAt)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="px-4 py-16 text-center text-slate-500" colSpan={9}>
+                          조건에 맞는 참가 세션이 없습니다.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
-                  )}
-                </>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-[28px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">오늘의 포디움</h2>
+                <span className="text-xs uppercase tracking-[0.16em] text-slate-400">Top 3</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {podium.length ? (
+                  podium.map((session, index) => (
+                    <div
+                      key={session.sessionId}
+                      className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            {index + 1}위
+                          </div>
+                          <div className="mt-1 text-lg font-semibold text-slate-900">
+                            {session.displayName}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-500">
+                            {session.mainStockName ?? "주요 종목 없음"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-lg font-semibold ${profitClassName(session.returnRate)}`}>
+                            {formatPercent(session.returnRate)}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-500">
+                            {session.finalPrize ?? session.basePrize ?? "-"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
+                    아직 종료된 세션이 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">진행 중 세션</h2>
+                <span className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                  Live Queue
+                </span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {recentInProgress.length ? (
+                  recentInProgress.map((session) => (
+                    <button
+                      key={session.sessionId}
+                      type="button"
+                      onClick={() => setSelectedSessionId(session.sessionId)}
+                      className="flex w-full items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-left transition hover:border-amber-300"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">{session.displayName}</div>
+                        <div className="mt-1 text-xs text-slate-500">{session.department}</div>
+                      </div>
+                      <div className="text-xs text-slate-500">{formatDateTime(session.startedAt)}</div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
+                    현재 진행 중인 참가자가 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">상세 정보</h2>
+                <span className="text-xs uppercase tracking-[0.16em] text-slate-400">Session Detail</span>
+              </div>
+              {selectedSession ? (
+                <div className="mt-5 space-y-5">
+                  <div className="rounded-3xl bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                          {selectedSession.status === "COMPLETED" ? "Completed" : "In Progress"}
+                        </div>
+                        <div className="mt-1 text-2xl font-semibold text-slate-900">
+                          {selectedSession.displayName}
+                        </div>
+                        <div className="mt-1 text-sm text-slate-500">
+                          {selectedSession.department} · {selectedSession.studentId}
+                        </div>
+                      </div>
+                      <StatusBadge status={selectedSession.status} />
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <InfoChip label="전화번호" value={selectedSession.phoneNumber} />
+                      <InfoChip label="주요 종목" value={selectedSession.mainStockName ?? "-"} />
+                      <InfoChip label="거래 횟수" value={`${selectedSession.tradeCount}회`} />
+                      <InfoChip
+                        label="미체결 주문"
+                        value={`${selectedSession.unfilledOrderCount}건`}
+                      />
+                      <InfoChip label="시작 시각" value={formatDateTime(selectedSession.startedAt)} />
+                      <InfoChip label="종료 시각" value={formatDateTime(selectedSession.endedAt)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <InfoCard label="시작 자산" value={formatCurrency(selectedSession.startCash)} />
+                    <InfoCard label="종료 현금" value={formatCurrency(selectedSession.endCash)} />
+                    <InfoCard
+                      label="보유 주식 평가금"
+                      value={formatCurrency(selectedSession.endPortfolioValue)}
+                    />
+                    <InfoCard
+                      label="종료 총평가금"
+                      value={formatCurrency(selectedSession.endTotalValue)}
+                      emphasize
+                    />
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">상품 및 수익률</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          종료 스냅샷 기준 결과입니다.
+                        </div>
+                      </div>
+                      <div className={`text-2xl font-semibold ${profitClassName(selectedSession.returnRate)}`}>
+                        {formatPercent(selectedSession.returnRate)}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <InfoChip label="기본 상품" value={selectedSession.basePrize ?? "-"} />
+                      <InfoChip label="최종 상품" value={selectedSession.finalPrize ?? "-"} />
+                    </div>
+                  </div>
+
+                  <SnapshotPanel
+                    title="종료 보유 스냅샷"
+                    emptyText="저장된 보유 스냅샷이 없습니다."
+                    data={selectedSession.holdingsSnapshot}
+                  />
+                  <SnapshotPanel
+                    title="거래 내역"
+                    emptyText="저장된 거래 내역이 없습니다."
+                    data={selectedSession.tradeHistory}
+                  />
+                </div>
               ) : (
-                <>
-                  {roomLogChatLoading ? (
-                    <p className="text-gray-500 text-sm">불러오는 중…</p>
-                  ) : roomLogChatError ? (
-                    <p className="text-red-600 text-sm">{roomLogChatError}</p>
-                  ) : roomLogChatMessages.length === 0 ? (
-                    <p className="text-gray-500 text-sm">채팅 메시지가 없습니다.</p>
-                  ) : (
-                    <ul className="space-y-2 text-sm">
-                      {roomLogChatMessages.map((msg) => (
-                        <li
-                          key={msg.id}
-                          className="flex flex-wrap gap-x-2 gap-y-0.5 py-1.5 border-b border-gray-100 last:border-0"
-                        >
-                          <span className="text-gray-500 shrink-0">
-                            {new Date(msg.timestamp).toLocaleString("ko-KR", {
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                          <span className="font-medium text-gray-700 shrink-0">
-                            {msg.userNickname || "—"}
-                          </span>
-                          <span
-                            className={`shrink-0 px-1.5 py-0.5 rounded text-xs ${
-                              msg.type === "feedback"
-                                ? "bg-amber-100 text-amber-800"
-                                : msg.type === "trade"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : msg.type === "execution"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {msg.type === "user"
-                              ? "채팅"
-                              : msg.type === "feedback"
-                                ? "피드백"
-                                : msg.type === "trade"
-                                  ? "투자공유"
-                                  : msg.type === "execution"
-                                    ? "체결"
-                                    : msg.type}
-                          </span>
-                          <span className="min-w-0 break-words">
-                            {msg.type === "feedback"
-                              ? (msg.feedbackContent ?? "—")
-                              : msg.type === "user"
-                                ? (msg.message ?? "—")
-                                : msg.type === "execution" && msg.executionData
-                                  ? `${(msg.executionData as { action?: string; stockName?: string; quantity?: number })?.action ?? ""} ${(msg.executionData as { stockName?: string })?.stockName ?? ""} ${(msg.executionData as { quantity?: number })?.quantity ?? 0}주`
-                                  : msg.type === "trade" && msg.tradeData
-                                    ? (msg.tradeData as { stockName?: string })?.stockName ?? "—"
-                                    : msg.message ?? "—"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
+                <div className="mt-6 rounded-3xl border border-dashed border-slate-200 px-4 py-16 text-center text-sm text-slate-500">
+                  조회할 참가 세션을 선택해주세요.
+                </div>
               )}
             </div>
           </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-[28px] bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+      <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${accent}`}>
+        {label}
+      </div>
+      <div className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: "IN_PROGRESS" | "COMPLETED" }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+        status === "COMPLETED"
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-amber-50 text-amber-700"
+      }`}
+    >
+      {status === "COMPLETED" ? "종료" : "진행 중"}
+    </span>
+  );
+}
+
+function InfoChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white px-3 py-3 shadow-sm ring-1 ring-slate-200">
+      <div className="text-xs text-slate-400">{label}</div>
+      <div className="mt-1 font-medium text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function InfoCard({
+  label,
+  value,
+  emphasize = false,
+}: {
+  label: string;
+  value: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-3xl border p-4 ${
+        emphasize
+          ? "border-blue-200 bg-blue-50"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="mt-2 text-lg font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function SnapshotPanel({
+  title,
+  emptyText,
+  data,
+}: {
+  title: string;
+  emptyText: string;
+  data: unknown;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 p-4">
+      <div className="text-sm font-semibold text-slate-900">{title}</div>
+      {data ? (
+        <pre className="mt-3 max-h-72 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      ) : (
+        <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          {emptyText}
         </div>
       )}
     </div>
   );
+}
+
+function filterLabel(filter: SessionFilter) {
+  if (filter === "IN_PROGRESS") return "진행 중";
+  if (filter === "COMPLETED") return "종료";
+  return "전체";
+}
+
+function formatCurrency(value: number | null | undefined) {
+  if (value == null) return "-";
+  return `${currencyFormatter.format(Math.round(value))}원`;
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (value == null) return "-";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${percentFormatter.format(value)}%`;
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function profitClassName(value: number | null | undefined) {
+  if (value == null) return "text-slate-500";
+  if (value > 0) return "text-rose-600";
+  if (value < 0) return "text-blue-600";
+  return "text-slate-700";
 }

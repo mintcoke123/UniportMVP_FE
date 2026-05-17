@@ -1,143 +1,128 @@
-import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import StockSearchSection from "../../components/feature/StockSearchSection";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  getMarketIndices,
-  getStocksByVolume,
-  getStocksByRising,
   getStocksByFalling,
-  getMyMatchingRooms,
-  usePriceWebSocket,
+  getStocksByRising,
+  getStocksByVolume,
   normalizeStockCodeForPrice,
+  usePriceWebSocket,
 } from "../../services";
-import type { MarketIndex, StockListItem } from "../../types";
+import type { StockListItem } from "../../types";
 
 type TabType = "volume" | "rising" | "falling";
+
+type SelectedStock = {
+  id: number;
+  code: string;
+  name: string;
+  currentPrice: number;
+  change: number;
+  changeRate: number;
+  logoColor: string;
+};
+
+const FESTIVAL_DURATION_MS = 2 * 60 * 1000;
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const fromSolo =
-    (location.state as { fromSolo?: boolean } | null)?.fromSolo === true;
-  const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
+  const isFestivalPage = location.pathname === "/festival-stock";
+
   const [stocksByVolume, setStocksByVolume] = useState<StockListItem[]>([]);
   const [stocksByRising, setStocksByRising] = useState<StockListItem[]>([]);
   const [stocksByFalling, setStocksByFalling] = useState<StockListItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>("volume");
-  const [searchQuery, setSearchQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [marketError, setMarketError] = useState<string | null>(null);
-  /** 팀 없음 → 매칭방, 개인방 → /solo 판별이 끝난 후에만 본문 표시 */
   const [routeOk, setRouteOk] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<SelectedStock | null>(null);
+  const [timeLeftMs, setTimeLeftMs] = useState(FESTIVAL_DURATION_MS);
 
-  /** 방에 참여하지 않았으면 모의투자 불가 → 매칭방으로. 개인방(1인)도 이 페이지에서 종목 선택·매수/매도 가능(헤더 모의투자 클릭 시 이동). */
+  const festivalSession = useMemo(() => {
+    if (!isFestivalPage) return null;
+    try {
+      const raw = sessionStorage.getItem("festivalSession");
+      return raw ? (JSON.parse(raw) as { displayName?: string; startedAt?: string }) : null;
+    } catch {
+      return null;
+    }
+  }, [isFestivalPage]);
+
   useEffect(() => {
-    if (!user) return;
-    if (fromSolo && user.teamId) setRouteOk(true);
-    if (!user.teamId) {
-      navigate("/matching-rooms", { replace: true });
-      return;
-    }
-    const teamNum = user.teamId.startsWith("team-")
-      ? user.teamId.replace(/^team-/, "")
-      : "";
-    if (!teamNum) {
+    if (isFestivalPage || user) {
       setRouteOk(true);
+    }
+  }, [isFestivalPage, user]);
+
+  useEffect(() => {
+    if (!isFestivalPage || !festivalSession?.startedAt) {
+      setTimeLeftMs(FESTIVAL_DURATION_MS);
       return;
     }
-    getMyMatchingRooms()
-      .then(() => setRouteOk(true))
-      .catch(() => setRouteOk(true));
-  }, [user, navigate, fromSolo]);
+
+    const updateTimer = () => {
+      const startedAt = new Date(festivalSession.startedAt ?? "").getTime();
+      if (Number.isNaN(startedAt)) {
+        setTimeLeftMs(FESTIVAL_DURATION_MS);
+        return;
+      }
+      const remaining = Math.max(0, FESTIVAL_DURATION_MS - (Date.now() - startedAt));
+      setTimeLeftMs(remaining);
+    };
+
+    updateTimer();
+    const interval = window.setInterval(updateTimer, 1000);
+    return () => window.clearInterval(interval);
+  }, [festivalSession?.startedAt, isFestivalPage]);
 
   useEffect(() => {
     setMarketError(null);
-    const requests = [
-      getMarketIndices(),
-      getStocksByVolume(),
-      getStocksByRising(),
-      getStocksByFalling(),
-    ] as const;
-    Promise.allSettled(requests).then(([r0, r1, r2, r3]) => {
-      const indices = r0.status === "fulfilled" ? r0.value : [];
-      const vol = r1.status === "fulfilled" ? r1.value : [];
-      const rising = r2.status === "fulfilled" ? r2.value : [];
-      const falling = r3.status === "fulfilled" ? r3.value : [];
-      setMarketIndices(indices);
-      setStocksByVolume(vol);
-      setStocksByRising(rising);
-      setStocksByFalling(falling);
-      const errors: string[] = [];
-      if (r0.status === "rejected") errors.push("시장 지수");
-      if (r1.status === "rejected") errors.push("거래량 순위");
-      if (r2.status === "rejected") errors.push("상승률 순위");
-      if (r3.status === "rejected") errors.push("하락률 순위");
-      if (errors.length > 0) {
-        const base = `${errors.join(", ")}를 불러오지 못했습니다.`;
-        const kisHint = [r2, r3].some(
-          (r) =>
-            r.status === "rejected" &&
-            (r.reason?.message?.includes("KIS") || r.reason?.status === 503),
-        )
-          ? " (한국투자증권 KIS API 미설정 시 상승/하락 순위는 불가. 백엔드에 KIS_API_APPKEY, KIS_API_APPSECRET 설정 필요)"
-          : "";
-        setMarketError(base + kisHint);
+    const requests = [getStocksByVolume(), getStocksByRising(), getStocksByFalling()] as const;
+
+    Promise.allSettled(requests).then(([volumeResult, risingResult, fallingResult]) => {
+      setStocksByVolume(volumeResult.status === "fulfilled" ? volumeResult.value : []);
+      setStocksByRising(risingResult.status === "fulfilled" ? risingResult.value : []);
+      setStocksByFalling(fallingResult.status === "fulfilled" ? fallingResult.value : []);
+
+      const failed: string[] = [];
+      if (volumeResult.status === "rejected") failed.push("거래량 순위");
+      if (risingResult.status === "rejected") failed.push("상승률 순위");
+      if (fallingResult.status === "rejected") failed.push("하락률 순위");
+      if (failed.length > 0) {
+        setMarketError(`${failed.join(", ")}를 불러오지 못했습니다.`);
       }
     });
   }, []);
 
-  /** 현재 탭의 상위 30종목 코드로 실시간 시세 구독 */
   const tabStocks =
     activeTab === "volume"
       ? stocksByVolume
       : activeTab === "rising"
         ? stocksByRising
         : stocksByFalling;
-  const subscribeCodes = tabStocks.slice(0, 30).map((s) => s.code);
+
+  const subscribeCodes = tabStocks.slice(0, 30).map((stock) => stock.code);
   const realtimeUpdates = usePriceWebSocket(subscribeCodes);
 
-  const getStockList = (): StockListItem[] => {
-    let stocks: StockListItem[];
-    switch (activeTab) {
-      case "volume":
-        stocks = stocksByVolume;
-        break;
-      case "rising":
-        stocks = stocksByRising;
-        break;
-      case "falling":
-        stocks = stocksByFalling;
-        break;
-      default:
-        stocks = stocksByVolume;
-    }
+  const stockList = useMemo(() => tabStocks, [tabStocks]);
 
-    if (searchQuery.trim()) {
-      return stocks.filter(
-        (stock) =>
-          stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          stock.code.includes(searchQuery),
-      );
-    }
-    return stocks;
+  const openFestivalActions = (stock: SelectedStock) => {
+    setSelectedStock(stock);
   };
 
-  const formatNumber = (num: number) => {
-    return num.toLocaleString("ko-KR");
-  };
-
-  const handleStockClick = (stock: StockListItem) => {
-    navigate(`/stock-detail?id=${stock.id}`, {
-      state: { nameFromList: stock.name },
-    });
+  const handleStockClick = (stock: SelectedStock) => {
+    if (!isFestivalPage) {
+      navigate(`/stock-detail?id=${stock.id}`, { state: { nameFromList: stock.name } });
+      return;
+    }
+    openFestivalActions(stock);
   };
 
   if (user && !routeOk) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <main className="flex items-center justify-center min-h-[60vh]">
+        <main className="flex min-h-[60vh] items-center justify-center">
           <p className="text-gray-500">이동 중...</p>
         </main>
       </div>
@@ -145,134 +130,98 @@ export default function MockInvestmentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 min-w-0 overflow-x-hidden">
-      <main className="pt-4 lg:pt-8 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full box-border">
-        {/* 페이지 타이틀 */}
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-gray-50">
+      <main className="mx-auto box-border w-full max-w-7xl px-4 pb-12 pt-4 sm:px-6 lg:px-8 lg:pt-8">
         <div className="mb-6 lg:mb-8">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
-            모의투자
+          <h1 className="text-xl font-bold text-gray-900 lg:text-2xl">
+            {isFestivalPage ? "축제 모의투자" : "모의투자"}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            종목을 선택해 매수·매도 체험을 해보세요
+          <p className="mt-1 text-sm text-gray-500">
+            {isFestivalPage
+              ? "종목을 누르면 상세 페이지 대신 매수와 매도 액션만 바로 선택할 수 있습니다."
+              : "종목을 선택하고 기존 투자 UI를 기준으로 화면을 확장해나가겠습니다."}
           </p>
         </div>
 
         {marketError && (
-          <div className="mb-4 lg:mb-6 bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-center gap-2 min-w-0">
+          <div className="mb-4 flex min-w-0 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 lg:mb-6">
             <i className="ri-error-warning-line flex-shrink-0" aria-hidden />
             <span className="min-w-0">{marketError}</span>
           </div>
         )}
 
-        {/* 시장 지수 카드 — 목데이터 없음, 수신 실패 시 에러만 표기 */}
-        <section className="mb-6 lg:mb-8 min-w-0">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 lg:p-6 min-w-0">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">
-              시장 지수
-            </h2>
-            {marketIndices.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-                {marketIndices.map((index) => (
-                  <div
-                    key={index.id}
-                    className="text-center py-3 px-4 rounded-xl bg-gray-50"
-                  >
-                    <p className="text-sm text-gray-600 mb-1">{index.name}</p>
-                    <p className="text-xl font-bold text-gray-900 mb-1">
-                      {formatNumber(index.value)}
-                    </p>
-                    <p
-                      className={`text-sm font-semibold ${
-                        index.change >= 0 ? "text-red-600" : "text-blue-600"
-                      }`}
-                    >
-                      {index.change >= 0 ? "+" : ""}
-                      {formatNumber(index.change)} (
-                      {index.change >= 0 ? "+" : ""}
-                      {index.changeRate}%)
-                    </p>
-                  </div>
-                ))}
+        {isFestivalPage ? (
+          <section className="mb-6 lg:mb-8">
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Participant
+                </div>
+                <div className="mt-2 text-2xl font-black text-slate-950">
+                  {festivalSession?.displayName ?? "축제 참가자"}
+                </div>
+                <div className="mt-3 text-sm text-slate-500">
+                  시작 후 2분 안에 수익률을 최대한 끌어올려보세요.
+                </div>
               </div>
-            ) : (
-              <div className="py-8 text-center text-amber-600 text-sm flex flex-col items-center gap-2">
-                <i className="ri-error-warning-line text-2xl" aria-hidden />
-                <span>시장 지수(코스피/코스닥)를 불러오지 못했습니다.</span>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
+                <div className="text-xs font-bold uppercase tracking-[0.16em] text-orange-200">
+                  Timer
+                </div>
+                <div className="mt-3 text-5xl font-black tracking-tight">
+                  {formatTime(timeLeftMs)}
+                </div>
+                <div className="mt-2 text-sm text-slate-300">
+                  {timeLeftMs === 0
+                    ? "투자 시간이 종료됐습니다."
+                    : "종료 시점 평가금으로 최종 순위를 계산합니다."}
+                </div>
               </div>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        ) : null}
 
-        <StockSearchSection />
-
-        {/* 탭 + 검색 + 종목 리스트 */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0">
-          {/* 탭 & 검색 한 줄 */}
-          <div className="flex flex-wrap items-center gap-3 lg:gap-4 p-4 lg:p-5 border-b border-gray-100">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 p-4 lg:gap-4 lg:p-5">
             <div className="flex rounded-xl bg-gray-100 p-1">
               <button
                 type="button"
                 onClick={() => setActiveTab("volume")}
-                className={`min-h-[44px] py-2 px-4 lg:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`min-h-[44px] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all lg:px-5 ${
                   activeTab === "volume"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
-                aria-pressed={activeTab === "volume"}
-                aria-label="거래량 순 탭"
               >
                 거래량
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("rising")}
-                className={`min-h-[44px] py-2 px-4 lg:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`min-h-[44px] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all lg:px-5 ${
                   activeTab === "rising"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
-                aria-pressed={activeTab === "rising"}
-                aria-label="급상승 순 탭"
               >
                 급상승
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("falling")}
-                className={`min-h-[44px] py-2 px-4 lg:px-5 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`min-h-[44px] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all lg:px-5 ${
                   activeTab === "falling"
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
-                aria-pressed={activeTab === "falling"}
-                aria-label="급하락 순 탭"
               >
                 급하락
               </button>
             </div>
-            <div className="flex-1 min-w-0 max-w-full lg:min-w-[200px] lg:max-w-md relative">
-              <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none"></i>
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="종목명 또는 종목코드 검색"
-                className="w-full py-2.5 pl-10 pr-4 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-500 outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white border border-transparent"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center cursor-pointer text-gray-400 hover:text-gray-600"
-                >
-                  <i className="ri-close-circle-fill"></i>
-                </button>
-              )}
-            </div>
           </div>
 
-          {/* 리스트 헤더 (웹용 테이블 스타일) */}
-          <div className="hidden lg:grid grid-cols-12 gap-4 px-4 lg:px-6 py-3 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <div className="hidden grid-cols-12 gap-4 bg-gray-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 lg:grid lg:px-6">
             <div className="col-span-1">순위</div>
             <div className="col-span-4">종목</div>
             <div className="col-span-2 text-right">현재가</div>
@@ -280,53 +229,59 @@ export default function MockInvestmentPage() {
             <div className="col-span-3 text-right">등락률</div>
           </div>
 
-          {/* 종목 리스트 */}
           <div className="divide-y divide-gray-100">
-            {getStockList().length > 0 ? (
-              getStockList().map((stock, index) => {
+            {stockList.length > 0 ? (
+              stockList.map((stock, index) => {
                 const codeKey = normalizeStockCodeForPrice(stock.code);
-                const rt = realtimeUpdates[codeKey];
-                const price = rt?.currentPrice ?? stock.currentPrice;
-                const change = rt?.change ?? stock.change;
-                const changeRate = rt?.changeRate ?? stock.changeRate;
+                const realtime = realtimeUpdates[codeKey];
+                const price = realtime?.currentPrice ?? stock.currentPrice;
+                const change = realtime?.change ?? stock.change;
+                const changeRate = realtime?.changeRate ?? stock.changeRate;
+                const clickableStock: SelectedStock = {
+                  id: stock.id,
+                  code: stock.code,
+                  name: stock.name,
+                  currentPrice: price,
+                  change,
+                  changeRate,
+                  logoColor: stock.logoColor,
+                };
+
                 return (
-                  <div
+                  <button
                     key={`${activeTab}-${stock.code}-${index}`}
-                    onClick={() => handleStockClick(stock)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleStockClick(stock)
-                    }
-                    className="grid grid-cols-12 gap-2 lg:gap-4 px-4 lg:px-6 py-2.5 lg:py-4 hover:bg-gray-50 cursor-pointer transition-colors items-center min-h-[44px] min-w-0"
+                    type="button"
+                    onClick={() => handleStockClick(clickableStock)}
+                    className="grid min-h-[44px] w-full min-w-0 grid-cols-12 items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-gray-50 lg:gap-4 lg:px-6 lg:py-4"
                   >
-                    <span className="hidden lg:block text-sm font-medium text-gray-500 col-span-1">
+                    <span className="col-span-1 hidden text-sm font-medium text-gray-500 lg:block">
                       {index + 1}
                     </span>
-                    <div className="flex items-center gap-2 lg:gap-3 col-span-7 lg:col-span-4 min-w-0">
-                      <span className="lg:hidden text-sm font-medium text-gray-500 w-6 flex-shrink-0">
+
+                    <div className="col-span-7 flex min-w-0 items-center gap-2 lg:col-span-4 lg:gap-3">
+                      <span className="w-6 flex-shrink-0 text-sm font-medium text-gray-500 lg:hidden">
                         {index + 1}
                       </span>
                       <div
-                        className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white lg:h-11 lg:w-11"
                         style={{ backgroundColor: stock.logoColor }}
                       >
                         {stock.name.charAt(0)}
                       </div>
                       <div className="min-w-0 overflow-hidden">
-                        <p className="font-semibold text-gray-900 truncate text-sm lg:text-base">
+                        <p className="truncate text-sm font-semibold text-gray-900 lg:text-base">
                           {stock.name}
                         </p>
                         <p className="text-xs text-gray-500">{stock.code}</p>
                       </div>
                     </div>
-                    {/* 모바일 전용: 현재가 + 등락/등락률 압축 */}
-                    <div className="col-span-5 lg:hidden flex flex-col items-end gap-0.5 min-w-0">
-                      <p className="font-bold text-gray-900 tabular-nums text-sm">
+
+                    <div className="col-span-5 flex min-w-0 flex-col items-end gap-0.5 lg:hidden">
+                      <p className="text-sm font-bold tabular-nums text-gray-900">
                         {formatNumber(price)}원
                       </p>
                       <p
-                        className={`font-semibold tabular-nums text-xs ${
+                        className={`text-xs font-semibold tabular-nums ${
                           changeRate >= 0 ? "text-red-600" : "text-blue-600"
                         }`}
                       >
@@ -335,13 +290,11 @@ export default function MockInvestmentPage() {
                         {changeRate.toFixed(2)}%)
                       </p>
                     </div>
-                    {/* 데스크톱: 현재가 / 등락 / 등락률 */}
-                    <div className="hidden lg:flex lg:text-right lg:col-span-2 flex-col justify-center">
-                      <p className="font-bold text-gray-900 tabular-nums">
-                        {formatNumber(price)}원
-                      </p>
+
+                    <div className="hidden text-right lg:col-span-2 lg:block">
+                      <p className="font-bold tabular-nums text-gray-900">{formatNumber(price)}원</p>
                     </div>
-                    <div className="hidden lg:flex lg:text-right lg:col-span-2 flex-col justify-center">
+                    <div className="hidden text-right lg:col-span-2 lg:block">
                       <p
                         className={`font-semibold tabular-nums ${
                           change >= 0 ? "text-red-600" : "text-blue-600"
@@ -351,7 +304,7 @@ export default function MockInvestmentPage() {
                         {formatNumber(change)}
                       </p>
                     </div>
-                    <div className="hidden lg:flex lg:text-right lg:col-span-3 flex-col justify-center">
+                    <div className="hidden text-right lg:col-span-3 lg:block">
                       <p
                         className={`font-semibold ${
                           changeRate >= 0 ? "text-red-600" : "text-blue-600"
@@ -361,24 +314,97 @@ export default function MockInvestmentPage() {
                         {changeRate.toFixed(2)}%
                       </p>
                     </div>
-                  </div>
+                  </button>
                 );
               })
             ) : (
               <div className="py-16 text-center">
-                <i className="ri-search-line text-5xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">검색 결과가 없습니다</p>
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="mt-3 text-sm text-teal-600 font-medium hover:text-teal-700 cursor-pointer"
-                >
-                  검색어 지우기
-                </button>
+                <i className="ri-bar-chart-box-line mb-4 text-5xl text-gray-300" />
+                <p className="text-gray-500">표시할 종목이 없습니다</p>
               </div>
             )}
           </div>
         </section>
       </main>
+
+      {isFestivalPage && selectedStock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-950/55 backdrop-blur-[1px]"
+            onClick={() => setSelectedStock(null)}
+            aria-hidden
+          />
+
+          <div className="relative w-full max-w-md rounded-[32px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+            <button
+              type="button"
+              onClick={() => setSelectedStock(null)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+            >
+              <i className="ri-close-line text-xl" />
+            </button>
+
+            <div className="flex items-center gap-4">
+              <div
+                className="flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-black text-white"
+                style={{ backgroundColor: selectedStock.logoColor }}
+              >
+                {selectedStock.name.charAt(0)}
+              </div>
+              <div>
+                <div className="text-2xl font-black text-slate-950">{selectedStock.name}</div>
+                <div className="mt-1 text-sm text-slate-500">{selectedStock.code}</div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-3xl bg-slate-50 px-4 py-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                Current Price
+              </div>
+              <div className="mt-2 text-3xl font-black text-slate-950">
+                {selectedStock.currentPrice > 0
+                  ? `${formatNumber(selectedStock.currentPrice)}원`
+                  : "시세 확인 중"}
+              </div>
+              <div
+                className={`mt-2 text-sm font-semibold ${
+                  selectedStock.changeRate >= 0 ? "text-rose-600" : "text-blue-600"
+                }`}
+              >
+                {selectedStock.change >= 0 ? "+" : ""}
+                {formatNumber(selectedStock.change)} ({selectedStock.changeRate >= 0 ? "+" : ""}
+                {selectedStock.changeRate.toFixed(2)}%)
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                className="rounded-[24px] bg-rose-500 px-4 py-5 text-lg font-black text-white transition hover:bg-rose-600"
+              >
+                매수
+              </button>
+              <button
+                type="button"
+                className="rounded-[24px] bg-blue-500 px-4 py-5 text-lg font-black text-white transition hover:bg-blue-600"
+              >
+                매도
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatNumber(num: number) {
+  return Math.round(num).toLocaleString("ko-KR");
+}
+
+function formatTime(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

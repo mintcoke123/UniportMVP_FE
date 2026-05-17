@@ -1,7 +1,6 @@
 import type { RouteObject } from "react-router-dom";
 import { lazy } from "react";
 import NotFound from "../pages/NotFound";
-import HomeOrWelcome from "./HomeOrWelcome";
 import Competition from "../pages/competition/page";
 import Ranking from "../pages/ranking/page";
 import ProtectedRoute from "./ProtectedRoute";
@@ -19,16 +18,20 @@ const SignupPage = lazy(() => import("../pages/signup/page"));
 const FeedbackReportPage = lazy(() => import("../pages/feedback-report/page"));
 const MatchingRoomsPage = lazy(() => import("../pages/matching-rooms/page"));
 const AdminPage = lazy(() => import("../pages/admin/page"));
+const FestivalPage = lazy(() => import("../pages/festival/page"));
+const FestivalRankingPage = lazy(() => import("../pages/festival-ranking/page"));
 
 const routes: RouteObject[] = [
   {
     path: "/",
     element: <Layout />,
     children: [
-      { index: true, element: <HomeOrWelcome /> },
+      { index: true, element: <FestivalPage /> },
       { path: "competition", element: <Competition /> },
       { path: "ranking", element: <Ranking /> },
       { path: "group-portfolio", element: <GroupPortfolioPage /> },
+      { path: "festival-stock", element: <MockInvestmentPage /> },
+      { path: "festival-ranking", element: <FestivalRankingPage /> },
       {
         path: "stock",
         element: (

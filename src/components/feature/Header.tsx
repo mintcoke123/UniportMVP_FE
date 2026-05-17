@@ -1,105 +1,73 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
-const NAV_LINKS = [
+const DEFAULT_NAV_LINKS = [
   { to: "/competition", label: "대회" },
   { to: "/ranking", label: "랭킹" },
 ] as const;
 
+const FESTIVAL_NAV_LINKS = [
+  { to: "/festival-stock", label: "투자 화면" },
+  { to: "/festival-ranking", label: "축제 리더보드" },
+] as const;
+
+function isFestivalPath(pathname: string) {
+  return pathname === "/" || pathname === "/festival-stock" || pathname === "/festival-ranking";
+}
+
 export default function Header() {
-  const { user, isLoggedIn, logout } = useAuth();
   const location = useLocation();
-  const hasTeam = Boolean(user && "teamId" in user && user.teamId);
   const navigate = useNavigate();
+  const { user, isLoggedIn, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const isStockPage = location.pathname === "/stock";
-  const isMockInvestmentPage = location.pathname === "/mock-investment";
 
-  const formatNumber = (num: number) => {
-    return Math.floor(num).toLocaleString("ko-KR");
-  };
+  const festivalMode = isFestivalPath(location.pathname);
+  const navLinks = festivalMode ? FESTIVAL_NAV_LINKS : DEFAULT_NAV_LINKS;
+  const logoTarget = festivalMode ? "/festival-stock" : "/";
 
-  const navLinkClass = (active?: boolean) =>
-    `text-base font-medium whitespace-nowrap cursor-pointer transition-colors ${
-      active ? "text-teal-600 font-semibold" : "text-gray-700 hover:text-teal-600"
+  const navLinkClass = (to: string) =>
+    `text-base font-medium whitespace-nowrap transition-colors ${
+      location.pathname === to
+        ? "text-teal-600 font-semibold"
+        : "text-gray-700 hover:text-teal-600"
     }`;
 
+  const handleAuthAction = () => {
+    navigate(festivalMode ? "/" : "/login");
+  };
+
   return (
-    <header className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 md:py-4">
-        {/* 로고: asset/logo */}
-        <Link to="/" className="flex items-center shrink-0">
-          <img
-            src="/asset/logo.png"
-            alt="Uniport Logo"
-            className="h-8 md:h-10 w-auto"
-          />
+    <header className="sticky top-0 z-30 hidden border-b border-gray-200 bg-white lg:block">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:py-4 lg:px-8">
+        <Link to={logoTarget} className="flex shrink-0 items-center">
+          <img src="/asset/logo.png" alt="Uniport Logo" className="h-8 w-auto md:h-10" />
         </Link>
 
-        {/* 데스크톱: 중앙 네비 */}
-        <nav className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-6 lg:gap-8">
-          {NAV_LINKS.map(({ to, label }) => (
-            <Link key={to} to={to} className={navLinkClass()}>
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 md:flex lg:gap-8">
+          {navLinks.map(({ to, label }) => (
+            <Link key={to} to={to} className={navLinkClass(to)}>
               {label}
             </Link>
           ))}
-          {isLoggedIn && (
-            <>
-              <Link to="/matching-rooms" className={navLinkClass()}>
-                팀 참가방
-              </Link>
-              {!hasTeam ? (
-                <span
-                  className="text-base font-medium text-gray-400 whitespace-nowrap cursor-not-allowed"
-                  title="매칭방에서 팀(3명)을 만든 후 이용할 수 있습니다"
-                >
-                  종목
-                </span>
-              ) : (
-                <Link
-                  to="/stock"
-                  className={navLinkClass(isStockPage)}
-                >
-                  종목
-                </Link>
-              )}
-              <Link to="/mock-investment" className={navLinkClass(isMockInvestmentPage)}>
-                모의투자
-              </Link>
-            </>
-          )}
         </nav>
 
-        {/* 데스크톱: 우측 유저/로그인 */}
-        <div className="hidden md:block shrink-0">
-          {isLoggedIn && user ? (
+        <div className="hidden shrink-0 md:block">
+          {isLoggedIn && user && !festivalMode ? (
             <div className="relative">
               <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors"
+                onClick={() => setIsDropdownOpen((prev) => !prev)}
+                className="flex items-center gap-3 rounded-xl px-4 py-2 transition-colors hover:bg-gray-100"
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="true"
               >
-                <span
-                  className="w-9 h-9 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold shrink-0"
-                  aria-hidden
-                >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-500 text-sm font-semibold text-white">
                   {user.nickname.charAt(0)}
                 </span>
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {user.nickname}
-                  </p>
-                  <p
-                    className="text-xs text-gray-500"
-                    title={
-                      hasTeam
-                        ? "우리 팀 총 자산"
-                        : "팀 참가 후 팀 총 자산이 표시됩니다"
-                    }
-                  >
-                    {hasTeam ? `팀 ${formatNumber(user.totalAssets)}원` : "—"}
+                  <p className="text-sm font-semibold text-gray-900">{user.nickname}</p>
+                  <p className="text-xs text-gray-500">
+                    총 {Math.floor(user.totalAssets).toLocaleString("ko-KR")}원
                   </p>
                 </div>
                 <i
@@ -110,13 +78,13 @@ export default function Header() {
                 />
               </button>
               {isDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
                   <button
                     onClick={() => {
                       logout();
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-2"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
                   >
                     <i className="ri-logout-box-r-line" aria-hidden />
                     로그아웃
@@ -126,53 +94,52 @@ export default function Header() {
             </div>
           ) : (
             <button
-              onClick={() => navigate("/login")}
-              className="px-6 py-2.5 text-base font-medium text-white bg-teal-500 rounded-lg hover:bg-teal-600 whitespace-nowrap cursor-pointer transition-colors"
+              onClick={handleAuthAction}
+              className="whitespace-nowrap rounded-lg bg-teal-500 px-6 py-2.5 text-base font-medium text-white transition-colors hover:bg-teal-600"
             >
-              로그인
+              {festivalMode ? "참가 등록" : "로그인"}
             </button>
           )}
         </div>
 
-        {/* 모바일: 로그인/프로필 아이콘 (하단 네비와 함께 사용) */}
-        <div className="relative flex md:hidden items-center shrink-0">
-          {isLoggedIn && user ? (
+        <div className="relative flex shrink-0 items-center md:hidden">
+          {isLoggedIn && user && !festivalMode ? (
             <button
               type="button"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors"
-              aria-label="내 메뉴"
+              onClick={() => setIsDropdownOpen((prev) => !prev)}
+              className="rounded-full p-2 transition-colors hover:bg-gray-100"
               aria-expanded={isDropdownOpen}
               aria-haspopup="true"
             >
-              <span className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-500 text-sm font-semibold text-white">
                 {user.nickname.charAt(0)}
               </span>
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => navigate("/login")}
-              className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-              aria-label="로그인"
+              onClick={handleAuthAction}
+              className="rounded-lg p-2 transition-colors hover:bg-gray-100"
+              aria-label={festivalMode ? "참가 등록" : "로그인"}
             >
               <i className="ri-user-line text-xl text-gray-600" aria-hidden />
             </button>
           )}
-          {isDropdownOpen && (
+
+          {isDropdownOpen && !festivalMode && (
             <>
               <div
                 className="fixed inset-0 z-40"
                 aria-hidden
                 onClick={() => setIsDropdownOpen(false)}
               />
-              <div className="absolute right-4 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+              <div className="absolute right-4 top-full z-50 mt-2 w-48 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
                 <button
                   onClick={() => {
                     logout();
                     setIsDropdownOpen(false);
                   }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-2"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
                 >
                   <i className="ri-logout-box-r-line" aria-hidden />
                   로그아웃
