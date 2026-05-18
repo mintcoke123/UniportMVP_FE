@@ -140,7 +140,7 @@ export default function MockInvestmentPage() {
     }
 
     const updateTimer = () => {
-      const startedAtMs = new Date(festivalStartedAt).getTime();
+      const startedAtMs = parseServerDateTime(festivalStartedAt);
       if (Number.isNaN(startedAtMs)) {
         setTimeLeftMs(FESTIVAL_DURATION_MS);
         return;
@@ -499,7 +499,7 @@ export default function MockInvestmentPage() {
                     onClick={() => navigate("/", { replace: true })}
                     className="mt-3 w-full rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                   >
-                    ?ㅼ쓬 李멸? ???깅줉?섍린
+                    다음 참가자 등록하기
                   </button>
                 ) : null}
               </div>
@@ -892,4 +892,9 @@ function formatTime(ms: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function parseServerDateTime(value: string) {
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/.test(value);
+  return new Date(hasTimezone ? value : `${value}Z`).getTime();
 }

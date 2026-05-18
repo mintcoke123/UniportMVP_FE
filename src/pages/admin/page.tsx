@@ -165,7 +165,7 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
             accent="bg-amber-50 text-amber-700"
           />
           <MetricCard
-            label="1.5% 이상"
+            label="2% 이상"
             value={String(overview?.qualifiedParticipants ?? 0)}
             accent="bg-fuchsia-50 text-fuchsia-700"
           />
