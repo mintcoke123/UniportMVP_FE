@@ -57,8 +57,13 @@ type TradeHistoryState = {
   executedAt: string;
 };
 
+type FestivalResultModalState = {
+  returnRate: number;
+};
+
 const FESTIVAL_DURATION_MS = 2 * 60 * 1000;
 const INITIAL_CASH = 100_000_000;
+const FESTIVAL_PRIZE_THRESHOLD = 2.0;
 
 export default function MockInvestmentPage() {
   const navigate = useNavigate();
@@ -86,6 +91,7 @@ export default function MockInvestmentPage() {
   const [cashBalance, setCashBalance] = useState(INITIAL_CASH);
   const [holdings, setHoldings] = useState<Record<string, HoldingState>>({});
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryState[]>([]);
+  const [festivalResultModal, setFestivalResultModal] = useState<FestivalResultModalState | null>(null);
   const completionRequestedRef = useRef(false);
 
   const festivalSession = useMemo(() => {
@@ -232,6 +238,7 @@ export default function MockInvestmentPage() {
     if (completionRequestedRef.current) return;
 
     completionRequestedRef.current = true;
+    setFestivalResultModal({ returnRate });
     completeFestivalSession(festivalSessionId, {
       endCash: roundToWon(cashBalance),
       endPortfolioValue: roundToWon(portfolioValue),
@@ -813,6 +820,13 @@ export default function MockInvestmentPage() {
           </div>
         </div>
       )}
+
+      {isFestivalPage && festivalResultModal && (
+        <FestivalResultModal
+          returnRate={festivalResultModal.returnRate}
+          onClose={() => setFestivalResultModal(null)}
+        />
+      )}
     </div>
   );
 
@@ -839,6 +853,41 @@ export default function MockInvestmentPage() {
       // ignore session storage sync failure
     }
   }
+}
+
+function FestivalResultModal({
+  returnRate,
+  onClose,
+}: {
+  returnRate: number;
+  onClose: () => void;
+}) {
+  const qualified = returnRate >= FESTIVAL_PRIZE_THRESHOLD;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-slate-950/55" aria-hidden />
+      <div className="relative w-full max-w-md rounded-3xl bg-white px-8 py-9 text-center shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="결과 모달 닫기"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-lg font-black text-red-500 transition hover:bg-red-50 hover:text-red-600"
+        >
+          ×
+        </button>
+
+        <div className={`text-4xl font-black ${qualified ? "text-rose-600" : "text-slate-900"}`}>
+          수익률 {formatSignedPercent(returnRate)}
+        </div>
+        <p className="mt-5 text-xl font-bold text-slate-950">
+          {qualified ? "축하합니다! 키링이 지급됩니다." : "참여 감사합니다! 간식이 지급됩니다."}
+        </p>
+        <p className="mt-4 text-sm font-medium text-slate-500">
+          해당 페이지를 스테프에게 보여주세요
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function MetricTile({
@@ -892,6 +941,11 @@ function formatTime(ms: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatSignedPercent(value: number) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
 }
 
 function parseServerDateTime(value: string) {
