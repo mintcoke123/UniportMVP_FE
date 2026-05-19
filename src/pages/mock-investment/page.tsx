@@ -13,7 +13,7 @@ import {
 } from "../../services";
 import type { StockListItem } from "../../types";
 
-type TabType = "volume" | "rising" | "falling";
+type TabType = "volume" | "rising" | "falling" | "holdings";
 type TradeSide = "BUY" | "SELL";
 
 type SelectedStock = {
@@ -189,9 +189,14 @@ export default function MockInvestmentPage() {
       ? stocksByVolume
       : activeTab === "rising"
         ? stocksByRising
-        : stocksByFalling;
+        : activeTab === "falling"
+          ? stocksByFalling
+          : [];
 
-  const subscribeCodes = tabStocks.slice(0, 30).map((stock) => stock.code);
+  const subscribeCodes = [
+    ...tabStocks.slice(0, 30).map((stock) => stock.code),
+    ...Object.keys(holdings),
+  ];
   const realtimeUpdates = usePriceWebSocket(subscribeCodes);
 
   const stockList = useMemo(() => tabStocks, [tabStocks]);
@@ -206,8 +211,31 @@ export default function MockInvestmentPage() {
       nextMap.set(stock.code, realtime?.currentPrice ?? stock.currentPrice);
     });
 
+    Object.values(holdings).forEach((holding) => {
+      const codeKey = normalizeStockCodeForPrice(holding.stockCode);
+      const realtime = realtimeUpdates[codeKey];
+      nextMap.set(holding.stockCode, realtime?.currentPrice ?? holding.averagePrice);
+    });
+
     return nextMap;
-  }, [realtimeUpdates, stocksByFalling, stocksByRising, stocksByVolume]);
+  }, [holdings, realtimeUpdates, stocksByFalling, stocksByRising, stocksByVolume]);
+
+  const holdingList = useMemo(
+    () =>
+      Object.values(holdings).map((holding) => {
+        const currentPrice = priceMap.get(holding.stockCode) ?? holding.averagePrice;
+        const evaluatedAmount = currentPrice * holding.quantity;
+        const profitRate =
+          holding.averagePrice > 0 ? ((currentPrice - holding.averagePrice) / holding.averagePrice) * 100 : 0;
+        return {
+          ...holding,
+          currentPrice,
+          evaluatedAmount,
+          profitRate,
+        };
+      }),
+    [holdings, priceMap],
+  );
 
   const portfolioValue = useMemo(
     () =>
@@ -311,6 +339,25 @@ export default function MockInvestmentPage() {
     setTradeError(null);
   };
 
+  const openHoldingActions = (holding: HoldingState) => {
+    if (!festivalStarted) return;
+    const currentPrice = priceMap.get(holding.stockCode) ?? holding.averagePrice;
+    const changeRate =
+      holding.averagePrice > 0 ? ((currentPrice - holding.averagePrice) / holding.averagePrice) * 100 : 0;
+    setSelectedStock({
+      id: Number.parseInt(holding.stockCode, 10) || 0,
+      code: holding.stockCode,
+      name: holding.stockName,
+      currentPrice,
+      change: currentPrice - holding.averagePrice,
+      changeRate,
+      logoColor: holding.logoColor,
+    });
+    setSelectedTradeSide("SELL");
+    setQuantityInput(String(holding.quantity));
+    setTradeError(null);
+  };
+
   const closeTradeModal = () => {
     setSelectedStock(null);
     setTradeError(null);
@@ -330,6 +377,26 @@ export default function MockInvestmentPage() {
     setSelectedTradeSide("BUY");
     setQuantityInput(String(maxBuyQuantity));
     setTradeError(null);
+  };
+
+  const handleSellAllSelected = () => {
+    if (maxSellQuantity <= 0) return;
+    setSelectedTradeSide("SELL");
+    setQuantityInput(String(maxSellQuantity));
+    setTradeError(null);
+  };
+
+  const handleSellHolding = (holding: HoldingState) => {
+    if (!festivalStarted || holding.quantity <= 0) return;
+    const executedPrice = priceMap.get(holding.stockCode) ?? holding.averagePrice;
+    executeSellTrade(holding, holding.quantity, executedPrice);
+  };
+
+  const handleSellAllHoldings = () => {
+    if (!festivalStarted || holdingList.length === 0) return;
+    holdingList.forEach((holding) => {
+      executeSellTrade(holding, holding.quantity, holding.currentPrice);
+    });
   };
 
   const handleExecuteTrade = () => {
@@ -413,6 +480,45 @@ export default function MockInvestmentPage() {
     ]);
 
     closeTradeModal();
+  };
+
+  const executeSellTrade = (holding: HoldingState, quantity: number, executedPrice: number) => {
+    const now = new Date().toISOString();
+    const orderAmount = executedPrice * quantity;
+
+    setCashBalance((prev) => prev + orderAmount);
+    setHoldings((prev) => {
+      const existing = prev[holding.stockCode];
+      if (!existing) return prev;
+      const remainingQuantity = existing.quantity - quantity;
+      if (remainingQuantity <= 0) {
+        const next = { ...prev };
+        delete next[holding.stockCode];
+        return next;
+      }
+      return {
+        ...prev,
+        [holding.stockCode]: {
+          ...existing,
+          quantity: remainingQuantity,
+        },
+      };
+    });
+    setTradeHistory((prev) => [
+      {
+        stockCode: holding.stockCode,
+        stockName: holding.stockName,
+        side: "SELL",
+        orderType: "MARKET",
+        quantity,
+        orderPrice: executedPrice,
+        executedPrice,
+        status: "EXECUTED",
+        createdAt: now,
+        executedAt: now,
+      },
+      ...prev,
+    ]);
   };
 
   if (user && !routeOk) {
@@ -550,7 +656,30 @@ export default function MockInvestmentPage() {
               >
                 급하락
               </button>
+              {isFestivalPage ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("holdings")}
+                  className={`min-h-[44px] whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all lg:px-5 ${
+                    activeTab === "holdings"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  보유 종목
+                </button>
+              ) : null}
             </div>
+            {isFestivalPage && activeTab === "holdings" && holdingList.length > 0 ? (
+              <button
+                type="button"
+                onClick={handleSellAllHoldings}
+                disabled={!festivalStarted}
+                className="min-h-[44px] rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                전체 매도
+              </button>
+            ) : null}
           </div>
 
           <div className="hidden grid-cols-12 gap-4 bg-gray-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 lg:grid lg:px-6">
@@ -562,7 +691,74 @@ export default function MockInvestmentPage() {
           </div>
 
           <div className="divide-y divide-gray-100">
-            {stockList.length > 0 ? (
+            {activeTab === "holdings" ? (
+              holdingList.length > 0 ? (
+                holdingList.map((holding) => (
+                  <div
+                    key={holding.stockCode}
+                    className="grid min-h-[64px] w-full min-w-0 grid-cols-12 items-center gap-2 px-4 py-3 text-left lg:gap-4 lg:px-6"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openHoldingActions(holding)}
+                      disabled={!festivalStarted}
+                      className="col-span-12 flex min-w-0 items-center gap-3 text-left transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60 lg:col-span-4"
+                    >
+                      <div
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
+                        style={{ backgroundColor: holding.logoColor }}
+                      >
+                        {holding.stockName.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-gray-900 lg:text-base">
+                          {holding.stockName}
+                        </p>
+                        <p className="text-xs text-gray-500">{holding.stockCode}</p>
+                      </div>
+                    </button>
+
+                    <div className="col-span-4 text-right lg:col-span-2">
+                      <p className="text-xs text-gray-500 lg:hidden">수량</p>
+                      <p className="font-bold tabular-nums text-gray-900">{formatNumber(holding.quantity)}주</p>
+                    </div>
+                    <div className="col-span-4 text-right lg:col-span-2">
+                      <p className="text-xs text-gray-500 lg:hidden">현재가</p>
+                      <p className="font-bold tabular-nums text-gray-900">{formatNumber(holding.currentPrice)}원</p>
+                      <p className={`text-xs font-semibold ${holding.profitRate >= 0 ? "text-red-600" : "text-blue-600"}`}>
+                        {formatSignedPercent(holding.profitRate)}
+                      </p>
+                    </div>
+                    <div className="col-span-4 text-right lg:col-span-2">
+                      <p className="text-xs text-gray-500 lg:hidden">평가금</p>
+                      <p className="font-bold tabular-nums text-gray-900">{formatNumber(holding.evaluatedAmount)}원</p>
+                    </div>
+                    <div className="col-span-12 flex justify-end gap-2 lg:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => openHoldingActions(holding)}
+                        disabled={!festivalStarted}
+                        className="rounded-xl border border-blue-200 px-3 py-2 text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                      >
+                        매도
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSellHolding(holding)}
+                        disabled={!festivalStarted}
+                        className="rounded-xl bg-blue-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        전량 매도
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-16 text-center text-gray-500">
+                  보유 중인 종목이 없습니다.
+                </div>
+              )
+            ) : stockList.length > 0 ? (
               stockList.map((stock, index) => {
                 const codeKey = normalizeStockCodeForPrice(stock.code);
                 const realtime = realtimeUpdates[codeKey];
@@ -781,6 +977,14 @@ export default function MockInvestmentPage() {
                 className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
               >
                 전량 매수
+              </button>
+              <button
+                type="button"
+                onClick={handleSellAllSelected}
+                disabled={maxSellQuantity <= 0}
+                className="rounded-2xl border border-blue-200 px-4 py-3 text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                전량 매도
               </button>
 
               {tradeError ? (
