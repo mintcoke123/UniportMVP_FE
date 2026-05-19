@@ -1099,7 +1099,10 @@ export default function MockInvestmentPage() {
       {isFestivalPage && festivalResultModal && (
         <FestivalResultModal
           returnRate={festivalResultModal.returnRate}
-          onClose={() => setFestivalResultModal(null)}
+          onClose={() => {
+            setFestivalResultModal(null);
+            navigate("/festival-ranking", { replace: true });
+          }}
         />
       )}
     </div>

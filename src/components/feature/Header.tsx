@@ -9,7 +9,7 @@ const DEFAULT_NAV_LINKS = [
 
 const FESTIVAL_NAV_LINKS = [
   { to: "/festival-stock", label: "투자 화면" },
-  { to: "/festival-ranking", label: "축제 리더보드" },
+  { to: "/festival-ranking", label: "리더보드" },
 ] as const;
 
 function isFestivalPath(pathname: string) {

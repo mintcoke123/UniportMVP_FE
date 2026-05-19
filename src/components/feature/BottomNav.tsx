@@ -12,7 +12,7 @@ type NavItem = {
 
 const FESTIVAL_ITEMS: NavItem[] = [
   { to: "/festival-stock", label: "투자 화면", icon: "ri-line-chart-line", iconActive: "ri-line-chart-fill" },
-  { to: "/festival-ranking", label: "축제 리더보드", icon: "ri-trophy-line", iconActive: "ri-trophy-fill" },
+  { to: "/festival-ranking", label: "리더보드", icon: "ri-trophy-line", iconActive: "ri-trophy-fill" },
 ];
 
 function isFestivalPath(pathname: string) {
