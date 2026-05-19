@@ -479,6 +479,10 @@ export default function MockInvestmentPage() {
       ...prev,
     ]);
 
+    if (isFestivalPage && selectedTradeSide === "BUY") {
+      setActiveTab("holdings");
+    }
+
     closeTradeModal();
   };
 
@@ -617,6 +621,98 @@ export default function MockInvestmentPage() {
                 ) : null}
               </div>
             </div>
+          </section>
+        ) : null}
+
+        {isFestivalPage ? (
+          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 lg:px-5">
+              <div>
+                <h2 className="text-base font-black text-slate-950">내 보유 종목</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  현재 보유 수량과 평가금을 바로 확인하고 매도할 수 있습니다.
+                </p>
+              </div>
+              {holdingList.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleSellAllHoldings}
+                  disabled={!festivalStarted}
+                  className="min-h-[40px] rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  전체 매도
+                </button>
+              ) : null}
+            </div>
+
+            {holdingList.length > 0 ? (
+              <div className="divide-y divide-slate-100">
+                {holdingList.map((holding) => (
+                  <div
+                    key={`summary-${holding.stockCode}`}
+                    className="grid min-h-[64px] grid-cols-12 items-center gap-2 px-4 py-3 lg:gap-4 lg:px-5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openHoldingActions(holding)}
+                      disabled={!festivalStarted}
+                      className="col-span-12 flex min-w-0 items-center gap-3 text-left transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60 lg:col-span-4"
+                    >
+                      <div
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
+                        style={{ backgroundColor: holding.logoColor }}
+                      >
+                        {holding.stockName.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-950 lg:text-base">
+                          {holding.stockName}
+                        </p>
+                        <p className="text-xs text-slate-500">{holding.stockCode}</p>
+                      </div>
+                    </button>
+
+                    <div className="col-span-4 text-right lg:col-span-2">
+                      <p className="text-xs text-slate-500 lg:hidden">수량</p>
+                      <p className="font-bold tabular-nums text-slate-950">{formatNumber(holding.quantity)}주</p>
+                    </div>
+                    <div className="col-span-4 text-right lg:col-span-2">
+                      <p className="text-xs text-slate-500 lg:hidden">현재가</p>
+                      <p className="font-bold tabular-nums text-slate-950">{formatNumber(holding.currentPrice)}원</p>
+                      <p className={`text-xs font-semibold ${holding.profitRate >= 0 ? "text-red-600" : "text-blue-600"}`}>
+                        {formatSignedPercent(holding.profitRate)}
+                      </p>
+                    </div>
+                    <div className="col-span-4 text-right lg:col-span-2">
+                      <p className="text-xs text-slate-500 lg:hidden">평가금</p>
+                      <p className="font-bold tabular-nums text-slate-950">{formatNumber(holding.evaluatedAmount)}원</p>
+                    </div>
+                    <div className="col-span-12 flex justify-end gap-2 lg:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => openHoldingActions(holding)}
+                        disabled={!festivalStarted}
+                        className="rounded-xl border border-blue-200 px-3 py-2 text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                      >
+                        매도
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSellHolding(holding)}
+                        disabled={!festivalStarted}
+                        className="rounded-xl bg-blue-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        전량 매도
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                아직 보유 중인 종목이 없습니다.
+              </div>
+            )}
           </section>
         ) : null}
 
