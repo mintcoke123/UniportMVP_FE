@@ -14,8 +14,10 @@ const SEARCH_LIMIT = 20;
 
 export default function StockSearchSection({
   onSelect,
+  skipAuth = false,
 }: {
   onSelect?: (item: StockSearchItem) => void;
+  skipAuth?: boolean;
 }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -51,6 +53,7 @@ export default function StockSearchSection({
 
     apiGet<unknown>(`/api/stocks/search?${params.toString()}`, {
       signal: abortController.signal,
+      skipAuth,
     })
       .then((data) => {
         if (!Array.isArray(data)) {
@@ -71,7 +74,7 @@ export default function StockSearchSection({
         }
         setLoading(false);
       });
-  }, []);
+  }, [skipAuth]);
 
   useEffect(() => {
     if (timerRef.current) {

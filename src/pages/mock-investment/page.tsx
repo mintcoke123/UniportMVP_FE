@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import StockSearchSection, {
+  type StockSearchItem,
+} from "../../components/feature/StockSearchSection";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   beginFestivalSession,
@@ -8,6 +11,7 @@ import {
   getStocksByFalling,
   getStocksByRising,
   getStocksByVolume,
+  getStockDetail,
   normalizeStockCodeForPrice,
   usePriceWebSocket,
 } from "../../services";
@@ -445,6 +449,27 @@ export default function MockInvestmentPage() {
     openFestivalActions(stock);
   };
 
+  const handleFestivalSearchSelect = async (item: StockSearchItem) => {
+    if (!isFestivalPage) return;
+
+    try {
+      const detail = await getStockDetail(item.id);
+      if (!detail) return;
+
+      openFestivalActions({
+        id: detail.id,
+        code: detail.code,
+        name: detail.name,
+        currentPrice: detail.currentPrice,
+        change: detail.change,
+        changeRate: detail.changeRate,
+        logoColor: detail.logoColor,
+      });
+    } catch {
+      setMarketError("종목 정보를 불러오지 못했습니다.");
+    }
+  };
+
   const handleAllInBuy = () => {
     if (maxBuyQuantity <= 0) return;
     setSelectedTradeSide("BUY");
@@ -691,6 +716,15 @@ export default function MockInvestmentPage() {
               </div>
             </div>
           </section>
+        ) : null}
+
+        {isFestivalPage ? (
+          <StockSearchSection
+            onSelect={(item) => {
+              void handleFestivalSearchSelect(item);
+            }}
+            skipAuth
+          />
         ) : null}
 
         {isFestivalPage ? (
