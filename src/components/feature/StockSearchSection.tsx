@@ -9,6 +9,10 @@ export interface StockSearchItem {
   market: string;
 }
 
+type StockSearchResponse = {
+  items?: StockSearchItem[];
+};
+
 const DEBOUNCE_MS = 250;
 const SEARCH_LIMIT = 20;
 
@@ -56,12 +60,18 @@ export default function StockSearchSection({
       skipAuth,
     })
       .then((data) => {
-        if (!Array.isArray(data)) {
+        if (Array.isArray(data)) {
+          setItems(data as StockSearchItem[]);
+          return;
+        }
+
+        const response = data as StockSearchResponse | null;
+        if (!response || !Array.isArray(response.items)) {
           setError("검색 중 오류가 발생했습니다.");
           setItems([]);
           return;
         }
-        setItems(data as StockSearchItem[]);
+        setItems(response.items);
       })
       .catch((err: { name?: string }) => {
         if (err?.name === "AbortError") return;
