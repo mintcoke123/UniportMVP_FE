@@ -13,6 +13,13 @@ type StockSearchResponse = {
   items?: StockSearchItem[];
 };
 
+type StockSearchApiItem = {
+  stockId?: string;
+  symbol?: string;
+  name?: string;
+  market?: string;
+};
+
 const DEBOUNCE_MS = 250;
 const SEARCH_LIMIT = 20;
 
@@ -61,7 +68,7 @@ export default function StockSearchSection({
     })
       .then((data) => {
         if (Array.isArray(data)) {
-          setItems(data as StockSearchItem[]);
+          setItems(normalizeSearchItems(data));
           return;
         }
 
@@ -71,7 +78,7 @@ export default function StockSearchSection({
           setItems([]);
           return;
         }
-        setItems(response.items);
+        setItems(normalizeSearchItems(response.items));
       })
       .catch((err: { name?: string }) => {
         if (err?.name === "AbortError") return;
@@ -179,4 +186,27 @@ export default function StockSearchSection({
       )}
     </section>
   );
+}
+
+function normalizeSearchItems(items: unknown[]): StockSearchItem[] {
+  return items
+    .map((item) => {
+      const candidate = item as StockSearchApiItem | null;
+      const code = candidate?.symbol?.trim() ?? "";
+      const name = candidate?.name?.trim() ?? "";
+      const market = candidate?.market?.trim() ?? "";
+      const numericId = Number.parseInt(code, 10);
+
+      if (!code || !name || Number.isNaN(numericId)) {
+        return null;
+      }
+
+      return {
+        id: numericId,
+        code,
+        name,
+        market,
+      } satisfies StockSearchItem;
+    })
+    .filter((item): item is StockSearchItem => item !== null);
 }
