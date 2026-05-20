@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./apiClient";
+import { apiDelete, apiGet, apiPost } from "./apiClient";
 import { getStockDetail } from "./stockService";
 
 export interface FestivalParticipantInput {
@@ -170,6 +170,10 @@ export function getFestivalLeaderboard() {
 
 export function getFestivalAdminOverview() {
   return apiGet<FestivalAdminOverview>("/api/festival-admin/overview");
+}
+
+export function deleteFestivalAdminSession(sessionId: number) {
+  return apiDelete<FestivalAdminOverview>(`/api/festival-admin/sessions/${sessionId}`);
 }
 
 export async function searchFestivalStocks(keyword: string) {

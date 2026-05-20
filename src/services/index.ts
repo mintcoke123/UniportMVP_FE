@@ -97,6 +97,7 @@ export {
   completeFestivalSession,
   getFestivalLeaderboard,
   getFestivalAdminOverview,
+  deleteFestivalAdminSession,
 } from "./festivalService";
 export type {
   FestivalParticipantInput,

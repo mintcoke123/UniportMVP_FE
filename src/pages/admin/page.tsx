@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  deleteFestivalAdminSession,
   getFestivalAdminOverview,
   type FestivalAdminOverview,
   type FestivalAdminSessionItem,
@@ -29,6 +30,8 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   const [filter, setFilter] = useState<SessionFilter>("ALL");
   const [search, setSearch] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FestivalAdminSessionItem | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<number | null>(null);
 
   const loadOverview = async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -59,6 +62,34 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
   useEffect(() => {
     void loadOverview(true);
   }, []);
+
+  const handleDeleteCompletedSession = async () => {
+    if (!deleteTarget || deleteTarget.status !== "COMPLETED") return;
+
+    setDeletingSessionId(deleteTarget.sessionId);
+    setError(null);
+    try {
+      const data = await deleteFestivalAdminSession(deleteTarget.sessionId);
+      setOverview(data);
+      setSelectedSessionId((currentId) => {
+        if (!data.sessions.length) return null;
+        if (currentId === deleteTarget.sessionId) return data.sessions[0].sessionId;
+        if (currentId && data.sessions.some((session) => session.sessionId === currentId)) {
+          return currentId;
+        }
+        return data.sessions[0].sessionId;
+      });
+      setDeleteTarget(null);
+    } catch (e) {
+      const message =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message?: string }).message)
+          : "참가 세션을 삭제하지 못했습니다.";
+      setError(message);
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
 
   const filteredSessions = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -225,13 +256,14 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                       <th className="px-4 py-3 font-medium">수익률</th>
                       <th className="px-4 py-3 font-medium">상품</th>
                       <th className="px-4 py-3 font-medium">종료 시각</th>
+                      <th className="px-4 py-3 font-medium">관리</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {loading ? (
                       Array.from({ length: 8 }).map((_, index) => (
                         <tr key={`skeleton-${index}`}>
-                          <td className="px-4 py-4" colSpan={9}>
+                          <td className="px-4 py-4" colSpan={10}>
                             <div className="h-10 animate-pulse rounded-2xl bg-slate-100" />
                           </td>
                         </tr>
@@ -270,11 +302,28 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
                           <td className="px-4 py-4 text-slate-500">
                             {formatDateTime(session.endedAt)}
                           </td>
+                          <td className="px-4 py-4">
+                            {session.status === "COMPLETED" ? (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDeleteTarget(session);
+                                }}
+                                disabled={deletingSessionId === session.sessionId}
+                                className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {deletingSessionId === session.sessionId ? "삭제 중" : "삭제"}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300">-</span>
+                            )}
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td className="px-4 py-16 text-center text-slate-500" colSpan={9}>
+                        <td className="px-4 py-16 text-center text-slate-500" colSpan={10}>
                           조건에 맞는 참가 세션이 없습니다.
                         </td>
                       </tr>
@@ -447,6 +496,36 @@ export default function AdminPage({ mode }: AdminPageProps = {}) {
           </div>
         </section>
       </div>
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center px-4 py-6">
+          <div className="fixed inset-0 bg-slate-950/55" aria-hidden />
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+            <h2 className="text-xl font-semibold text-slate-950">종료 세션 삭제</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {deleteTarget.displayName} 참가자의 종료 데이터를 삭제할까요? 삭제한 데이터는 리더보드와
+              참가 세션 목록에서 사라집니다.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingSessionId !== null}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteCompletedSession()}
+                disabled={deletingSessionId !== null}
+                className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+              >
+                {deletingSessionId !== null ? "삭제 중" : "삭제하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
