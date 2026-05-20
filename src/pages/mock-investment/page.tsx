@@ -142,8 +142,12 @@ export default function MockInvestmentPage() {
   }, [festivalSession?.startedAt, festivalSessionId, isFestivalPage]);
 
   useEffect(() => {
-    if (!isFestivalPage || !festivalStartedAt) {
-      setTimeLeftMs(FESTIVAL_DURATION_MS);
+    if (!isFestivalPage) return;
+
+    if (festivalStatus !== "IN_PROGRESS" || !festivalStartedAt) {
+      if (festivalStatus !== "COMPLETED") {
+        setTimeLeftMs(FESTIVAL_DURATION_MS);
+      }
       return;
     }
 
@@ -165,7 +169,7 @@ export default function MockInvestmentPage() {
     updateTimer();
     const interval = window.setInterval(updateTimer, 1000);
     return () => window.clearInterval(interval);
-  }, [festivalStartedAt, isFestivalPage]);
+  }, [festivalStartedAt, festivalStatus, isFestivalPage]);
 
   useEffect(() => {
     if (!isFestivalPage) return;
