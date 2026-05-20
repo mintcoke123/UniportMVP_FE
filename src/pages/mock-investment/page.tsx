@@ -1234,14 +1234,15 @@ function parseServerDateTime(value: string) {
   const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/.test(value);
   if (hasTimezone) return new Date(value).getTime();
 
+  const utcTime = new Date(`${value}Z`).getTime();
   const match = value.match(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/
   );
-  if (!match) return new Date(value).getTime();
+  if (!match) return utcTime;
 
   const [, year, month, day, hour, minute, second = "0", fraction = "0"] = match;
   const millisecond = Number(fraction.padEnd(3, "0").slice(0, 3));
-  return Date.UTC(
+  const koreaTime = Date.UTC(
     Number(year),
     Number(month) - 1,
     Number(day),
@@ -1250,4 +1251,8 @@ function parseServerDateTime(value: string) {
     Number(second),
     millisecond
   );
+  if (Number.isNaN(utcTime)) return koreaTime;
+
+  const now = Date.now();
+  return Math.abs(now - koreaTime) <= Math.abs(now - utcTime) ? koreaTime : utcTime;
 }
