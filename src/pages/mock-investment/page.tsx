@@ -932,14 +932,14 @@ export default function MockInvestmentPage() {
       </main>
 
       {isFestivalPage && selectedStock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-y-auto px-4 py-6">
           <div
-            className="absolute inset-0 bg-slate-950/55 backdrop-blur-[1px]"
+            className="fixed inset-0 bg-slate-950/55 backdrop-blur-[1px]"
             onClick={closeTradeModal}
             aria-hidden
           />
 
-          <div className="relative w-full max-w-md rounded-[32px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+          <div className="relative my-auto max-h-[calc(100dvh-48px)] w-full max-w-md overflow-y-auto rounded-[32px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
             <button
               type="button"
               onClick={closeTradeModal}
@@ -1142,9 +1142,9 @@ function FestivalResultModal({
 }) {
   const qualified = returnRate >= FESTIVAL_PRIZE_THRESHOLD;
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-slate-950/55" aria-hidden />
-      <div className="relative w-full max-w-md rounded-3xl bg-white px-8 py-9 text-center shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+    <div className="fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto px-4 py-6">
+      <div className="fixed inset-0 bg-slate-950/55" aria-hidden />
+      <div className="relative my-auto max-h-[calc(100dvh-48px)] w-full max-w-md overflow-y-auto rounded-3xl bg-white px-8 py-9 text-center shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
         <button
           type="button"
           onClick={onClose}
