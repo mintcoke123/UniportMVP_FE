@@ -149,12 +149,35 @@ function formatPercent(value: number) {
 }
 
 function formatDateTime(value: string) {
-  const date = new Date(value);
+  const date = parseKoreaDateTime(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function parseKoreaDateTime(value: string) {
+  if (/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return new Date(value);
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/
+  );
+  if (!match) return new Date(value);
+
+  const [, year, month, day, hour, minute, second = "0", fraction = "0"] = match;
+  const millisecond = Number(fraction.padEnd(3, "0").slice(0, 3));
+  return new Date(
+    Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour) - 9,
+      Number(minute),
+      Number(second),
+      millisecond
+    )
+  );
 }
