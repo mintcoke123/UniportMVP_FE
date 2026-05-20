@@ -6,6 +6,7 @@ import {
   type FestivalParticipantInput,
 } from "../../services/festivalService";
 
+// Festival booth entry point.
 const initialFormState: FestivalParticipantInput = {
   name: "",
   phoneNumber: "",
